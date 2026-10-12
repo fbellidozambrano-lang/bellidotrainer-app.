@@ -1,0 +1,87 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRuta, ir, useAviso } from '../ui/kit.jsx';
+import { uuid, tokenNuevo } from '../lib/util.js';
+import Login from './Login.jsx';
+import Inicio from './Inicio.jsx';
+import Hub from './Hub.jsx';
+import Rutinas from './Rutinas.jsx';
+import Editor from './Editor.jsx';
+import Ajustes from './Ajustes.jsx';
+import Metricas from '../shared/Metricas.jsx';
+import Entrenamiento from '../shared/Entrenamiento.jsx';
+import { Barra } from '../ui/kit.jsx';
+import logo from '../assets/logo.png';
+
+export const enlaceAtleta = (a) => `${location.origin}${location.pathname}?a=${a.token}`;
+
+export default function CoachApp({ store }) {
+  const avisar = useAviso();
+  const [usuario, setUsuario] = useState(undefined);
+  const [datos, setDatos] = useState(null);
+  const [error, setError] = useState('');
+  const ruta = useRuta();
+  const ultimo = useRef('');
+
+  useEffect(() => { store.auth.usuario().then(setUsuario); return store.auth.escuchar((u) => setUsuario(u)); }, [store]);
+
+  const cargar = useCallback(async () => {
+    try { setError(''); const d = await store.cargarTodo(); setDatos(d); ultimo.current = d.sesiones.reduce((m, s) => (s.creado > m ? s.creado : m), ''); }
+    catch (e) { setError(e.message); }
+  }, [store]);
+  useEffect(() => { if (usuario) cargar(); else setDatos(null); }, [usuario, cargar]);
+
+  // sesiones nuevas de los asesorados: al volver a la app y cada 45 s
+  useEffect(() => {
+    if (!usuario || store.modo !== 'nube') return;
+    const traer = async () => {
+      if (document.visibilityState !== 'visible' || !ultimo.current) return;
+      try { const nuevas = await store.sesionesDesde(ultimo.current); if (!nuevas.length) return;
+        setDatos((d) => { const ids = new Set(d.sesiones.map((s) => s.id)); const add = nuevas.filter((s) => !ids.has(s.id)); return add.length ? { ...d, sesiones: [...d.sesiones, ...add] } : d; });
+        ultimo.current = nuevas.reduce((m, s) => (s.creado > m ? s.creado : m), ultimo.current);
+      } catch {}
+    };
+    const i = setInterval(traer, 45000); document.addEventListener('visibilitychange', traer);
+    return () => { clearInterval(i); document.removeEventListener('visibilitychange', traer); };
+  }, [usuario, store]);
+
+  const acc = useMemo(() => {
+    const falla = (e) => { avisar(e.message || 'No se pudo guardar', 'error'); throw e; };
+    return {
+      async guardarAsesorado(a) {
+        const nuevo = { datos: {}, objetivo: '', nivel: '', notas: '', ...a, id: a.id || uuid(), token: a.token || tokenNuevo() };
+        try { const g = await store.guardarAsesorado(nuevo); setDatos((d) => ({ ...d, asesorados: d.asesorados.some((x) => x.id === g.id) ? d.asesorados.map((x) => (x.id === g.id ? g : x)) : [...d.asesorados, g] })); return g; } catch (e) { falla(e); }
+      },
+      async borrarAsesorado(id) { try { await store.borrarAsesorado(id); setDatos((d) => ({ asesorados: d.asesorados.filter((x) => x.id !== id), programas: d.programas.filter((x) => x.asesoradoId !== id), sesiones: d.sesiones.filter((x) => x.asesoradoId !== id) })); } catch (e) { falla(e); } },
+      ponerPrograma(p) { setDatos((d) => ({ ...d, programas: d.programas.some((x) => x.id === p.id) ? d.programas.map((x) => (x.id === p.id ? p : x)) : [...d.programas, p] })); },
+      async guardarPrograma(p) { acc.ponerPrograma(p); try { await store.guardarPrograma(p); } catch (e) { falla(e); } },
+      async borrarPrograma(id) { try { await store.borrarPrograma(id); setDatos((d) => ({ ...d, programas: d.programas.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
+      async guardarSesion(s) { try { const g = await store.guardarSesion({ ...s, origen: s.origen || 'coach' }); setDatos((d) => ({ ...d, sesiones: [...d.sesiones.filter((x) => x.id !== g.id), g] })); return g; } catch (e) { falla(e); } },
+      async borrarSesion(s) { try { await store.borrarSesion(s.id); setDatos((d) => ({ ...d, sesiones: d.sesiones.filter((x) => x.id !== s.id) })); avisar('Sesión borrada'); } catch (e) { falla(e); } },
+      async importar(x, prog) { await store.importar(x, prog); await cargar(); },
+    };
+  }, [store, avisar, cargar]);
+
+  if (usuario === undefined) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
+  if (!usuario) return <Login store={store} />;
+  if (error && !datos) return <div className="pantalla"><div className="aviso rojo" style={{ marginTop: 40 }}><span>{error}</span></div><button className="btn oro full" style={{ marginTop: 14 }} onClick={cargar}>Reintentar</button><button className="btn full" style={{ marginTop: 10 }} onClick={() => ir('ajustes')}>Ajustes</button>{ruta[0] === 'ajustes' && <Ajustes store={store} datos={{ asesorados: [], programas: [], sesiones: [] }} acc={acc} usuario={usuario} />}</div>;
+  if (!datos) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
+
+  const [r0, id, r2, r3, r4] = ruta;
+  if (r0 === 'ajustes') return <Ajustes store={store} datos={datos} acc={acc} usuario={usuario} />;
+  if (r0 === 'a') {
+    const a = datos.asesorados.find((x) => x.id === id);
+    if (!a) { setTimeout(() => ir(), 0); return null; }
+    const ps = datos.programas.filter((p) => p.asesoradoId === a.id); const ss = datos.sesiones.filter((s) => s.asesoradoId === a.id);
+    if (r2 === 'rutinas') return <Rutinas a={a} programas={ps} sesiones={ss} datos={datos} acc={acc} />;
+    if (r2 === 'p') { const p = ps.find((x) => x.id === r3); if (!p) { setTimeout(() => ir('a', a.id, 'rutinas'), 0); return null; } return <Editor key={p.id} a={a} p={p} datos={datos} acc={acc} store={store} />; }
+    if (r2 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir('a', a.id), texto: a.nombre.split(' ')[0] }} titulo="Métricas" /><Metricas sesiones={ss} programas={ps.filter((p) => p.visible !== false)} nombre={a.nombre.split(' ')[0]} onBorrarSesion={acc.borrarSesion} /></div>;
+    if (r2 === 'entrenar') {
+      const p = ps.find((x) => x.id === r3); const d = p?.dias.find((x) => x.id === r4);
+      if (!d) { setTimeout(() => ir('a', a.id), 0); return null; }
+      return <Entrenamiento modo="coach" programa={p} dia={d} historial={ss} quien={a.nombre.split(' ')[0]} claveBorrador={`bt:borrador:c:${a.id}:${p.id}:${d.id}`}
+        onGuardar={async (s) => { await acc.guardarSesion({ ...s, asesoradoId: a.id, origen: 'coach' }); return {}; }} onSalir={() => ir('a', a.id)} />;
+    }
+    return <Hub a={a} programas={ps} sesiones={ss} acc={acc} store={store} />;
+  }
+  return <Inicio datos={datos} acc={acc} store={store} usuario={usuario} />;
+}

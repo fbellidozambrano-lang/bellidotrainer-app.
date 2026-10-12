@@ -1,0 +1,162 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Barra, Hoja, Ico, useAviso } from '../ui/kit.jsx';
+import { CUES, ESCALA_RPE, MOTIVACION } from '../data/constants.js';
+import { cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, seriesPrevias, textoCarga, uuid, ytId } from '../lib/util.js';
+import brazo from '../assets/brazo.png';
+
+// ---------- sonido y vibración del descanso ----------
+let AC = null;
+const audio = () => { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch { return null; } };
+function pitar(pat = [[880, 0, 0.12]], cuando = 0) {
+  const c = audio(); if (!c) return [];
+  return pat.map(([f, t, d]) => { const o = c.createOscillator(), g = c.createGain(); const t0 = c.currentTime + cuando + t;
+    o.frequency.value = f; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+    o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + d + 0.05); return o; });
+}
+const FIN = [[660, 0, 0.15], [880, 0.17, 0.3]], LOGRO = [[523, 0, 0.1], [659, 0.09, 0.1], [784, 0.18, 0.1], [1047, 0.27, 0.32]];
+
+const leer = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+const escribir = (k, v) => { try { v ? localStorage.setItem(k, JSON.stringify(v)) : localStorage.removeItem(k); } catch {} };
+
+function preparar(dia, historial) {
+  const reg = {};
+  (dia.ejercicios || []).forEach((ej) => {
+    const prev = seriesPrevias(historial, ej.ejercicio); const T = esTiempo(ej); const sug = cargaNumero(ej.pesoSugerido);
+    reg[ej.id] = Array.from({ length: ej.series || 3 }, (_, k) => { const p = prev?.series[k] || prev?.series[prev.series.length - 1];
+      return { peso: sug || (p?.peso || ''), reps: T ? '' : (p?.reps || ej.repMin || ''), seg: T ? (p?.seg || ej.segundos || 40) : '', rpe: '', hecha: false, tocada: false }; });
+  });
+  return reg;
+}
+
+export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, modo = 'atleta' }) {
+  const avisar = useAviso();
+  const guardado = useMemo(() => leer(claveBorrador), [claveBorrador]);
+  const [reg, setReg] = useState(() => guardado?.reg || preparar(dia, historial));
+  const [notas, setNotas] = useState(() => guardado?.notas || {});
+  const [inicio] = useState(() => guardado?.inicio || Date.now());
+  const [fecha, setFecha] = useState(() => guardado?.fecha || hoy());
+  const [video, setVideo] = useState(null); const [rpe, setRpe] = useState(null);
+  const [finAt, setFinAt] = useState(0); const [total, setTotal] = useState(0); const [, tick] = useState(0); const alarma = useRef([]);
+  const [cierre, setCierre] = useState(false); const [fin, setFin] = useState(null); const [guardando, setGuardando] = useState(false);
+  const retomado = useRef(!!guardado?.reg);
+
+  useEffect(() => { if (!fin) escribir(claveBorrador, { reg, notas, inicio, fecha, t: Date.now() }); }, [reg, notas, fecha, fin, claveBorrador, inicio]);
+  useEffect(() => { if (retomado.current) avisar('Sigues donde lo dejaste'); }, [avisar]);
+  useEffect(() => {
+    if (!finAt) return; const i = setInterval(() => { tick((x) => x + 1); if (Date.now() >= finAt) { setFinAt(0); navigator.vibrate?.([140, 70, 140]); } }, 250);
+    return () => clearInterval(i);
+  }, [finAt]);
+  const restan = finAt ? Math.max(0, Math.ceil((finAt - Date.now()) / 1000)) : 0;
+  const arrancar = (s) => { alarma.current.forEach((o) => { try { o.stop(); } catch {} }); if (!s) { setFinAt(0); return; } alarma.current = pitar(FIN, s); setTotal(s); setFinAt(Date.now() + s * 1000); };
+  const sumar = (s) => { const r = Math.max(5, restan + s); arrancar(r); };
+
+  const ejs = dia.ejercicios || [];
+  const todas = ejs.flatMap((e) => reg[e.id] || []); const hechas = todas.filter((x) => x.hecha).length;
+  const set = (id, k, campo, v) => setReg((r) => ({ ...r, [id]: r[id].map((x, i) => (i === k ? { ...x, [campo]: v, tocada: campo === 'hecha' ? x.tocada : true } : x)) }));
+  const masSerie = (id) => setReg((r) => { const u = r[id][r[id].length - 1] || {}; return { ...r, [id]: [...r[id], { ...u, hecha: false, tocada: false }] }; });
+  const menosSerie = (id) => setReg((r) => (r[id].length > 1 ? { ...r, [id]: r[id].slice(0, -1) } : r));
+
+  function marcar(ej, k) {
+    const s = reg[ej.id][k]; const on = !s.hecha; set(ej.id, k, 'hecha', on);
+    if (!on) return;
+    audio(); const T = esTiempo(ej); const rec = records(historial, ej.ejercicio); const peso = nSeg(s.peso);
+    if (!T && rec.maxPeso > 0 && peso > rec.maxPeso) { pitar(LOGRO); navigator.vibrate?.([40, 50, 90]); avisar(`Récord de carga en ${ej.ejercicio}: ${fmt(peso, 1)} kg`); }
+    else if (T && rec.maxSeg > 0 && nSeg(s.seg) > rec.maxSeg) { pitar(LOGRO); avisar(`Récord de tiempo en ${ej.ejercicio}`); }
+    else pitar([[740, 0, 0.08]]);
+    arrancar(ej.descanso ?? 90);
+  }
+
+  function paquete() {
+    const series = [];
+    ejs.forEach((ej) => { const T = esTiempo(ej); let n = 0;
+      (reg[ej.id] || []).forEach((s) => { if (!(s.hecha || s.tocada)) return; const p = nSeg(s.peso), r = Math.round(nSeg(s.reps)), g = Math.round(nSeg(s.seg));
+        if (T ? g > 0 : p > 0 || r > 0) { if (!T && !(r > 0)) return; const o = { ejercicio: ej.ejercicio, grupo: ej.grupo, serie: ++n, peso: p, reps: T ? 0 : r, rpe: nSeg(s.rpe) || ej.rpe || 8 }; if (T) o.seg = g; series.push(o); } }); });
+    const nt = {}; Object.entries(notas).forEach(([k, v]) => { if (String(v).trim()) nt[k] = String(v).trim(); });
+    return { id: uuid(), programaId: programa?.id || null, programaNombre: programa?.nombre || '', dia: dia.nombre, fecha, minutos: Math.max(1, Math.round((Date.now() - inicio) / 60000)), series, notas: nt };
+  }
+
+  async function terminar() {
+    const p = paquete(); if (!p.series.length) { setCierre(false); avisar('Marca con ✓ las series que hiciste antes de terminar', 'error'); return; }
+    setGuardando(true);
+    try {
+      const r = await onGuardar(p); escribir(claveBorrador, null); arrancar(0);
+      const vol = p.series.reduce((t, x) => t + x.peso * x.reps, 0);
+      const recs = [...new Set(p.series.filter((x) => { const rr = records(historial, x.ejercicio); return rr.maxPeso > 0 && x.peso > rr.maxPeso; }).map((x) => x.ejercicio))];
+      setFin({ series: p.series.length, vol, min: p.minutos, recs, pendiente: r?.pendiente, frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)] }); pitar(LOGRO);
+    } catch (e) { avisar(e.message || 'No se pudo guardar', 'error'); }
+    setGuardando(false); setCierre(false);
+  }
+
+  if (fin) return (
+    <div className="fin">
+      <img src={brazo} alt="" />
+      <h1>{modo === 'coach' ? 'Sesión guardada' : 'Entreno completo'}</h1>
+      <p className="frase">{fin.frase}</p>
+      <div className="kpis"><div className="kpi"><b className="num">{fin.series}</b><span>series</span></div><div className="kpi"><b className="num">{fmt(fin.vol)}</b><span>kg movidos</span></div><div className="kpi"><b className="num">{fin.min}</b><span>minutos</span></div></div>
+      {fin.recs.length > 0 && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="fuego" s={20} /><span>Récord en <b>{fin.recs.join(', ')}</b>.</span></p>}
+      {fin.pendiente && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="nube" s={20} /><span>No hay señal ahora. La sesión quedó guardada en tu teléfono y <b>se envía sola</b> cuando vuelvas a tener conexión.</span></p>}
+      <button className="btn oro xl full" onClick={onSalir}>Listo</button>
+    </div>
+  );
+
+  return (
+    <div className="pantalla">
+      <Barra volver={{ fn: onSalir, texto: '' }} titulo={dia.nombre} sub={`${programa?.nombre || ''}${modo === 'coach' ? ` · con ${quien}` : ''}`}
+        derecha={<span className="etq num" style={{ fontSize: 17, color: 'var(--chalk)' }}>{hechas}/{todas.length}</span>} />
+      <div className="ent-prog"><i style={{ width: `${todas.length ? (hechas / todas.length) * 100 : 0}%` }} /></div>
+      {modo === 'coach' && <label className="campo" style={{ marginTop: 14 }}><span>Fecha de la sesión</span><input type="date" className="in" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value || hoy())} /></label>}
+
+      {ejs.map((ej) => {
+        const T = esTiempo(ej); const prev = seriesPrevias(historial, ej.ejercicio); const filas = reg[ej.id] || []; const yt = ytId(ej.video); const cues = CUES[ej.grupo] || [];
+        return (
+          <article className="ent" key={ej.id} style={{ borderLeft: `4px solid ${colorGrupo(ej.grupo)}` }}>
+            <div className="ent-cab">
+              <h3>{ej.ejercicio}<small className="muted">{ej.grupo} · {ej.series} series · {T ? `${ej.segundos} s` : `${ej.repMin}–${ej.repMax} reps`} · RPE {fmt(ej.rpe, 1)} · descanso {ej.descanso ?? 90} s</small></h3>
+              {yt && <button className="ico-b oro" onClick={() => setVideo(video === ej.id ? null : ej.id)} aria-label="Ver video"><Ico n={video === ej.id ? 'cerrar' : 'play'} /></button>}
+            </div>
+            <div className="ent-cuerpo">
+              {yt && video === ej.id && <div className="video"><iframe src={`https://www.youtube-nocookie.com/embed/${yt}?playsinline=1`} title={ej.ejercicio} allowFullScreen /></div>}
+              {prev ? <>
+                <p className="previa-t">La vez pasada · {fCorta(prev.fecha)}</p>
+                <div className="previa">{prev.series.map((x, i) => <span key={i}><b>{x.seg ? `${x.seg}s` : fmt(x.peso, 1)}</b>{!x.seg && <> kg × {x.reps}</>} {x.rpe ? <i>@{fmt(x.rpe, 1)}</i> : null}</span>)}</div>
+                {prev.nota && <p className="guia">“{prev.nota}”</p>}
+              </> : <p className="previa-t">Primera vez con este ejercicio</p>}
+              {ej.pesoSugerido && <div className="sug"><span>Carga sugerida hoy</span><b>{textoCarga(ej.pesoSugerido)}</b></div>}
+              {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}
+              <div className="sets">
+                <div className="set-h"><span>#</span><span>Peso</span><span>{T ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>
+                {filas.map((s, k) => (
+                  <div className={`set ${s.hecha ? 'ok' : ''}`} key={k}>
+                    <u>{k + 1}</u>
+                    <input className="cel" inputMode="decimal" value={s.peso} placeholder="kg" onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, 'peso', e.target.value)} aria-label={`Peso serie ${k + 1}`} />
+                    <input className="cel" inputMode="numeric" value={T ? s.seg : s.reps} placeholder={T ? 's' : '—'} onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, T ? 'seg' : 'reps', e.target.value)} aria-label={`${T ? 'Segundos' : 'Repeticiones'} serie ${k + 1}`} />
+                    <div className="cel-rpe"><input className="cel" inputMode="decimal" value={s.rpe} placeholder={fmt(ej.rpe, 1)} onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, 'rpe', e.target.value)} aria-label={`RPE serie ${k + 1}`} />
+                      <button onClick={() => setRpe({ id: ej.id, k })} aria-label="Qué es el RPE">?</button></div>
+                    <button className={`hecho ${s.hecha ? 'on' : ''}`} onClick={() => marcar(ej, k)} aria-label={`Marcar serie ${k + 1} hecha`}><Ico n="check" w={2.6} /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="set-acc"><button className="btn chico" onClick={() => masSerie(ej.id)}><Ico n="mas" s={16} />Serie</button>{filas.length > 1 && <button className="btn chico" onClick={() => menosSerie(ej.id)}>Quitar serie</button>}</div>
+              <textarea className="in obs" rows={1} placeholder={modo === 'coach' ? 'Observación del ejercicio…' : 'Cómo te sentiste, molestias…'} value={notas[ej.ejercicio] || ''} onChange={(e) => setNotas((n) => ({ ...n, [ej.ejercicio]: e.target.value }))} />
+              {cues.length > 0 && <details className="tecnica"><summary>Puntos de técnica <Ico n="abajo" s={16} /></summary><ul>{cues.map((c) => <li key={c}>{c}</li>)}</ul></details>}
+            </div>
+          </article>
+        );
+      })}
+
+      <div style={{ marginTop: 22 }}><button className="btn oro xl full" onClick={() => setCierre(true)}>Terminar entreno</button></div>
+
+      {finAt > 0 && <div className="reloj" role="timer"><b>{Math.floor(restan / 60)}:{String(restan % 60).padStart(2, '0')}<small>de {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')}</small></b>
+        <button onClick={() => sumar(30)}>+30 s</button><button onClick={() => arrancar(0)}>Saltar</button></div>}
+
+      {rpe && <Hoja titulo="¿Qué es el RPE?" onCerrar={() => setRpe(null)}>
+        <p className="muted" style={{ marginBottom: 14 }}>Cuánto te costó la serie. Pregúntate: ¿cuántas repeticiones más podía hacer con buena técnica? Toca la que corresponde.</p>
+        <div className="rpe-l">{ESCALA_RPE.map(([v, a, b]) => <button key={v} className="rpe-f" onClick={() => { set(rpe.id, rpe.k, 'rpe', String(v)); setRpe(null); }}><b>{String(v).replace('.', ',')}</b><div><strong>{a}</strong><span>{b}</span></div></button>)}</div>
+      </Hoja>}
+
+      {cierre && <Hoja titulo="¿Terminar el entreno?" onCerrar={() => setCierre(false)} acciones={<><button className="btn" onClick={() => setCierre(false)}>Seguir</button><button className="btn oro" disabled={guardando} onClick={terminar}>{guardando ? 'Guardando…' : 'Terminar y guardar'}</button></>}>
+        <p className="muted">Se guardan <b style={{ color: 'var(--chalk)' }}>{paquete().series.length} series</b>: las que marcaste con ✓ o escribiste a mano. {modo === 'atleta' ? 'Tu coach las ve al instante.' : ''}</p>
+      </Hoja>}
+    </div>
+  );
+}
