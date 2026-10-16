@@ -3,5 +3,5 @@
 // Si prefieres, déjalas vacías aquí y ponlas en Vercel como VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.
 window.BT_CONFIG = {
   supabaseUrl: "https://hcjdetqlgrzjkydlkmur.supabase.co",
-  supabaseAnonKey: ""
+  supabaseAnonKey: "sb_publishable_rXYlqjkjVAqwEWqqjUHVXg_Kjpk_w44"
 };
