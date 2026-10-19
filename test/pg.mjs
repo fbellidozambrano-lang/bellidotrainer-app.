@@ -19,7 +19,7 @@ export async function crearDB() {
   const sql = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
   await db.exec(sql);
   await db.exec(sql); // debe poder correrse dos veces
-  await db.exec(`grant all on public.asesorados, public.programas, public.sesiones, public.permisos, public.biblioteca, public.plantillas to authenticated;`);
+  await db.exec(`grant all on public.asesorados, public.programas, public.sesiones, public.permisos, public.biblioteca, public.plantillas, public.controles to authenticated;`);
   return db;
 }
 

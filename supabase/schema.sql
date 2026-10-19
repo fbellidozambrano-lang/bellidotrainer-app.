@@ -101,6 +101,19 @@ create table if not exists public.plantillas (
 );
 create index if not exists plantillas_coach_idx on public.plantillas (coach_id, orden);
 
+-- Controles antropométricos (resumen leído del PDF del informe)
+-- datos: { peso, grasa, masaGrasa, masaLibre, musculo, musculoPct, visceral, edadMet, imc, cintura, tmb, inicial: {…}, inicio }
+create table if not exists public.controles (
+  id           uuid primary key default gen_random_uuid(),
+  coach_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  asesorado_id uuid not null references public.asesorados(id) on delete cascade,
+  fecha        date not null,
+  datos        jsonb not null default '{}'::jsonb,
+  archivo      text not null default '',
+  creado       timestamptz not null default now()
+);
+create index if not exists controles_ases_idx on public.controles (asesorado_id, fecha desc);
+
 create index if not exists permisos_ases_idx on public.permisos (asesorado_id, creado desc);
 
 create index if not exists asesorados_coach_idx  on public.asesorados (coach_id);
@@ -135,6 +148,13 @@ alter table public.sesiones   enable row level security;
 alter table public.permisos   enable row level security;
 alter table public.biblioteca enable row level security;
 alter table public.plantillas enable row level security;
+alter table public.controles  enable row level security;
+revoke all on public.controles from anon;
+drop policy if exists coach_controles on public.controles;
+create policy coach_controles on public.controles for all to authenticated
+  using (coach_id = auth.uid())
+  with check (coach_id = auth.uid() and exists (
+    select 1 from public.asesorados a where a.id = asesorado_id and a.coach_id = auth.uid()));
 
 revoke all on public.asesorados, public.programas, public.sesiones, public.permisos,
               public.biblioteca, public.plantillas from anon;
@@ -219,6 +239,10 @@ begin
                   from jsonb_array_elements(p.dias) d), '[]'::jsonb) end)
                order by p.orden, p.creado)
       from public.programas p where p.asesorado_id = a.id and p.visible), '[]'::jsonb),
+    'controles', coalesce((
+      select jsonb_agg(c order by c.fecha desc) from (
+        select k.id, k.fecha, k.datos from public.controles k
+        where k.asesorado_id = a.id order by k.fecha desc, k.creado desc limit 6) c), '[]'::jsonb),
     'sesiones', coalesce((
       select jsonb_agg(x order by x.fecha desc, x.creado desc) from (
         select s.id, s.programa_id, s.programa_nombre, s.dia, s.fecha, s.minutos,

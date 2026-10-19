@@ -91,7 +91,7 @@ export function desdeHevy(texto, asesoradoId, conPrograma, salt = '') {
 
 export function desdeExportV9(raw, actual) {
   const ids = new Set(actual.sesiones.map((s) => s.id));
-  return { asesorados: raw.asesorados || [], programas: raw.programas || [], sesiones: (raw.sesiones || []).filter((s) => !ids.has(s.id)), biblioteca: raw.biblioteca || [], plantillas: raw.plantillas || [], emparejados: 0 };
+  return { asesorados: raw.asesorados || [], programas: raw.programas || [], sesiones: (raw.sesiones || []).filter((s) => !ids.has(s.id)), biblioteca: raw.biblioteca || [], plantillas: raw.plantillas || [], controles: raw.controles || [], emparejados: 0 };
 }
 
 // Lee cualquier archivo y dice qué es
@@ -105,6 +105,6 @@ export function interpretar(texto, nombreArchivo = '') {
   throw new Error('El archivo no tiene el formato de un respaldo de BELLIDO TRAINER.');
 }
 
-export function exportar({ asesorados, programas, sesiones, biblioteca = [], plantillas = [] }) {
-  return JSON.stringify({ formato: 'bellidotrainer-v9', exportado: new Date().toISOString(), asesorados, programas, sesiones, biblioteca, plantillas });
+export function exportar({ asesorados, programas, sesiones, biblioteca = [], plantillas = [], controles = [] }) {
+  return JSON.stringify({ formato: 'bellidotrainer-v9', exportado: new Date().toISOString(), asesorados, programas, sesiones, biblioteca, plantillas, controles });
 }

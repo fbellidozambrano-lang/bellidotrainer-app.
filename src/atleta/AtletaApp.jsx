@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Barra, Ico, ir, useRuta, useAviso } from '../ui/kit.jsx';
 import { TarjetaPrograma, TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.jsx';
 import Metricas from '../shared/Metricas.jsx';
+import Composicion from '../shared/Composicion.jsx';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
 import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias, diasParaVencer, fLarga } from '../lib/util.js';
 import logo from '../assets/logo.png';
@@ -23,9 +24,12 @@ function useProteger() {
     const vis = () => (document.visibilityState === 'hidden' ? velar() : quitar());
     const menu = (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName)) e.preventDefault(); };
     const tecla = (e) => { if (e.key === 'PrintScreen' || ((e.metaKey || e.ctrlKey) && /^[sp]$/i.test(e.key))) { e.preventDefault(); velar(); try { navigator.clipboard?.writeText(''); } catch {} setTimeout(quitar, 1500); } };
-    document.addEventListener('visibilitychange', vis); addEventListener('blur', velar); addEventListener('focus', quitar); addEventListener('pagehide', velar); addEventListener('pageshow', quitar);
+    // sin 'blur': tocar el video (iframe) o ponerlo en pantalla completa dispara blur y dejaba la pantalla negra
+    const fs = () => quitar();
+    document.addEventListener('visibilitychange', vis); addEventListener('pagehide', velar); addEventListener('pageshow', quitar);
+    document.addEventListener('fullscreenchange', fs); document.addEventListener('webkitfullscreenchange', fs);
     document.addEventListener('contextmenu', menu); document.addEventListener('copy', menu); addEventListener('keydown', tecla); addEventListener('keyup', tecla);
-    return () => { b.classList.remove('protegido', 'velado'); document.removeEventListener('visibilitychange', vis); removeEventListener('blur', velar); removeEventListener('focus', quitar); removeEventListener('pagehide', velar); removeEventListener('pageshow', quitar);
+    return () => { b.classList.remove('protegido', 'velado'); document.removeEventListener('visibilitychange', vis); removeEventListener('pagehide', velar); removeEventListener('pageshow', quitar); document.removeEventListener('fullscreenchange', fs); document.removeEventListener('webkitfullscreenchange', fs);
       document.removeEventListener('contextmenu', menu); document.removeEventListener('copy', menu); removeEventListener('keydown', tecla); removeEventListener('keyup', tecla); };
   }, []);
 }
@@ -149,6 +153,7 @@ export default function AtletaApp({ store, token, vista }) {
         <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n={libre ? 'pesa' : 'candado'} /></span><div><h3>Rutinas</h3><p>{!ps.length ? 'En preparación' : libre ? `Programas de ${frecuencias(ps)}` : 'Ingresa tu código para entrenar'}</p></div></button>
         <button className="losa" onClick={() => ir('metricas')}><span className="losa-ico"><Ico n="grafica" /></span><div><h3>Métricas</h3><p>{ses.length ? `${semanasSeguidas(ses)} ${semanasSeguidas(ses) === 1 ? 'semana' : 'semanas'} seguidas` : 'Tu progreso'}</p></div></button>
       </div>
+      {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} /></>}
       {u && <><div className="sec"><h2>Último entreno</h2></div><button className="item" style={{ borderTop: '1px solid var(--line)' }} onClick={() => ir('metricas')}><div className="item-t"><strong>{u.dia}</strong><span>{haceCuanto(u.fecha)} · {(u.series || []).length} series</span></div><Ico n="chev" className="chev" s={18} /></button></>}
       {pie}
       {!standalone && <p className="instalar">Tenla a mano: en Safari toca Compartir → Agregar a inicio.</p>}

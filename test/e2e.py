@@ -144,7 +144,21 @@ with sync_playwright() as p:
     shot(at, '20b_bloqueada')
     # coach da el código
     pg.locator('button.item', has_text='Ana Chacon').first.click(); pg.wait_for_timeout(400)
-    pg.get_by_role('button', name='Dar código').click(); pg.wait_for_timeout(400)
+    # composición corporal: subir el PDF del informe (si está disponible en esta máquina)
+    PDF = os.environ.get('PDF_INFORME', '')
+    if PDF and os.path.exists(PDF):
+        pg.locator('input[type=file][accept*=pdf]').set_input_files(PDF); pg.wait_for_timeout(2500)
+        shot(pg, '50_control_revisar', True)
+        pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(600)
+        shot(pg, '51_hub_compo')
+    pg.get_by_role('button', name='Dar código').click(); pg.wait_for_timeout(500)
+    shot(pg, '52_preparar'); shot(pg, '52_preparar_full', True)
+    if pg.locator('.prep .btn.fant').count():
+        pg.locator('.prep .btn.fant').first.click(); pg.wait_for_timeout(200)
+        pg.locator('.escala-t button', has_text='80%').click(); pg.locator('.escala .btn.oro').click(); pg.wait_for_timeout(300)
+        shot(pg, '53_escala')
+    pg.locator('.prep-campos input').nth(0).fill('4'); pg.wait_for_timeout(1000)
+    pg.get_by_role('button', name='Guardar y dar código').click(); pg.wait_for_timeout(800)
     shot(pg, '16_hub_codigo')
     cod = pg.locator('.codigo').get_attribute('aria-label').split()[-1]
     at.locator('.codigo-in').fill('000000' if cod != '000000' else '111111'); at.get_by_role('button', name='Abrir rutina').click(); at.wait_for_timeout(300)
@@ -158,9 +172,15 @@ with sync_playwright() as p:
     at.locator('.hecho').first.click(); at.wait_for_timeout(300)
     at.locator('.hecho').nth(1).click(); at.wait_for_timeout(300)
     shot(at, '24_entreno_descanso'); shot(at, '24_entreno_full', True)
-    at.get_by_role('button', name='Terminar entreno').click(); at.wait_for_timeout(200)
+    at.locator('.kglb').click(); at.wait_for_timeout(200)
+    at.locator('.conv input').first.fill('100'); at.wait_for_timeout(100)
+    assert '220,5' in at.locator('.conv input').nth(1).input_value(), 'conversor kg→lb'
+    shot(at, '27_conversor')
+    at.locator('.hoja .ico-b[aria-label]').first.click(); at.wait_for_timeout(200)
+    at.get_by_role('button', name='Enviar a Coach').click(); at.wait_for_timeout(200)
     at.locator('.hoja-acc .btn.oro').click(); at.wait_for_timeout(700)
     shot(at, '25_fin')
+    assert at.locator('.analogia').count() == 1, 'debía mostrar la analogía del peso movido'
     at.get_by_role('button', name='Listo').click(); at.wait_for_timeout(300)
     at.locator('.losa', has_text='Rutinas').click(); at.wait_for_timeout(300)
     assert at.locator('.candado').count() == 1, 'tras enviar la sesión la rutina debía bloquearse'

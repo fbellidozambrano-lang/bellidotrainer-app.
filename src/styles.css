@@ -368,7 +368,7 @@ input[type=date].in{color-scheme:dark}
 body.protegido{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body.protegido input,body.protegido textarea{-webkit-user-select:text;user-select:text}
 body.protegido img{-webkit-user-drag:none;pointer-events:none}
-body.velado #root{filter:blur(28px) brightness(.35);transition:none}
+body.velado #root{opacity:0}
 @media print{body.protegido{display:none!important}}
 .codigo-fila .item-t span{white-space:normal;overflow:visible;text-overflow:clip}
 
@@ -390,3 +390,62 @@ body.velado #root{filter:blur(28px) brightness(.35);transition:none}
 .tachado{text-decoration:line-through;color:var(--mute)!important;font-size:13px}
 .sugerencia{display:block;margin-top:8px;font-size:14px;color:var(--mute2);text-align:left}
 .sugerencia b{color:var(--gold);font-weight:600}
+
+/* ---------- composición corporal ---------- */
+.compo-g{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.compo-i{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:12px 12px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.compo-i span{font-size:12.5px;color:var(--mute);font-weight:500}
+.compo-i b{font-family:var(--cond);font-weight:800;font-size:30px;line-height:1.05}
+.compo-i b small{font-family:inherit;font-size:15px;font-weight:700;color:var(--mute2);margin-left:1px}
+.compo-i em{font-style:normal;font-size:13px;font-weight:600;color:var(--mute2)}
+.compo-i em.bien{color:var(--ok)} .compo-i em.mal{color:#FF9E4D}
+.compo-pie{font-size:12.5px;color:var(--mute);margin-top:10px}
+
+/* ---------- preparar sesión ---------- */
+.prep{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.prep h3{font-family:var(--cond);font-weight:800;font-size:23px;line-height:1.05;text-transform:uppercase}
+.prep h3 small{display:block;font-family:var(--sans,inherit);text-transform:none;font-weight:500;font-size:13px;color:var(--mute);margin-top:3px}
+.prep-ult{margin:10px 0 0}
+.prep-ult>span{font-size:12.5px;color:var(--mute);font-weight:500;display:block;margin-bottom:4px}
+.prep-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.prep-kpi div{background:var(--s2);border-radius:12px;padding:8px 10px}
+.prep-kpi span{display:block;font-size:11.5px;color:var(--mute)}
+.prep-kpi b{font-family:var(--cond);font-weight:800;font-size:24px}
+.prep-kpi b small{font-size:13px;color:var(--mute2)}
+.prep-campos{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}
+.prep-campos label span,.prep-carga span{display:block;font-size:11.5px;color:var(--mute);margin-bottom:4px;white-space:nowrap}
+.prep-campos .in{height:44px;padding:0 6px;text-align:center;font-size:18px}
+.prep-carga{display:block;margin:10px 0 6px}
+.prep-carga em{display:block;font-style:normal;font-size:12.5px;color:var(--gold);margin-top:5px}
+.prep .btn.fant{padding-left:0;color:var(--mute2)}
+.escala{background:var(--s2);border-radius:14px;padding:12px;margin-top:6px}
+.escala-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.escala-top>b{font-family:var(--cond);font-weight:800;font-size:30px;color:var(--gold)}
+.escala-top span{flex:1;font-size:14px;color:var(--mute2)}
+.escala-top span b{color:var(--chalk);font-family:var(--cond);font-size:19px}
+.escala input[type=range]{width:100%;margin:12px 0;accent-color:var(--gold);height:28px}
+.escala-t{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.escala-t button{background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px}
+.escala-t button.on{border-color:var(--gold)}
+.escala-t b{font-size:12px;color:var(--mute)} .escala-t span{font-family:var(--cond);font-weight:800;font-size:17px} .escala-t i{font-style:normal;font-size:11px;color:var(--mute)}
+.tab-dia .toca{margin-left:6px;font-size:11px;font-weight:700;background:var(--gold);color:#000;border-radius:6px;padding:1px 5px;vertical-align:1px}
+
+/* ---------- video vertical, conversor, analogía ---------- */
+.video-v{display:flex;flex-direction:column;align-items:center;margin:8px 0 6px}
+.video-9x16{position:relative;width:min(100%,360px);aspect-ratio:9/16;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 0 0 1px var(--line)}
+@supports not (aspect-ratio:9/16){.video-9x16{height:0;padding-bottom:min(177.78%,640px)}}
+.video-9x16 iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.video-v .btn.fant{color:var(--mute);margin-top:4px;font-size:13px}
+.kglb{height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--s2);color:var(--gold);font-weight:700;font-size:13px;margin-right:8px}
+.conv{display:flex;align-items:flex-end;gap:10px}
+.conv label{flex:1;position:relative}
+.conv label span{display:block;font-size:13px;color:var(--mute);margin-bottom:6px}
+.conv .in{height:64px;font-size:32px;padding-right:44px}
+.conv label b{position:absolute;right:14px;bottom:20px;color:var(--mute2);font-size:15px}
+.conv-ico{color:var(--gold);margin-bottom:20px;flex:none}
+.conv-t{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.conv-t button{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:8px 4px;display:flex;flex-direction:column;align-items:center}
+.conv-t b{font-size:17px} .conv-t span{font-size:12.5px;color:var(--mute2)}
+.analogia{width:100%;background:linear-gradient(160deg,#1c1600,#121212 75%);border:1px solid #4a3a00;border-radius:16px;padding:14px 16px;margin:0 0 18px;text-align:left}
+.analogia small{display:block;font-size:12.5px;color:var(--gold);font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.analogia p{font-family:var(--cond);font-weight:800;font-size:26px;line-height:1.08;text-transform:uppercase;margin-top:4px}

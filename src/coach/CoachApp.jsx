@@ -7,6 +7,7 @@ import Hub from './Hub.jsx';
 import Rutinas from './Rutinas.jsx';
 import Editor from './Editor.jsx';
 import Ajustes from './Ajustes.jsx';
+import Preparar from './Preparar.jsx';
 import Biblioteca from './Biblioteca.jsx';
 import { Plantillas, EditorPlantilla } from './Plantillas.jsx';
 import Metricas from '../shared/Metricas.jsx';
@@ -57,6 +58,8 @@ export default function CoachApp({ store }) {
       ponerPrograma(p) { setDatos((d) => ({ ...d, programas: d.programas.some((x) => x.id === p.id) ? d.programas.map((x) => (x.id === p.id ? p : x)) : [...d.programas, p] })); },
       async guardarPrograma(p) { acc.ponerPrograma(p); try { await store.guardarPrograma(p); } catch (e) { falla(e); } },
       async guardarProgramas(ps) { if (!ps.length) return; setDatos((d) => { const m = new Map(ps.map((p) => [p.id, p])); return { ...d, programas: d.programas.map((x) => m.get(x.id) || x) }; }); try { await store.guardarProgramas(ps); } catch (e) { falla(e); } },
+      async guardarControl(c) { try { const g = await store.guardarControl(c); setDatos((d) => ({ ...d, controles: [...d.controles.filter((x) => x.id !== g.id), g] })); return g; } catch (e) { falla(e); } },
+      async borrarControl(id) { try { await store.borrarControl(id); setDatos((d) => ({ ...d, controles: d.controles.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
       async guardarEjercicios(bs) { if (!bs.length) return; setDatos((d) => { const m = new Map(bs.map((b) => [b.id, b])); const ya = new Set(d.biblioteca.map((x) => x.id)); return { ...d, biblioteca: [...d.biblioteca.map((x) => m.get(x.id) || x), ...bs.filter((b) => !ya.has(b.id))] }; }); try { await store.guardarEjercicios(bs); } catch (e) { falla(e); } },
       async borrarEjercicio(id) { try { await store.borrarEjercicio(id); setDatos((d) => ({ ...d, biblioteca: d.biblioteca.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
       ponerPlantilla(t) { setDatos((d) => ({ ...d, plantillas: d.plantillas.some((x) => x.id === t.id) ? d.plantillas.map((x) => (x.id === t.id ? t : x)) : [...d.plantillas, t] })); },
@@ -71,7 +74,7 @@ export default function CoachApp({ store }) {
 
   if (usuario === undefined) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
   if (!usuario) return <Login store={store} />;
-  if (error && !datos) return <div className="pantalla"><div className="aviso rojo" style={{ marginTop: 40 }}><span>{error}</span></div><button className="btn oro full" style={{ marginTop: 14 }} onClick={cargar}>Reintentar</button><button className="btn full" style={{ marginTop: 10 }} onClick={() => ir('ajustes')}>Ajustes</button>{ruta[0] === 'ajustes' && <Ajustes store={store} datos={{ asesorados: [], programas: [], sesiones: [], biblioteca: [], plantillas: [] }} acc={acc} usuario={usuario} />}</div>;
+  if (error && !datos) return <div className="pantalla"><div className="aviso rojo" style={{ marginTop: 40 }}><span>{error}</span></div><button className="btn oro full" style={{ marginTop: 14 }} onClick={cargar}>Reintentar</button><button className="btn full" style={{ marginTop: 10 }} onClick={() => ir('ajustes')}>Ajustes</button>{ruta[0] === 'ajustes' && <Ajustes store={store} datos={{ asesorados: [], programas: [], sesiones: [], biblioteca: [], plantillas: [], controles: [] }} acc={acc} usuario={usuario} />}</div>;
   if (!datos) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
 
   const [r0, id, r2, r3, r4] = ruta;
@@ -83,6 +86,7 @@ export default function CoachApp({ store }) {
     const a = datos.asesorados.find((x) => x.id === id);
     if (!a) { setTimeout(() => ir(), 0); return null; }
     const ps = datos.programas.filter((p) => p.asesoradoId === a.id); const ss = datos.sesiones.filter((s) => s.asesoradoId === a.id);
+    if (r2 === 'preparar') return <Preparar a={a} programas={ps} sesiones={ss} acc={acc} store={store} />;
     if (r2 === 'rutinas') return <Rutinas a={a} programas={ps} sesiones={ss} datos={datos} acc={acc} />;
     if (r2 === 'p') { const p = ps.find((x) => x.id === r3); if (!p) { setTimeout(() => ir('a', a.id, 'rutinas'), 0); return null; } return <Editor key={p.id} a={a} p={p} datos={datos} acc={acc} store={store} />; }
     if (r2 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir('a', a.id), texto: a.nombre.split(' ')[0] }} titulo="Métricas" /><Metricas sesiones={ss} programas={ps.filter((p) => p.visible !== false)} nombre={a.nombre.split(' ')[0]} onBorrarSesion={acc.borrarSesion} /></div>;
@@ -92,7 +96,7 @@ export default function CoachApp({ store }) {
       return <Entrenamiento modo="coach" programa={p} dia={d} historial={ss} quien={a.nombre.split(' ')[0]} claveBorrador={`bt:borrador:c:${a.id}:${p.id}:${d.id}`}
         onGuardar={async (s) => { await acc.guardarSesion({ ...s, asesoradoId: a.id, origen: 'coach' }); return {}; }} onSalir={() => ir('a', a.id)} />;
     }
-    return <Hub a={a} programas={ps} sesiones={ss} acc={acc} store={store} />;
+    return <Hub a={a} programas={ps} sesiones={ss} acc={acc} store={store} controles={datos.controles.filter((c) => c.asesoradoId === a.id)} faltaTablas={datos.faltaTablas} />;
   }
   return <Inicio datos={datos} acc={acc} store={store} usuario={usuario} />;
 }

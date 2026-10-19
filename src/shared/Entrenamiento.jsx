@@ -3,6 +3,37 @@ import { Barra, Hoja, Ico, useAviso } from '../ui/kit.jsx';
 import { CUES, ESCALA_RPE, MOTIVACION } from '../data/constants.js';
 import { cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, seriesPrevias, textoCarga, uuid, ytId } from '../lib/util.js';
 import brazo from '../assets/brazo.png';
+import { analogia } from '../lib/analogias.js';
+
+// ---------- conversor kg ⇄ lb ----------
+const LB = 2.20462;
+const redondo = (v, d = 1) => { const n = Math.round(v * 10 ** d) / 10 ** d; return Number.isFinite(n) ? String(n).replace('.', ',') : ''; };
+export function Conversor({ onCerrar }) {
+  const [kg, setKg] = useState(''); const [lb, setLb] = useState('');
+  const pon = (k, v) => { const n = parseFloat(String(v).replace(',', '.')); if (k === 'kg') { setKg(v); setLb(Number.isFinite(n) ? redondo(n * LB) : ''); } else { setLb(v); setKg(Number.isFinite(n) ? redondo(n / LB) : ''); } };
+  return (
+    <Hoja titulo="Kilos ⇄ libras" onCerrar={onCerrar}>
+      <div className="conv">
+        <label><span>Kilos</span><input className="in num" inputMode="decimal" autoFocus value={kg} placeholder="0" onChange={(e) => pon('kg', e.target.value)} /><b>kg</b></label>
+        <Ico n="refrescar" s={22} className="conv-ico" />
+        <label><span>Libras</span><input className="in num" inputMode="decimal" value={lb} placeholder="0" onChange={(e) => pon('lb', e.target.value)} /><b>lb</b></label>
+      </div>
+      <p className="etq" style={{ margin: '16px 0 8px' }}>Mancuernas y discos comunes</p>
+      <div className="conv-t">{[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70].map((l) => <button key={l} onClick={() => pon('lb', String(l))}><b className="num">{l} lb</b><span>{redondo(l / LB)} kg</span></button>)}</div>
+    </Hoja>
+  );
+}
+
+// Video de YouTube vertical (formato shorts 9:16), visible de una vez
+function Video({ id, titulo, onOcultar }) {
+  return (
+    <div className="video-v">
+      <div className="video-9x16"><iframe src={`https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0&modestbranding=1`} title={titulo} loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div>
+      <button className="btn chico fant" onClick={onOcultar}><Ico n="cerrar" s={14} />Ocultar video</button>
+    </div>
+  );
+}
 
 // ---------- sonido y vibración del descanso ----------
 let AC = null;
@@ -35,7 +66,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   const [notas, setNotas] = useState(() => guardado?.notas || {});
   const [inicio] = useState(() => guardado?.inicio || Date.now());
   const [fecha, setFecha] = useState(() => guardado?.fecha || hoy());
-  const [video, setVideo] = useState(null); const [rpe, setRpe] = useState(null);
+  const [ocultos, setOcultos] = useState({}); const [rpe, setRpe] = useState(null); const [conv, setConv] = useState(false);
+  const atleta = modo !== 'coach';
   const [finAt, setFinAt] = useState(0); const [total, setTotal] = useState(0); const [, tick] = useState(0); const alarma = useRef([]);
   const [cierre, setCierre] = useState(false); const [fin, setFin] = useState(null); const [guardando, setGuardando] = useState(false);
   const retomado = useRef(!!guardado?.reg);
@@ -82,7 +114,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       const r = await onGuardar(p); escribir(claveBorrador, null); arrancar(0);
       const vol = p.series.reduce((t, x) => t + x.peso * x.reps, 0);
       const recs = [...new Set(p.series.filter((x) => { const rr = records(historial, x.ejercicio); return rr.maxPeso > 0 && x.peso > rr.maxPeso; }).map((x) => x.ejercicio))];
-      setFin({ series: p.series.length, vol, min: p.minutos, recs, pendiente: r?.pendiente, frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)] }); pitar(LOGRO);
+      setFin({ series: p.series.length, vol, min: p.minutos, recs, pendiente: r?.pendiente, analogia: analogia(vol, p.id), frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)] }); pitar(LOGRO);
     } catch (e) { avisar(e.message || 'No se pudo guardar', 'error'); }
     setGuardando(false); setCierre(false);
   }
@@ -90,9 +122,10 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   if (fin) return (
     <div className="fin">
       <img src={brazo} alt="" />
-      <h1>{modo === 'coach' ? 'Sesión guardada' : 'Entreno completo'}</h1>
+      <h1>{modo === 'coach' ? 'Sesión guardada' : fin.pendiente ? 'Entreno completo' : 'Enviado a tu coach'}</h1>
       <p className="frase">{fin.frase}</p>
       <div className="kpis"><div className="kpi"><b className="num">{fin.series}</b><span>series</span></div><div className="kpi"><b className="num">{fmt(fin.vol)}</b><span>kg movidos</span></div><div className="kpi"><b className="num">{fin.min}</b><span>minutos</span></div></div>
+      {fin.analogia && <div className="analogia"><small>Hoy moviste {fmt(fin.vol)} kg</small><p>{fin.analogia[0].toUpperCase() + fin.analogia.slice(1)}.</p></div>}
       {fin.recs.length > 0 && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="fuego" s={20} /><span>Récord en <b>{fin.recs.join(', ')}</b>.</span></p>}
       {fin.pendiente && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="nube" s={20} /><span>No hay señal ahora. La sesión quedó guardada en tu teléfono y <b>se envía sola</b> cuando vuelvas a tener conexión.</span></p>}
       <button className="btn oro xl full" onClick={onSalir}>Listo</button>
@@ -102,7 +135,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   return (
     <div className="pantalla">
       <Barra volver={{ fn: onSalir, texto: '' }} titulo={dia.nombre} sub={`${programa?.nombre || ''}${modo === 'coach' ? ` · con ${quien}` : ''}`}
-        derecha={<span className="etq num" style={{ fontSize: 17, color: 'var(--chalk)' }}>{hechas}/{todas.length}</span>} />
+        derecha={<><button className="kglb" onClick={() => setConv(true)} aria-label="Conversor de kilos a libras">kg⇄lb</button><span className="etq num" style={{ fontSize: 17, color: 'var(--chalk)' }}>{hechas}/{todas.length}</span></>} />
       <div className="ent-prog"><i style={{ width: `${todas.length ? (hechas / todas.length) * 100 : 0}%` }} /></div>
       {modo === 'coach' && <label className="campo" style={{ marginTop: 14 }}><span>Fecha de la sesión</span><input type="date" className="in" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value || hoy())} /></label>}
 
@@ -112,10 +145,10 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
           <article className="ent" key={ej.id} style={{ borderLeft: `4px solid ${colorGrupo(ej.grupo)}` }}>
             <div className="ent-cab">
               <h3>{ej.ejercicio}<small className="muted">{ej.grupo} · {ej.series} series · {T ? `${ej.segundos} s` : `${ej.repMin}–${ej.repMax} reps`} · RPE {fmt(ej.rpe, 1)} · descanso {ej.descanso ?? 90} s</small></h3>
-              {yt && <button className="ico-b oro" onClick={() => setVideo(video === ej.id ? null : ej.id)} aria-label="Ver video"><Ico n={video === ej.id ? 'cerrar' : 'play'} /></button>}
+              {yt && ocultos[ej.id] && <button className="ico-b oro" onClick={() => setOcultos((o) => ({ ...o, [ej.id]: false }))} aria-label="Ver video"><Ico n="play" /></button>}
             </div>
             <div className="ent-cuerpo">
-              {yt && video === ej.id && <div className="video"><iframe src={`https://www.youtube-nocookie.com/embed/${yt}?playsinline=1`} title={ej.ejercicio} allowFullScreen /></div>}
+              {yt && !ocultos[ej.id] && <Video id={yt} titulo={ej.ejercicio} onOcultar={() => setOcultos((o) => ({ ...o, [ej.id]: true }))} />}
               {prev ? <>
                 <p className="previa-t">La vez pasada · {fCorta(prev.fecha)}</p>
                 <div className="previa">{prev.series.map((x, i) => <span key={i}><b>{x.seg ? `${x.seg}s` : fmt(x.peso, 1)}</b>{!x.seg && <> kg × {x.reps}</>} {x.rpe ? <i>@{fmt(x.rpe, 1)}</i> : null}</span>)}</div>
@@ -144,7 +177,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
         );
       })}
 
-      <div style={{ marginTop: 22 }}><button className="btn oro xl full" onClick={() => setCierre(true)}>Terminar entreno</button></div>
+      <div style={{ marginTop: 22 }}><button className="btn oro xl full" onClick={() => setCierre(true)}>{atleta ? <><Ico n="subir" s={20} />Enviar a Coach</> : 'Terminar entreno'}</button></div>
 
       {finAt > 0 && <div className="reloj" role="timer"><b>{Math.floor(restan / 60)}:{String(restan % 60).padStart(2, '0')}<small>de {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')}</small></b>
         <button onClick={() => sumar(30)}>+30 s</button><button onClick={() => arrancar(0)}>Saltar</button></div>}
@@ -154,8 +187,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
         <div className="rpe-l">{ESCALA_RPE.map(([v, a, b]) => <button key={v} className="rpe-f" onClick={() => { set(rpe.id, rpe.k, 'rpe', String(v)); setRpe(null); }}><b>{String(v).replace('.', ',')}</b><div><strong>{a}</strong><span>{b}</span></div></button>)}</div>
       </Hoja>}
 
-      {cierre && <Hoja titulo="¿Terminar el entreno?" onCerrar={() => setCierre(false)} acciones={<><button className="btn" onClick={() => setCierre(false)}>Seguir</button><button className="btn oro" disabled={guardando} onClick={terminar}>{guardando ? 'Guardando…' : 'Terminar y guardar'}</button></>}>
-        <p className="muted">Se guardan <b style={{ color: 'var(--chalk)' }}>{paquete().series.length} series</b>: las que marcaste con ✓ o escribiste a mano. {modo === 'atleta' ? 'Tu coach las ve al instante.' : ''}</p>
+      {conv && <Conversor onCerrar={() => setConv(false)} />}
+      {cierre && <Hoja titulo={atleta ? '¿Enviar a tu coach?' : '¿Terminar el entreno?'} onCerrar={() => setCierre(false)} acciones={<><button className="btn" onClick={() => setCierre(false)}>Seguir</button><button className="btn oro" disabled={guardando} onClick={terminar}>{guardando ? (atleta ? 'Enviando…' : 'Guardando…') : atleta ? 'Enviar a Coach' : 'Terminar y guardar'}</button></>}>
+        <p className="muted">Se guardan <b style={{ color: 'var(--chalk)' }}>{paquete().series.length} series</b>: las que marcaste con ✓ o escribiste a mano. {atleta ? 'Tu coach las ve al instante y la rutina se bloquea hasta tu próximo código.' : ''}</p>
       </Hoja>}
     </div>
   );

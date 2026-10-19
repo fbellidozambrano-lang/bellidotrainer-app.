@@ -100,6 +100,13 @@ await t('rutina abierta hace más de 4 horas se bloquea sola', async () => {
   await db.exec(`update permisos set abierto = now() - interval '5 hours' where abierto is not null and usado is null`);
   assert.equal((await cargar()).acceso.abierto, false);
 });
+await t('controles: el coach los sube, el asesorado ve los suyos, nadie más', async () => {
+  await como(db, A, (tx) => tx.query(`insert into controles (asesorado_id, fecha, datos) values ($1,'2026-08-18','{"peso":91.7}'),($1,'2026-10-16','{"peso":90.2,"grasa":22.8}')`, [ana.id]));
+  const d = await cargar(); assert.equal(d.controles.length, 2); assert.equal(d.controles[0].datos.peso, 90.2); assert.equal(d.controles[0].fecha, '2026-10-16');
+  assert.equal((await como(db, B, (tx) => tx.query(`select * from controles`))).rows.length, 0);
+  await falla(como(db, B, (tx) => tx.query(`insert into controles (asesorado_id, fecha) values ($1,'2026-10-01')`, [ana.id])));
+  await falla(como(db, null, (tx) => tx.query(`select * from controles`)));
+});
 await t('vencimiento de pago llega al asesorado', async () => {
   await como(db, A, (tx) => tx.query(`update asesorados set vence='2026-11-05' where id=$1`, [ana.id]));
   assert.equal((await cargar()).asesorado.vence, '2026-11-05');

@@ -5,6 +5,7 @@ import { DetalleSesion } from '../shared/Metricas.jsx';
 import { TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.jsx';
 import { haceCuanto, primerNombre, semanasSeguidas, sesionesSemana, tokenNuevo, fLarga, nDias, abrirWa, textoVence, diasParaVencer, fechaLocal } from '../lib/util.js';
 import { enlaceAtleta } from './CoachApp.jsx';
+import SeccionComposicion from './Controles.jsx';
 
 const hora = (t) => new Date(t).toLocaleTimeString('es-VE', { hour: 'numeric', minute: '2-digit' });
 const H4 = 4 * 36e5;
@@ -33,19 +34,20 @@ function CodigoSesion({ a, store, sesiones }) {
         <div className="fila-btn"><button className="btn wa" onClick={enviar}><Ico n="wa" s={20} />Enviar</button>
           <button className="btn" onClick={async () => avisar((await copiarTexto(c.codigo)) ? 'Código copiado' : 'No se pudo copiar')}><Ico n="copiar" s={18} />Copiar</button>
           <button className="btn" disabled={ocupado} onClick={generar}><Ico n="refrescar" s={18} />Otro</button></div>
+        <button className="btn fant full" style={{ marginTop: 6 }} onClick={() => ir('a', a.id, 'preparar')}><Ico n="lapiz" s={16} />Ajustar la sesión</button>
       </> : <div className="codigo-fila">
         <span className={`codigo-ico ${est === 'abierto' ? 'on' : ''}`}><Ico n={est === 'abierto' ? 'llave' : 'candado'} s={22} /></span>
         <div className="item-t">
           <strong>{est === 'abierto' ? 'Entrenando ahora' : 'Rutina bloqueada'}</strong>
           <span>{est === 'abierto' ? `Abrió su rutina a las ${hora(c.abierto)}. Se bloquea al enviar la sesión.` : est === 'usado' ? `Envió su sesión ${haceCuanto(fechaLocal(new Date(c.usado)))} a las ${hora(c.usado)}.` : `${nom} necesita un código para ver su rutina y entrenar.`}</span>
         </div>
-        {est !== 'abierto' && <button className="btn oro chico" disabled={ocupado || c === undefined} onClick={generar}>Dar código</button>}
+        {est !== 'abierto' && <button className="btn oro chico" disabled={ocupado || c === undefined} onClick={() => ir('a', a.id, 'preparar')}>Dar código</button>}
       </div>}
     </div>
   );
 }
 
-export default function Hub({ a, programas, sesiones, acc, store }) {
+export default function Hub({ a, programas, sesiones, acc, store, controles = [], faltaTablas }) {
   const avisar = useAviso(); const nom = primerNombre(a.nombre);
   const [editar, setEditar] = useState(false); const [mas, setMas] = useState(false); const [borrar, setBorrar] = useState(false); const [nuevoTok, setNuevoTok] = useState(false);
   const [registrar, setRegistrar] = useState(false); const [regProg, setRegProg] = useState(null); const [ver, setVer] = useState(null);
@@ -86,6 +88,8 @@ export default function Hub({ a, programas, sesiones, acc, store }) {
         <div className="kpi"><b className="num">{semanasSeguidas(ses)}</b><span>semanas seguidas</span></div>
         <div className="kpi"><b className="num" style={{ fontSize: 20, lineHeight: 1.4 }}>{u ? haceCuanto(u) : '—'}</b><span>último entreno</span></div>
       </div>
+
+      <SeccionComposicion a={a} controles={controles} acc={acc} faltaTablas={faltaTablas} />
 
       <div className="sec"><h2>Acceso de {nom}</h2><span>{store.modo === 'local' ? 'modo local' : 'enlace fijo'}</span></div>
       <div className="tarj acceso">
