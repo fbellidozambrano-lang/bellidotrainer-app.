@@ -102,3 +102,19 @@ export function nuevoPrograma(asesoradoId, dias, nombre) {
     dias: Array.from({ length: dias }, (_, i) => ({ id: uuid(), nombre: `Día ${i + 1}`, ejercicios: [] })) };
 }
 export const clonarDias = (dias) => dias.map((d) => ({ id: uuid(), nombre: d.nombre, ejercicios: (d.ejercicios || []).map(copiaEj) }));
+
+// ---------- pagos ----------
+export function sumarMes(f) {
+  const d = aFecha(f || hoy()); const dia = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + 1);
+  const ult = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); d.setDate(Math.min(dia, ult)); return fechaLocal(d);
+}
+export const diasParaVencer = (f) => (f ? diasEntre(hoy(), f) : null);
+export function textoVence(f) {
+  const n = diasParaVencer(f); if (n == null) return 'sin fecha';
+  if (n < 0) return `venció hace ${-n} ${n === -1 ? 'día' : 'días'}`;
+  if (n === 0) return 'vence hoy'; if (n === 1) return 'vence mañana';
+  return n <= 7 ? `vence en ${n} días` : `vence el ${fCorta(f)}`;
+}
+// número de WhatsApp: solo dígitos; 0412… venezolano → 58412…
+export function telWa(t) { let d = String(t || '').replace(/\D/g, ''); if (/^0\d{10}$/.test(d)) d = '58' + d.slice(1); return d.length >= 10 ? d : ''; }
+export const abrirWa = (tel, texto) => { const u = `https://wa.me/${telWa(tel)}?text=${encodeURIComponent(texto)}`; if (!window.open(u, '_blank')) location.href = u; };

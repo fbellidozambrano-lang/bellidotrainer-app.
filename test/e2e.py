@@ -16,6 +16,8 @@ with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     ctx.route('https://fonts.googleapis.com/**', lambda r: r.abort())
+    # modo local: sin tocar el Supabase real
+    ctx.route('**/config.js', lambda r: r.fulfill(status=200, content_type='application/javascript', body='window.BT_CONFIG={};'))
     pg = ctx.new_page()
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
     pg.on('console', lambda m: m.type == 'error' and 'fonts' not in m.text and errs.append('console: ' + m.text[:300]))
@@ -81,10 +83,30 @@ with sync_playwright() as p:
     ana = [a for a in data['asesorados'] if a['nombre'] == 'Ana Chacon'][0]
     luisp = [x for x in data['programas'] if x['asesoradoId'] != ana['id']]
     assert luisp and len(luisp[0]['dias'][0]['ejercicios']) == 2
+    # pagos: vencimiento en 2 días para Ana
+    pg.goto(BASE + '/#/ajustes/pagos'); pg.wait_for_timeout(500)
+    import datetime
+    vence = (datetime.date.today() + datetime.timedelta(days=2)).isoformat()
+    pg.locator('input[aria-label="Vencimiento de Ana Chacon"]').fill(vence); pg.wait_for_timeout(400)
+    shot(pg, '14_pagos')
+    pg.goto(BASE + '/#/'); pg.wait_for_timeout(400)
+    assert 'Pagos por vencer' in pg.inner_text('body'), 'Inicio debía mostrar pagos por vencer'
+    shot(pg, '15_inicio_pagos')
     at = ctx.new_page(); at.on('pageerror', lambda e: errs.append('atleta pageerror: ' + str(e)))
     at.goto(f"{BASE}/?a={ana['token']}"); at.wait_for_timeout(700)
+    assert 'mensualidad' in at.inner_text('body'), 'el asesorado debía ver el aviso de pago'
     shot(at, '20_atleta_inicio')
     at.locator('.losa', has_text='Rutinas').click(); at.wait_for_timeout(300)
+    assert at.locator('.candado').count() == 1, 'sin código la rutina debía estar bloqueada'
+    shot(at, '20b_bloqueada')
+    # coach da el código
+    pg.locator('button.item', has_text='Ana Chacon').first.click(); pg.wait_for_timeout(400)
+    pg.get_by_role('button', name='Dar código').click(); pg.wait_for_timeout(400)
+    shot(pg, '16_hub_codigo')
+    cod = pg.locator('.codigo').get_attribute('aria-label').split()[-1]
+    at.locator('.codigo-in').fill('000000' if cod != '000000' else '111111'); at.get_by_role('button', name='Abrir rutina').click(); at.wait_for_timeout(300)
+    assert 'no es' in at.inner_text('body'), 'código malo debía rechazarse'
+    at.locator('.codigo-in').fill(cod); at.get_by_role('button', name='Abrir rutina').click(); at.wait_for_timeout(600)
     shot(at, '21_atleta_rutinas')
     at.locator('.prog', has_text='glúteo').first.click(); at.wait_for_timeout(300)
     shot(at, '22_atleta_dias')
@@ -97,6 +119,13 @@ with sync_playwright() as p:
     at.locator('.hoja-acc .btn.oro').click(); at.wait_for_timeout(700)
     shot(at, '25_fin')
     at.get_by_role('button', name='Listo').click(); at.wait_for_timeout(300)
+    at.locator('.losa', has_text='Rutinas').click(); at.wait_for_timeout(300)
+    assert at.locator('.candado').count() == 1, 'tras enviar la sesión la rutina debía bloquearse'
+    at.reload(); at.wait_for_timeout(600); at.goto(f"{BASE}/?a={ana['token']}#/rutinas"); at.wait_for_timeout(500)
+    assert at.locator('.candado').count() == 1, 'tras recargar debía seguir bloqueada'
+    shot(at, '25b_bloqueada_otra_vez')
+    pg.reload(); pg.wait_for_timeout(600); shot(pg, '17_hub_usado')
+    assert 'Envió su sesión' in pg.inner_text('body')
     at.goto(f"{BASE}/?a={ana['token']}#/metricas"); at.wait_for_timeout(500)
     shot(at, '26_atleta_metricas')
     data = json.loads(at.evaluate("localStorage.getItem('bt:v9:local')"))

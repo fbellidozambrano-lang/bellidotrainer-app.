@@ -60,12 +60,23 @@ await t('programa nuevo, editar y borrar', async () => {
   const d2 = await nube.cargarTodo(); assert.equal(d2.programas.filter((x) => x.asesoradoId === ana.id).length, 2);
   assert.ok(d2.programas.some((x) => x.nombre === 'Plan 3 días glúteo'));
 });
-await t('el asesorado entra con su enlace y guarda (sin sesión de coach)', async () => {
+await t('vencimiento de pago se guarda', async () => {
+  const g = await nube.guardarAsesorado({ ...ana, vence: '2026-11-20' }); assert.equal(g.vence, '2026-11-20'); ana = g;
+});
+await t('el asesorado entra con su enlace, pide código, entrena y se bloquea (sin sesión de coach)', async () => {
+  const c = await nube.nuevoCodigo(ana.id); assert.match(c.codigo, /^\d{6}$/);
+  assert.equal((await nube.codigoActual(ana.id)).id, c.id);
   await nube.auth.salir();
-  const d = await nube.atletaCargar(ana.token); assert.equal(d.asesorado.nombre, 'Ana Chacon'); assert.equal(d.programas.length, 2);
+  let d = await nube.atletaCargar(ana.token); assert.equal(d.asesorado.nombre, 'Ana Chacon'); assert.equal(d.programas.length, 2);
+  assert.equal(d.acceso.abierto, false); assert.equal(d.asesorado.vence, '2026-11-20'); assert.ok(d.programas.every((p) => p.dias.every((x) => !x.ejercicios)));
   assert.ok(d.sesiones.length >= 3); assert.equal(d.sesiones[0].asesoradoId, ana.id);
-  const s = { id: crypto.randomUUID(), asesoradoId: ana.id, programaId: d.programas[0].id, programaNombre: 'x', dia: 'Día 1', fecha: hoy(), minutos: 40, series: [{ ejercicio: 'Hip thrust', grupo: 'Glúteo', serie: 1, peso: 80, reps: 10, rpe: 8 }], notas: {} };
+  assert.equal((await nube.atletaAbrir(ana.token, '9999999')).ok, false);
+  assert.equal((await nube.atletaAbrir(ana.token, c.codigo)).ok, true);
+  d = await nube.atletaCargar(ana.token); assert.equal(d.acceso.abierto, true); assert.ok(d.programas.some((p) => p.dias.some((x) => x.ejercicios?.length)));
+  const s = { id: crypto.randomUUID(), asesoradoId: ana.id, programaId: d.programas[0].id, programaNombre: 'x', dia: 'Día 1', fecha: hoy(), minutos: 40, series: [{ ejercicio: 'Hip thrust', grupo: 'Glúteo', serie: 1, peso: 80, reps: 10, rpe: 8 }], notas: {}, permiso: d.acceso.permiso };
+  await assert.rejects(nube.atletaGuardarSesion(ana.token, { ...s, permiso: null }));
   await nube.atletaGuardarSesion(ana.token, s); await nube.atletaGuardarSesion(ana.token, s);
+  assert.equal((await nube.atletaCargar(ana.token)).acceso.abierto, false);
   assert.equal(await nube.atletaCargar('falso'.repeat(8)), null);
   await nube.auth.entrar('coach@bt.com', 'x');
   const all = await nube.cargarTodo(); assert.equal(all.sesiones.filter((x) => x.origen === 'asesorado').length, 2); // la suelta + esta
@@ -81,7 +92,11 @@ await t('exportar v9 y llevarlo a modo local', async () => {
   const loc = crearStoreLocal(); const f = interpretar(txt, 'x.json'); assert.equal(f.tipo, 'v9');
   await loc.importar(desdeExportV9(f.raw, await loc.cargarTodo())); const dl = await loc.cargarTodo();
   assert.equal(dl.sesiones.length, d.sesiones.length); assert.equal(dl.programas.length, d.programas.length);
-  const at = await loc.atletaCargar(ana.token); assert.equal(at.asesorado.nombre, 'Ana Chacon');
+  const at = await loc.atletaCargar(ana.token); assert.equal(at.asesorado.nombre, 'Ana Chacon'); assert.equal(at.acceso.abierto, false);
+  const c = await loc.nuevoCodigo(ana.id); assert.equal((await loc.atletaAbrir(ana.token, c.codigo)).ok, true);
+  const at2 = await loc.atletaCargar(ana.token); assert.equal(at2.acceso.abierto, true);
+  await loc.atletaGuardarSesion(ana.token, { id: crypto.randomUUID(), fecha: hoy(), dia: 'x', series: [{ ejercicio: 'a', serie: 1, peso: 1, reps: 1 }], permiso: at2.acceso.permiso });
+  assert.equal((await loc.atletaCargar(ana.token)).acceso.abierto, false);
 });
 await t('borrar asesorado', async () => {
   const luis = (await nube.cargarTodo()).asesorados.find((a) => a.nombre === 'Luis Perez'); await nube.borrarAsesorado(luis.id);

@@ -54,6 +54,24 @@ create table if not exists public.sesiones (
 
 alter table public.sesiones alter column coach_id set default auth.uid();
 
+-- Pagos: próxima fecha de vencimiento de la mensualidad
+alter table public.asesorados add column if not exists vence date;
+
+-- Códigos para entrenar: el coach genera uno, el asesorado lo ingresa para
+-- ver su rutina, y al enviar la sesión se gasta.
+create table if not exists public.permisos (
+  id           uuid primary key default gen_random_uuid(),
+  coach_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  asesorado_id uuid not null references public.asesorados(id) on delete cascade,
+  codigo       text not null,
+  creado       timestamptz not null default now(),
+  expira       timestamptz not null default now() + interval '24 hours',  -- para ingresarlo
+  abierto      timestamptz,                                               -- cuando lo ingresó
+  usado        timestamptz,                                               -- cuando envió la sesión
+  intentos     int not null default 0
+);
+create index if not exists permisos_ases_idx on public.permisos (asesorado_id, creado desc);
+
 create index if not exists asesorados_coach_idx  on public.asesorados (coach_id);
 create index if not exists programas_ases_idx    on public.programas  (asesorado_id, orden);
 create index if not exists sesiones_ases_idx     on public.sesiones   (asesorado_id, fecha desc);
@@ -77,8 +95,9 @@ create trigger programas_tocar before update on public.programas
 alter table public.asesorados enable row level security;
 alter table public.programas  enable row level security;
 alter table public.sesiones   enable row level security;
+alter table public.permisos   enable row level security;
 
-revoke all on public.asesorados, public.programas, public.sesiones from anon;
+revoke all on public.asesorados, public.programas, public.sesiones, public.permisos from anon;
 
 drop policy if exists coach_asesorados on public.asesorados;
 create policy coach_asesorados on public.asesorados for all to authenticated
@@ -96,6 +115,31 @@ create policy coach_sesiones on public.sesiones for all to authenticated
   with check (coach_id = auth.uid() and exists (
     select 1 from public.asesorados a where a.id = asesorado_id and a.coach_id = auth.uid()));
 
+drop policy if exists coach_permisos on public.permisos;
+create policy coach_permisos on public.permisos for all to authenticated
+  using (coach_id = auth.uid())
+  with check (coach_id = auth.uid() and exists (
+    select 1 from public.asesorados a where a.id = asesorado_id and a.coach_id = auth.uid()));
+
+-- El coach genera un código nuevo (anula el anterior que no se haya usado)
+create or replace function public.nuevo_codigo(p_asesorado uuid, p_horas int default 24)
+returns jsonb
+language plpgsql volatile security definer set search_path = public as $$
+declare v public.permisos; v_cod text;
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.asesorados where id = p_asesorado and coach_id = auth.uid()) then
+    raise exception 'no autorizado';
+  end if;
+  delete from public.permisos where asesorado_id = p_asesorado and abierto is null;
+  v_cod := lpad(((('x' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))::bit(32)::bigint) % 1000000)::text, 6, '0');
+  insert into public.permisos (coach_id, asesorado_id, codigo, expira)
+  values (auth.uid(), p_asesorado, v_cod,
+          now() + make_interval(hours => greatest(1, least(coalesce(p_horas, 24), 168))))
+  returning * into v;
+  return to_jsonb(v);
+end $$;
+
 -- ---------- acceso del asesorado (sin cuenta, con su enlace personal) --
 -- El enlace lleva un código secreto (token). Estas dos funciones son lo
 -- único que puede usar alguien sin sesión, y solo ven lo de ese token.
@@ -103,18 +147,30 @@ create policy coach_sesiones on public.sesiones for all to authenticated
 create or replace function public.atleta_cargar(p_token text)
 returns jsonb
 language plpgsql stable security definer set search_path = public as $$
-declare a public.asesorados;
+declare a public.asesorados; v public.permisos; libre boolean := false; coach boolean := false;
 begin
   if p_token is null or length(p_token) < 16 then return null; end if;
   select * into a from public.asesorados where token = p_token and not archivado;
   if not found then return null; end if;
+  coach := auth.uid() is not null and a.coach_id = auth.uid();     -- vista previa del coach
+  select * into v from public.permisos
+   where asesorado_id = a.id and abierto is not null and usado is null
+     and abierto > now() - interval '4 hours'
+   order by abierto desc limit 1;
+  libre := found or coach;
   return jsonb_build_object(
     'asesorado', jsonb_build_object('id', a.id, 'nombre', a.nombre,
-                                    'objetivo', a.objetivo, 'nivel', a.nivel),
+                                    'objetivo', a.objetivo, 'nivel', a.nivel, 'vence', a.vence),
+    'acceso', jsonb_build_object('abierto', libre, 'coach', coach, 'permiso', v.id,
+                                 'hasta', v.abierto + interval '4 hours'),
+    -- sin código solo viajan los nombres de programas y días, nunca los ejercicios
     'programas', coalesce((
-      select jsonb_agg(jsonb_build_object('id', p.id, 'nombre', p.nombre, 'nota', p.nota,
-                                          'orden', p.orden, 'dias', p.dias)
-                       order by p.orden, p.creado)
+      select jsonb_agg(jsonb_build_object('id', p.id, 'nombre', p.nombre, 'orden', p.orden,
+               'nota', case when libre then p.nota else '' end,
+               'dias', case when libre then p.dias else coalesce((
+                  select jsonb_agg(jsonb_build_object('id', d ->> 'id', 'nombre', d ->> 'nombre'))
+                  from jsonb_array_elements(p.dias) d), '[]'::jsonb) end)
+               order by p.orden, p.creado)
       from public.programas p where p.asesorado_id = a.id and p.visible), '[]'::jsonb),
     'sesiones', coalesce((
       select jsonb_agg(x order by x.fecha desc, x.creado desc) from (
@@ -125,10 +181,33 @@ begin
   );
 end $$;
 
+-- El asesorado ingresa el código que le dio el coach
+create or replace function public.atleta_abrir(p_token text, p_codigo text)
+returns jsonb
+language plpgsql volatile security definer set search_path = public as $$
+declare a public.asesorados; v public.permisos;
+begin
+  if p_token is null or length(p_token) < 16 then return null; end if;
+  select * into a from public.asesorados where token = p_token and not archivado;
+  if not found then return null; end if;
+  select * into v from public.permisos
+   where asesorado_id = a.id and abierto is null and usado is null and expira > now()
+   order by creado desc limit 1;
+  if not found then return jsonb_build_object('ok', false, 'motivo', 'sin_codigo'); end if;
+  if v.codigo <> regexp_replace(coalesce(p_codigo, ''), '[^0-9]', '', 'g') then
+    update public.permisos set intentos = intentos + 1,
+           expira = case when intentos + 1 >= 5 then now() else expira end
+     where id = v.id;
+    return jsonb_build_object('ok', false, 'motivo', case when v.intentos + 1 >= 5 then 'agotado' else 'incorrecto' end);
+  end if;
+  update public.permisos set abierto = now() where id = v.id;
+  return jsonb_build_object('ok', true);
+end $$;
+
 create or replace function public.atleta_guardar_sesion(p_token text, p_sesion jsonb)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare a public.asesorados; v_id uuid; v_fecha date;
+declare a public.asesorados; v_id uuid; v_fecha date; v_perm uuid;
 begin
   if p_token is null or length(p_token) < 16 then raise exception 'enlace no valido'; end if;
   select * into a from public.asesorados where token = p_token and not archivado;
@@ -143,6 +222,16 @@ begin
   if v_fecha > current_date + 2 or v_fecha < current_date - 400 then
     raise exception 'fecha fuera de rango';
   end if;
+  -- reenviar la misma sesión no la duplica ni pide código otra vez
+  if exists (select 1 from public.sesiones where id = v_id) then
+    return jsonb_build_object('ok', true, 'id', v_id);
+  end if;
+  -- toda sesión gasta el código con que se abrió la rutina (hasta 3 días, por si no había señal)
+  v_perm := nullif(p_sesion ->> 'permiso', '')::uuid;
+  update public.permisos set usado = now()
+   where id = v_perm and asesorado_id = a.id and abierto is not null and usado is null
+     and abierto > now() - interval '3 days';
+  if not found then raise exception 'sesion sin codigo'; end if;
   insert into public.sesiones (id, coach_id, asesorado_id, programa_id, programa_nombre,
                                dia, fecha, minutos, series, notas, origen)
   values (v_id, a.coach_id, a.id,
@@ -155,7 +244,7 @@ begin
           case when jsonb_typeof(p_sesion -> 'notas') = 'object'
                then p_sesion -> 'notas' else '{}'::jsonb end,
           'asesorado')
-  on conflict (id) do nothing;            -- reenviar la misma sesión no la duplica
+  on conflict (id) do nothing;
   return jsonb_build_object('ok', true, 'id', v_id);
 end $$;
 
@@ -163,3 +252,7 @@ revoke all on function public.atleta_cargar(text) from public;
 revoke all on function public.atleta_guardar_sesion(text, jsonb) from public;
 grant execute on function public.atleta_cargar(text) to anon, authenticated;
 grant execute on function public.atleta_guardar_sesion(text, jsonb) to anon, authenticated;
+revoke all on function public.atleta_abrir(text, text) from public;
+grant execute on function public.atleta_abrir(text, text) to anon, authenticated;
+revoke all on function public.nuevo_codigo(uuid, int) from public;
+grant execute on function public.nuevo_codigo(uuid, int) to authenticated;

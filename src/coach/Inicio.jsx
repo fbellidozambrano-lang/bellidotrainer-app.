@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Ico, Placa, Semana, ir, Hoja, Campo, useAviso } from '../ui/kit.jsx';
-import { haceCuanto, saludo, sesionesSemana, diasEntre, hoy, primerNombre, fCorta } from '../lib/util.js';
+import { haceCuanto, saludo, sesionesSemana, diasEntre, hoy, primerNombre, fCorta, fLarga, diasParaVencer, textoVence, sumarMes, abrirWa } from '../lib/util.js';
 import { NIVELES, OBJETIVOS } from '../data/constants.js';
 import marca from '../assets/marca.png';
 
@@ -16,8 +16,31 @@ export function FichaAsesorado({ inicial, onGuardar, onCerrar }) {
       <Campo l="Nivel"><div className="seg">{NIVELES.map((o) => <button type="button" key={o} className={f.nivel === o ? 'on' : ''} onClick={() => setF({ ...f, nivel: o })}>{o}</button>)}</div></Campo>
       <div className="dos"><Campo l="Edad"><input className="in" inputMode="numeric" value={f.datos.edad || ''} onChange={(e) => d('edad', e.target.value)} /></Campo>
         <Campo l="Peso (kg)"><input className="in" inputMode="decimal" value={f.datos.peso || ''} onChange={(e) => d('peso', e.target.value)} /></Campo></div>
+      <div className="dos"><Campo l="WhatsApp"><input className="in" inputMode="tel" value={f.datos.tel || ''} onChange={(e) => d('tel', e.target.value)} placeholder="0412 1234567" /></Campo>
+        <Campo l="Vence la mensualidad"><input className="in" type="date" value={f.vence || ''} onChange={(e) => setF({ ...f, vence: e.target.value || null })} /></Campo></div>
       <Campo l="Notas (solo tú las ves)"><textarea className="in" rows={3} value={f.notas} onChange={(e) => setF({ ...f, notas: e.target.value })} placeholder="Lesiones, horarios, preferencias…" /></Campo>
     </Hoja>
+  );
+}
+
+export const recordatorioPago = (a) => {
+  const n = diasParaVencer(a.vence); const nom = primerNombre(a.nombre);
+  return n < 0 ? `Hola ${nom}, tu mensualidad de la asesoría venció el ${fLarga(a.vence)}. Cuando hagas el pago me avisas para seguir con tu plan.`
+    : `Hola ${nom}, te recuerdo que tu mensualidad de la asesoría ${n === 0 ? 'vence hoy' : n === 1 ? 'vence mañana' : `vence el ${fLarga(a.vence)}`}. Cuando hagas el pago me avisas para seguir con tu plan.`;
+};
+
+// Fila de cobro: estado, recordatorio por WhatsApp y "Pagó" (corre un mes)
+export function Cobro({ a, acc, conFecha }) {
+  const avisar = useAviso(); const n = diasParaVencer(a.vence);
+  return (
+    <div className="item cobro">
+      <div className="item-t"><strong>{a.nombre}</strong><span className={n != null && n <= 0 ? 'alerta' : n != null && n <= 3 ? 'oro-t' : ''}>{textoVence(a.vence)}{a.vence && n <= 7 ? ` · ${fCorta(a.vence)}` : ''}</span>
+        {conFecha && <input className="in fecha" type="date" aria-label={`Vencimiento de ${a.nombre}`} value={a.vence || ''} onChange={(e) => acc.guardarAsesorado({ ...a, vence: e.target.value || null })} />}</div>
+      <div className="cobro-b">
+        {a.vence && n <= 3 && <button className="ico-b wa-c" aria-label="Recordar por WhatsApp" onClick={() => abrirWa(a.datos?.tel, recordatorioPago(a))}><Ico n="wa" s={20} /></button>}
+        <button className="btn chico" onClick={async () => { const v = sumarMes(a.vence && n > -20 ? a.vence : hoy()); await acc.guardarAsesorado({ ...a, vence: v }); avisar(`${primerNombre(a.nombre)}: pagado hasta el ${fCorta(v)}`); }}>Pagó</button>
+      </div>
+    </div>
   );
 }
 
@@ -32,6 +55,7 @@ export default function Inicio({ datos, acc, store, usuario }) {
   const recientes = [...datos.sesiones].filter((s) => s.origen === 'asesorado' && diasEntre(s.fecha, hoy()) <= 4).sort((a, b) => String(b.creado || b.fecha).localeCompare(String(a.creado || a.fecha))).slice(0, 8);
   const lista = activos.filter((a) => !q || a.nombre.toLowerCase().includes(q.toLowerCase())).sort((a, b) => (ultima[b.id] || '').localeCompare(ultima[a.id] || '') || a.nombre.localeCompare(b.nombre));
   const nombreCoach = primerNombre(usuario?.user_metadata?.nombre || '') || 'coach';
+  const cobros = activos.filter((a) => a.vence && diasParaVencer(a.vence) <= 3).sort((x, y) => x.vence.localeCompare(y.vence));
 
   return (
     <div className="pantalla">
@@ -49,6 +73,11 @@ export default function Inicio({ datos, acc, store, usuario }) {
         <div><b className="num" style={{ color: inactivos ? '#FF9E4D' : undefined }}>{inactivos}</b><span>más de 7 días sin entrenar</span></div>
       </div>
       {store.modo === 'local' && <button className="aviso" style={{ width: '100%', textAlign: 'left' }} onClick={() => ir('ajustes')}><Ico n="nube" s={20} style={{ flex: 'none', marginTop: 1 }} /><span><b>Modo local.</b> Todo vive en este teléfono y tus asesorados no pueden entrar todavía. Toca para conectar Supabase.</span></button>}
+
+      {cobros.length > 0 && <>
+        <div className="sec"><h2>Pagos por vencer</h2><button onClick={() => ir('ajustes', 'pagos')}>Ver todos</button></div>
+        <div className="lista">{cobros.map((a) => <Cobro key={a.id} a={a} acc={acc} />)}</div>
+      </>}
 
       {recientes.length > 0 && <>
         <div className="sec"><h2>Recién entrenaron</h2></div>

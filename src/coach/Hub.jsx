@@ -1,10 +1,49 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Barra, Ico, ir, Hoja, Confirmar, useAviso, copiarTexto } from '../ui/kit.jsx';
 import { FichaAsesorado } from './Inicio.jsx';
 import { DetalleSesion } from '../shared/Metricas.jsx';
 import { TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.jsx';
-import { haceCuanto, primerNombre, semanasSeguidas, sesionesSemana, tokenNuevo, fLarga, nDias } from '../lib/util.js';
+import { haceCuanto, primerNombre, semanasSeguidas, sesionesSemana, tokenNuevo, fLarga, nDias, abrirWa, textoVence, diasParaVencer, fechaLocal } from '../lib/util.js';
 import { enlaceAtleta } from './CoachApp.jsx';
+
+const hora = (t) => new Date(t).toLocaleTimeString('es-VE', { hour: 'numeric', minute: '2-digit' });
+const H4 = 4 * 36e5;
+export function estadoCodigo(c) {
+  if (!c) return 'ninguno'; const now = Date.now();
+  if (c.usado) return 'usado';
+  if (c.abierto) return now - Date.parse(c.abierto) < H4 ? 'abierto' : 'vencido';
+  return Date.parse(c.expira) > now ? 'pendiente' : 'vencido';
+}
+
+// Código de 6 dígitos que el asesorado necesita para abrir su rutina
+function CodigoSesion({ a, store, sesiones }) {
+  const avisar = useAviso(); const nom = primerNombre(a.nombre);
+  const [c, setC] = useState(undefined); const [ocupado, setOcupado] = useState(false);
+  const traer = useCallback(async () => { try { setC(await store.codigoActual(a.id)); } catch { setC((x) => (x === undefined ? null : x)); } }, [store, a.id]);
+  useEffect(() => { traer(); const f = () => document.visibilityState === 'visible' && traer(); document.addEventListener('visibilitychange', f); const i = setInterval(f, 30000); return () => { document.removeEventListener('visibilitychange', f); clearInterval(i); }; }, [traer, sesiones.length]);
+  const est = estadoCodigo(c);
+  async function generar() { setOcupado(true); try { const n = await store.nuevoCodigo(a.id); setC(n); avisar('Código listo: mándaselo'); } catch (e) { avisar(e.message, 'error'); } setOcupado(false); }
+  const enviar = () => abrirWa(a.datos?.tel, `${nom}, tu código para entrenar hoy es: ${c.codigo}\nÁbrelo en tu app → Rutinas. Sirve para una sesión.`);
+  return (
+    <div className="tarj codigo-c">
+      {est === 'pendiente' ? <>
+        <p className="etq">Código para entrenar</p>
+        <div className="codigo num" aria-label={`Código ${c.codigo}`}>{c.codigo.slice(0, 3)}<i />{c.codigo.slice(3)}</div>
+        <p className="ayuda" style={{ margin: '2px 0 12px' }}>Sin usar · sirve hasta las {hora(c.expira)}{c.intentos ? ` · ${c.intentos} ${c.intentos === 1 ? 'intento fallido' : 'intentos fallidos'}` : ''}</p>
+        <div className="fila-btn"><button className="btn wa" onClick={enviar}><Ico n="wa" s={20} />Enviar</button>
+          <button className="btn" onClick={async () => avisar((await copiarTexto(c.codigo)) ? 'Código copiado' : 'No se pudo copiar')}><Ico n="copiar" s={18} />Copiar</button>
+          <button className="btn" disabled={ocupado} onClick={generar}><Ico n="refrescar" s={18} />Otro</button></div>
+      </> : <div className="codigo-fila">
+        <span className={`codigo-ico ${est === 'abierto' ? 'on' : ''}`}><Ico n={est === 'abierto' ? 'llave' : 'candado'} s={22} /></span>
+        <div className="item-t">
+          <strong>{est === 'abierto' ? 'Entrenando ahora' : 'Rutina bloqueada'}</strong>
+          <span>{est === 'abierto' ? `Abrió su rutina a las ${hora(c.abierto)}. Se bloquea al enviar la sesión.` : est === 'usado' ? `Envió su sesión ${haceCuanto(fechaLocal(new Date(c.usado)))} a las ${hora(c.usado)}.` : `${nom} necesita un código para ver su rutina y entrenar.`}</span>
+        </div>
+        {est !== 'abierto' && <button className="btn oro chico" disabled={ocupado || c === undefined} onClick={generar}>Dar código</button>}
+      </div>}
+    </div>
+  );
+}
 
 export default function Hub({ a, programas, sesiones, acc, store }) {
   const avisar = useAviso(); const nom = primerNombre(a.nombre);
@@ -13,7 +52,7 @@ export default function Hub({ a, programas, sesiones, acc, store }) {
   const ses = [...sesiones].sort((x, y) => (x.fecha < y.fecha ? 1 : -1)); const u = ses[0]?.fecha;
   const semana = new Set(sesionesSemana(ses).map((s) => s.fecha + s.dia)).size;
   const url = enlaceAtleta(a);
-  const mensaje = `Hola ${nom}, este es tu acceso a BELLIDO TRAINER. Ahí tienes tus rutinas y tus métricas, y registras cada entreno. Guárdalo: es tu enlace personal.\n${url}`;
+  const mensaje = `Hola ${nom}, este es tu acceso a BELLIDO TRAINER. Ahí tienes tus rutinas y tus métricas, y registras cada entreno. Cada vez que vayas a entrenar te paso un código para abrir la rutina. Guárdalo: es tu enlace personal.\n${url}`;
   const ps = ordenarProgramas(programas);
 
   return (
@@ -37,6 +76,11 @@ export default function Hub({ a, programas, sesiones, acc, store }) {
         </button>
       </div>
 
+      {a.vence && diasParaVencer(a.vence) <= 3 && <button className="aviso" style={{ width: '100%', textAlign: 'left' }} onClick={() => ir('ajustes', 'pagos')}><Ico n="reloj" s={20} style={{ flex: 'none', marginTop: 1 }} /><span><b>Mensualidad: {textoVence(a.vence)}.</b> Toca para marcar el pago o recordarle.</span></button>}
+
+      <div className="sec"><h2>Entrenar hoy</h2><span>código de un uso</span></div>
+      <CodigoSesion a={a} store={store} sesiones={sesiones} />
+
       <div className="kpis">
         <div className="kpi"><b className="num">{semana}</b><span>entrenos esta semana</span></div>
         <div className="kpi"><b className="num">{semanasSeguidas(ses)}</b><span>semanas seguidas</span></div>
@@ -45,10 +89,10 @@ export default function Hub({ a, programas, sesiones, acc, store }) {
 
       <div className="sec"><h2>Acceso de {nom}</h2><span>{store.modo === 'local' ? 'modo local' : 'enlace fijo'}</span></div>
       <div className="tarj acceso">
-        <p style={{ fontSize: 15 }}>Con este enlace {nom} entra a sus rutinas y métricas, y te llega cada entreno al terminar. Se manda una sola vez.</p>
+        <p style={{ fontSize: 15 }}>Con este enlace {nom} entra a su app. Se manda una sola vez; para entrenar, además, le das un código cada vez.</p>
         <p className="acceso-u">{url}</p>
         <div className="fila-btn">
-          <button className="btn wa" onClick={() => { const w = 'https://wa.me/?text=' + encodeURIComponent(mensaje); if (!window.open(w, '_blank')) location.href = w; }}><Ico n="wa" s={20} />WhatsApp</button>
+          <button className="btn wa" onClick={() => abrirWa(a.datos?.tel, mensaje)}><Ico n="wa" s={20} />WhatsApp</button>
           <button className="btn" onClick={async () => avisar((await copiarTexto(url)) ? 'Enlace copiado' : 'No se pudo copiar: mantén presionado el enlace')}><Ico n="copiar" s={18} />Copiar</button>
           <button className="btn" onClick={() => window.open(url + '&vista=coach', '_blank')}><Ico n="ojo" s={18} />Ver</button>
         </div>

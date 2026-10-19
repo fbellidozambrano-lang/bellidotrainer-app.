@@ -10,6 +10,7 @@ export function fakeSupabase(db) {
       select() { if (st.op !== 'select') st.ret = true; return b; },
       order(c, o = {}) { st.orders.push(`${c} ${o.ascending === false ? 'desc' : 'asc'}`); return b; },
       range(a, z) { st.range = [a, z]; return b; },
+      limit(n) { st.range = [0, n - 1]; return b; },
       eq(c, v) { st.where.push([c, '=', v]); return b; },
       gte(c, v) { st.where.push([c, '>=', v]); return b; },
       upsert(r) { st.op = 'upsert'; st.rows = Array.isArray(r) ? r : [r]; return b; },

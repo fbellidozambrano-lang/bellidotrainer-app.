@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { Barra, Ico, ir, Hoja, Campo, useAviso, leerArchivo, descargar, Interruptor } from '../ui/kit.jsx';
+import { Barra, Ico, ir, useRuta, Hoja, Campo, useAviso, leerArchivo, descargar, Interruptor } from '../ui/kit.jsx';
 import { interpretar, desdeRespaldoViejo, desdeSesionSuelta, desdeExportV9, desdeHevy, exportar } from '../data/legacy.js';
 import { leerConfig, guardarConfigLocal } from '../data/store.js';
-import { fLarga, hoy, primerNombre } from '../lib/util.js';
+import { fLarga, hoy, primerNombre, diasParaVencer } from '../lib/util.js';
+import { Cobro } from './Inicio.jsx';
 
-export const VERSION = 'v9 · octubre 2026';
+export const VERSION = 'v9.1 · octubre 2026';
 
 function Importar({ archivo, datos, acc, usuario, onCerrar }) {
   const avisar = useAviso(); const salt = (usuario?.id || 'local') + ':';
@@ -49,6 +50,10 @@ export default function Ajustes({ store, datos, acc, usuario }) {
   const avisar = useAviso(); const ref = useRef(); const cfg = leerConfig();
   const [archivo, setArchivo] = useState(null); const [url, setUrl] = useState(cfg.url); const [key, setKey] = useState(cfg.key);
   const archivados = datos.asesorados.filter((a) => a.archivado);
+  const pagos = datos.asesorados.filter((a) => !a.archivado).sort((x, y) => (x.vence || '9999').localeCompare(y.vence || '9999') || x.nombre.localeCompare(y.nombre));
+  const porVencer = pagos.filter((a) => a.vence && diasParaVencer(a.vence) <= 3).length;
+  const ruta = useRuta(); const refPagos = useRef();
+  React.useEffect(() => { if (ruta[1] === 'pagos') refPagos.current?.scrollIntoView({ block: 'start' }); }, [ruta]);
   async function elegir(e) {
     const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
     try { const t = await leerArchivo(f); setArchivo(interpretar(t, f.name)); } catch (x) { avisar(x.message, 'error'); }
@@ -69,6 +74,12 @@ export default function Ajustes({ store, datos, acc, usuario }) {
         <button className="btn oro full" disabled={!/^https:\/\/.+\.supabase\.co$/.test(url.trim().replace(/\/+$/, '')) || key.trim().length < 30} onClick={() => { guardarConfigLocal(url.trim(), key.trim()); location.reload(); }}>Conectar</button>
         <p className="ayuda" style={{ margin: '10px 0 0' }}>Antes exporta tu respaldo aquí abajo: al conectar empiezas con la base en línea vacía y lo importas allá.</p>
       </div>}
+
+      <div className="sec" ref={refPagos}><h2>Pagos</h2><span>{porVencer ? `${porVencer} por vencer` : 'al día'}</span></div>
+      <div className="tarj" style={{ paddingBottom: 6 }}>
+        <p style={{ marginBottom: 6 }}>Pon la fecha en que vence la mensualidad de cada uno. Tres días antes te aparece en el inicio con un botón para recordarle por WhatsApp, y a él le sale el aviso en su app. Cuando pague, toca <b>Pagó</b> y la fecha corre un mes.</p>
+        {pagos.length ? <div className="lista">{pagos.map((a) => <Cobro key={a.id} a={a} acc={acc} conFecha />)}</div> : <p className="ayuda">Todavía no tienes asesorados.</p>}
+      </div>
 
       <div className="sec"><h2>Respaldos</h2></div>
       <div className="tarj">

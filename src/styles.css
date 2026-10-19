@@ -339,3 +339,36 @@ select.in{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .marcas th:first-child{text-align:left}
 
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- pagos ---------- */
+.oro-t{color:var(--gold)}
+.cobro{align-items:flex-start}
+.cobro .item-t{min-width:0}
+.cobro-b{display:flex;align-items:center;gap:6px;flex:none;padding-top:2px}
+.wa-c{color:#25D366;background:var(--s2);border:1px solid var(--line2)}
+.in.fecha{height:40px;margin-top:8px;max-width:190px;font-size:15px;color-scheme:dark}
+input[type=date].in{color-scheme:dark}
+
+/* ---------- código para entrenar ---------- */
+.codigo-c{margin-bottom:6px}
+.codigo{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:56px;line-height:1;letter-spacing:6px;color:var(--gold);margin:8px 0 6px;display:flex;align-items:center}
+.codigo i{display:inline-block;width:14px}
+.codigo-fila{display:flex;align-items:center;gap:14px}
+.codigo-fila .item-t{flex:1;min-width:0}
+.codigo-ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--s2);border:1px solid var(--line2);color:var(--mute2);flex:none}
+.codigo-ico.on{background:var(--goldbg);border-color:#4a3a00;color:var(--gold)}
+.candado{display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 4px 10px;gap:0}
+.candado h1{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:34px;line-height:1.05;text-transform:uppercase;margin-top:18px}
+.candado .sub{max-width:360px;margin-bottom:22px}
+.candado-ico{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;background:var(--goldbg);border:1px solid #4a3a00;color:var(--gold)}
+.codigo-in{height:76px;font-size:44px;text-align:center;letter-spacing:12px;font-weight:800;font-family:'Barlow Condensed',sans-serif;margin-bottom:14px;padding-left:24px}
+.codigo-in::placeholder{color:var(--line2);letter-spacing:12px}
+
+/* ---------- protección de la rutina ---------- */
+.marca-agua{position:fixed;inset:0;z-index:60;pointer-events:none;background-repeat:repeat;background-size:340px 200px}
+body.protegido{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.protegido input,body.protegido textarea{-webkit-user-select:text;user-select:text}
+body.protegido img{-webkit-user-drag:none;pointer-events:none}
+body.velado #root{filter:blur(28px) brightness(.35);transition:none}
+@media print{body.protegido{display:none!important}}
+.codigo-fila .item-t span{white-space:normal;overflow:visible;text-overflow:clip}

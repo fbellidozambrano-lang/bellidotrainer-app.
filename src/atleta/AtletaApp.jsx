@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Barra, Ico, ir, useRuta, useAviso } from '../ui/kit.jsx';
 import { TarjetaPrograma, TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.jsx';
 import Metricas from '../shared/Metricas.jsx';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
-import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias } from '../lib/util.js';
+import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias, diasParaVencer, fLarga, fCorta } from '../lib/util.js';
 import logo from '../assets/logo.png';
 import marca from '../assets/marca.png';
 
@@ -11,18 +11,74 @@ const leer = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null')
 const poner = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
+// Sin código: solo quedan nombres de programas y días (lo mismo que manda el servidor)
+const cerrado = (x) => ({ ...x, acceso: { abierto: false }, programas: (x.programas || []).map((p) => ({ ...p, nota: '', dias: (p.dias || []).map((d) => ({ id: d.id, nombre: d.nombre })) })) });
+const vigente = (x) => { const a = x?.acceso; if (!a) return true; return !!a.abierto && (!a.hasta || Date.parse(a.hasta) > Date.now()); };
+const esc = (t) => String(t).replace(/[<>&'"]/g, '');
+
+// Marca de agua con el nombre: cualquier captura o foto lleva quién es
+function MarcaAgua({ nombre }) {
+  const t = esc(`${nombre} · BELLIDO TRAINER · ${fCorta(hoy())}`.toUpperCase());
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='340' height='200'><text x='170' y='110' text-anchor='middle' transform='rotate(-28 170 100)' fill='%23fff' fill-opacity='0.075' font-family='Barlow Condensed,Arial Narrow,sans-serif' font-size='16' font-weight='700' letter-spacing='1.5'>${t}</text></svg>`;
+  return <div className="marca-agua" aria-hidden="true" style={{ backgroundImage: `url("data:image/svg+xml;utf8,${svg.replace(/#/g, '%23')}")` }} />;
+}
+
+// Protección de la rutina: sin copiar, sin menú, se oculta al salir de la app o al imprimir
+function useProteger() {
+  useEffect(() => {
+    const b = document.body; b.classList.add('protegido');
+    const velar = () => b.classList.add('velado'); const quitar = () => b.classList.remove('velado');
+    const vis = () => (document.visibilityState === 'hidden' ? velar() : quitar());
+    const menu = (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName)) e.preventDefault(); };
+    const tecla = (e) => { if (e.key === 'PrintScreen' || ((e.metaKey || e.ctrlKey) && /^[sp]$/i.test(e.key))) { e.preventDefault(); velar(); try { navigator.clipboard?.writeText(''); } catch {} setTimeout(quitar, 1500); } };
+    document.addEventListener('visibilitychange', vis); addEventListener('blur', velar); addEventListener('focus', quitar); addEventListener('pagehide', velar); addEventListener('pageshow', quitar);
+    document.addEventListener('contextmenu', menu); document.addEventListener('copy', menu); addEventListener('keydown', tecla); addEventListener('keyup', tecla);
+    return () => { b.classList.remove('protegido', 'velado'); document.removeEventListener('visibilitychange', vis); removeEventListener('blur', velar); removeEventListener('focus', quitar); removeEventListener('pagehide', velar); removeEventListener('pageshow', quitar);
+      document.removeEventListener('contextmenu', menu); document.removeEventListener('copy', menu); removeEventListener('keydown', tecla); removeEventListener('keyup', tecla); };
+  }, []);
+}
+
+const MOTIVO = {
+  incorrecto: 'Ese código no es. Revisa el número que te mandó tu coach.',
+  agotado: 'Demasiados intentos. Pídele a tu coach un código nuevo.',
+  sin_codigo: 'Ese código ya se usó o venció. Pídele uno nuevo a tu coach.',
+  enlace: 'Este enlace ya no funciona. Pídele el nuevo a tu coach.',
+};
+function Desbloquear({ nom, onAbrir }) {
+  const [c, setC] = useState(''); const [err, setErr] = useState(''); const [ocupado, setOcupado] = useState(false);
+  async function enviar(e) {
+    e?.preventDefault(); if (c.length !== 6 || ocupado) return; setOcupado(true); setErr('');
+    try { const r = await onAbrir(c); if (!r.ok) { setErr(MOTIVO[r.motivo] || 'No se pudo abrir. Intenta de nuevo.'); setC(''); } }
+    catch { setErr('Necesitas señal para ingresar el código. Después puedes entrenar sin conexión.'); }
+    setOcupado(false);
+  }
+  return (
+    <form className="candado" onSubmit={enviar}>
+      <span className="candado-ico"><Ico n="candado" s={30} w={1.6} /></span>
+      <h1>Tu rutina está bloqueada</h1>
+      <p className="sub">{nom}, ingresa el código de 6 números que te manda tu coach para entrenar hoy. Sirve para una sesión: al enviarla se vuelve a bloquear.</p>
+      <input className="in codigo-in num" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={7} placeholder="••••••" aria-label="Código"
+        value={c} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setC(v); setErr(''); }} autoFocus />
+      {err && <p className="aviso rojo" style={{ width: '100%', textAlign: 'left' }}><span>{err}</span></p>}
+      <button className="btn oro xl full" disabled={c.length !== 6 || ocupado}>{ocupado ? 'Abriendo…' : 'Abrir rutina'}</button>
+    </form>
+  );
+}
+
 export default function AtletaApp({ store, token, vista }) {
   const avisar = useAviso(); const ruta = useRuta();
   const kCache = `bt:at:${token}`, kCola = `bt:cola:${token}`;
   const [d, setD] = useState(() => leer(kCache)); const [estado, setEstado] = useState('cargando'); const [cola, setCola] = useState(() => leer(kCola) || []);
+  const bloquearAlSalir = useRef(false);
+  useProteger();
 
   const cargar = useCallback(async () => {
-    try { const r = await store.atletaCargar(token); if (!r) { setEstado('invalido'); return; }
+    try { const r = await store.atletaCargar(token, { coach: vista === 'coach' }); if (!r) { setEstado('invalido'); return; }
       const pend = leer(kCola) || []; const ids = new Set(r.sesiones.map((s) => s.id));
       const x = { ...r, sesiones: [...pend.filter((s) => !ids.has(s.id)).map((s) => ({ ...s, asesoradoId: r.asesorado.id })), ...r.sesiones] };
       setD(x); poner(kCache, x); setEstado('ok');
     } catch { setEstado(leer(kCache) ? 'sinred' : 'error'); }
-  }, [store, token, kCache, kCola]);
+  }, [store, token, kCache, kCola, vista]);
 
   const vaciarCola = useCallback(async () => {
     const pend = leer(kCola) || []; if (!pend.length) return; const quedan = [];
@@ -33,14 +89,23 @@ export default function AtletaApp({ store, token, vista }) {
 
   useEffect(() => { vaciarCola().then(cargar); const f = () => { if (document.visibilityState === 'visible') { vaciarCola(); } }; addEventListener('online', f); document.addEventListener('visibilitychange', f); return () => { removeEventListener('online', f); document.removeEventListener('visibilitychange', f); }; }, [cargar, vaciarCola]);
 
-  async function guardar(s) {
+  async function guardar(s0) {
     if (vista === 'coach') { avisar('Vista previa: esta sesión no se guarda'); return {}; }
-    const ses = { ...s, asesoradoId: d.asesorado.id, origen: 'asesorado', creado: new Date().toISOString() };
+    const s = { ...s0, permiso: d.acceso?.permiso || null };
+    const ses = { ...s0, asesoradoId: d.asesorado.id, origen: 'asesorado', creado: new Date().toISOString() };
     let pendiente = false;
     try { await store.atletaGuardarSesion(token, s); }
     catch { const c = [...(leer(kCola) || []), s]; poner(kCola, c); setCola(c); pendiente = true; }
-    setD((x) => { const n = { ...x, sesiones: [ses, ...x.sesiones] }; poner(kCache, n); return n; });
+    // enviada: la rutina queda bloqueada (al tocar "Listo", para no tapar el resumen)
+    bloquearAlSalir.current = true;
+    setD((x) => { const n = { ...x, sesiones: [ses, ...x.sesiones] }; poner(kCache, cerrado(n)); return n; });
     return { pendiente };
+  }
+  const salirEntreno = (p) => { if (bloquearAlSalir.current) { bloquearAlSalir.current = false; setD((x) => cerrado(x)); ir(); } else ir('p', p.id); };
+  async function abrir(codigo) {
+    const r = await store.atletaAbrir(token, codigo);
+    if (r?.ok) { await cargar(); avisar('Rutina abierta. ¡A entrenar!'); }
+    return r || { ok: false, motivo: 'enlace' };
   }
 
   if (!d) {
@@ -53,39 +118,44 @@ export default function AtletaApp({ store, token, vista }) {
   if (estado === 'invalido') return <div className="fin"><img src={logo} alt="" style={{ width: 170 }} /><h1 style={{ fontSize: 34 }}>Este enlace ya no funciona</h1><p className="frase">Pídele a tu coach tu enlace actualizado.</p></div>;
 
   const nom = primerNombre(d.asesorado.nombre); const ps = ordenarProgramas(d.programas); const ses = d.sesiones;
-  const [r0, r1, r2] = ruta;
+  const [r0, r1, r2] = ruta; const libre = vigente(d);
   const pie = estado === 'sinred' ? <p className="pill" style={{ marginTop: 10 }}>Sin conexión · mostrando lo último guardado</p> : null;
+  const agua = <MarcaAgua nombre={d.asesorado.nombre} />;
+  const bloqueo = <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} /><Desbloquear nom={nom} onAbrir={abrir} />{pie}</div>;
 
   if (r0 === 'e') {
     const p = ps.find((x) => x.id === r1); const dia = p?.dias.find((x) => x.id === r2);
+    if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => ir('p', p.id)} />;
+    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} />{agua}</>;
   }
+  if ((r0 === 'p' || r0 === 'rutinas') && !libre) return bloqueo;
   if (r0 === 'p') {
     const p = ps.find((x) => x.id === r1); if (!p) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <div className="pantalla"><Barra volver={{ fn: () => ir('rutinas'), texto: 'Rutinas' }} titulo="" borde={false} />
+    return <div className="pantalla">{agua}<Barra volver={{ fn: () => ir('rutinas'), texto: 'Rutinas' }} titulo="" borde={false} />
       <section className="frec"><b className="num">{nDias(p)}</b><div><h1>{p.nombre}</h1><p className="etq">{nDias(p) === 1 ? 'día' : 'días'} por semana</p></div></section>
       {p.nota && <p className="nota-coach" style={{ marginTop: 14 }}><small>De tu coach</small>{p.nota}</p>}
       <div className="sec"><h2>¿Qué toca hoy?</h2><span>elige el día</span></div>
       {p.dias.map((x, i) => <TarjetaDia key={x.id} d={x} i={i} sesiones={ses} programaId={p.id} onClick={() => ir('e', p.id, x.id)} />)}{pie}</div>;
   }
-  if (r0 === 'rutinas') return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} />
+  if (r0 === 'rutinas') return <div className="pantalla">{agua}<Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} />
     <section style={{ padding: '4px 0 18px' }}><h1 className="gigante">Rutinas</h1><p className="sub">Elige el programa según los días que puedes entrenar esta semana.</p></section>
     {ps.length ? ps.map((p) => <TarjetaPrograma key={p.id} p={p} sesiones={ses} onClick={() => ir('p', p.id)} />) : <div className="vacio"><b>Tu coach está armando tus rutinas</b>Vuelve a abrir tu enlace en un rato.</div>}{pie}</div>;
   if (r0 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="Mis métricas" /><Metricas sesiones={ses} programas={ps} />{pie}</div>;
 
   // inicio
   const l = aFecha(lunesDe(hoy())); const sem = DIAS.map((x, i) => { const f = new Date(l); f.setDate(f.getDate() + i); const fs = fechaLocal(f); return { x, on: ses.some((s) => s.fecha === fs), hoy: fs === hoy() }; });
-  const u = ses[0]; const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone;
+  const u = ses[0]; const nv = diasParaVencer(d.asesorado.vence); const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone;
   return (
     <div className="pantalla">
       <header className="barra" style={{ background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none', position: 'relative' }}><img src={marca} className="marca-top" alt="BT" /><div className="barra-t" />{vista === 'coach' && <span className="pill oro">Vista previa</span>}</header>
       <section className="at-hero"><p className="etq">{saludo()}</p><h1 className="gigante" style={{ marginTop: 4 }}>{nom}</h1>
         <p className="sub">{d.asesorado.objetivo ? `${d.asesorado.objetivo} · ` : ''}Programa de Bellido Trainer</p></section>
       <div className="dias-sem" aria-label="Tu semana">{sem.map((s, i) => <div key={i}><i className={`${s.on ? 'on' : ''} ${s.hoy ? 'hoy' : ''}`} /><span>{s.x}</span></div>)}</div>
+      {nv != null && nv <= 3 && <p className={`aviso ${nv < 0 ? 'rojo' : ''}`}><Ico n="reloj" s={20} /><span>{nv < 0 ? <>Tu mensualidad <b>venció el {fLarga(d.asesorado.vence)}</b>. Habla con tu coach para seguir con tu plan.</> : <>Tu mensualidad <b>{nv === 0 ? 'vence hoy' : nv === 1 ? 'vence mañana' : `vence el ${fLarga(d.asesorado.vence)}`}</b>. Recuerda renovarla para seguir sin pausa.</>}</span></p>}
       {cola.length > 0 && <p className="aviso"><Ico n="nube" s={20} /><span>{cola.length === 1 ? 'Tienes 1 entreno' : `Tienes ${cola.length} entrenos`} esperando señal. <b>Se envían solos</b> cuando vuelvas a tener conexión.</span></p>}
       <div className="mosaico">
-        <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n="pesa" /></span><div><h3>Rutinas</h3><p>{ps.length ? `Programas de ${frecuencias(ps)}` : 'En preparación'}</p></div></button>
+        <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n={libre ? 'pesa' : 'candado'} /></span><div><h3>Rutinas</h3><p>{!ps.length ? 'En preparación' : libre ? `Programas de ${frecuencias(ps)}` : 'Ingresa tu código para entrenar'}</p></div></button>
         <button className="losa" onClick={() => ir('metricas')}><span className="losa-ico"><Ico n="grafica" /></span><div><h3>Métricas</h3><p>{ses.length ? `${semanasSeguidas(ses)} ${semanasSeguidas(ses) === 1 ? 'semana' : 'semanas'} seguidas` : 'Tu progreso'}</p></div></button>
       </div>
       {u && <><div className="sec"><h2>Último entreno</h2></div><button className="item" style={{ borderTop: '1px solid var(--line)' }} onClick={() => ir('metricas')}><div className="item-t"><strong>{u.dia}</strong><span>{haceCuanto(u.fecha)} · {(u.series || []).length} series</span></div><Ico n="chev" className="chev" s={18} /></button></>}

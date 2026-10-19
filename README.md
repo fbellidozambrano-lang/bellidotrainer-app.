@@ -15,6 +15,8 @@ App web para armar programas de entrenamiento, que cada asesorado entrene con su
 3. **Authentication → Sign In / Providers → Email**: apaga **Confirm email** (así entras sin esperar un correo).
 4. **Project Settings → API**: copia la **Project URL** y la clave **anon public**. Las usas en el paso 2.
 
+> **Cuando una actualización cambie la base de datos** (te lo avisan en el cambio): vuelve a correr el `schema.sql` completo igual que aquí. Se puede correr las veces que quieras sin perder datos.
+
 ### 2. Vercel: la publicación
 1. Entra a [vercel.com](https://vercel.com) con tu cuenta de GitHub → **Add New → Project** → importa este repositorio.
 2. Vercel detecta que es Vite. Antes de **Deploy**, abre **Environment Variables** y agrega:
@@ -40,6 +42,9 @@ Equipo → el asesorado → **Acceso → WhatsApp**. Ese enlace es fijo: con él
 ---
 
 ## Para el día a día
+- **Código para entrenar:** el asesorado ve sus rutinas solo con un código de 6 números. Equipo → el asesorado → **Entrenar hoy → Dar código → Enviar** (WhatsApp). El código sirve 24 h para ingresarlo; ya ingresado, la rutina queda abierta 4 h o hasta que envíe la sesión, y ahí se vuelve a bloquear. 5 intentos fallidos lo anulan. El bloqueo lo hace la base de datos: sin código no viajan los ejercicios al teléfono.
+- **Pagos:** Ajustes → **Pagos**: la fecha de vencimiento de cada uno. Tres días antes aparece en tu inicio (con botón de recordatorio por WhatsApp) y al asesorado le sale el aviso. **Pagó** corre la fecha un mes. Pon el WhatsApp en su ficha para que el mensaje le llegue directo.
+- **Protección:** en la rutina del asesorado hay marca de agua con su nombre y la fecha, no se puede copiar el texto y la pantalla se oculta al salir de la app. Un navegador no puede impedir una captura de pantalla en iPhone o Android: la marca de agua hace que cualquier captura diga de quién salió.
 - **Programas por frecuencia:** Rutinas → Nuevo programa → elige 2, 3, 4, 5 o 6 días (en blanco, desde plantilla o copiando otro programa).
 - **Copiar y pegar ejercicios:** en un día, **Seleccionar** → marca ejercicios → **Copiar**; ve al asesorado y día que quieras → **Pegar aquí**. O usa **Traer de otro asesorado** y elige día completo o ejercicios sueltos. Solo viajan los ejercicios, nunca el historial.
 - **Carga sugerida y nota:** en cada ejercicio. El asesorado las ve resaltadas y la tabla arranca con esa carga.
