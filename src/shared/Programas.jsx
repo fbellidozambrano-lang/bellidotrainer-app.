@@ -1,5 +1,6 @@
 import React from 'react';
 import { Ico, Semana } from '../ui/kit.jsx';
+import { mismoNombre } from '../lib/nombres.js';
 import { haceCuanto, nDias, totalEjercicios, colorGrupo } from '../lib/util.js';
 
 export const ultimaDe = (sesiones, p) => sesiones.filter((s) => s.programaId === p.id).map((s) => s.fecha).sort().pop();
@@ -26,7 +27,7 @@ export const frecuencias = (ps) => { const f = [...new Set(ps.map(nDias).filter(
 
 // Tarjeta de un día de entrenamiento
 export function TarjetaDia({ d, i, sesiones = [], programaId, onClick }) {
-  const u = sesiones.filter((s) => s.programaId === programaId && s.dia === d.nombre).map((s) => s.fecha).sort().pop();
+  const u = sesiones.filter((s) => s.programaId === programaId && mismoNombre(s.dia, d.nombre)).map((s) => s.fecha).sort().pop();
   const grupos = [...new Set((d.ejercicios || []).map((e) => e.grupo))];
   return (
     <button className={`dia-card ${u ? 'hecho' : ''}`} onClick={onClick}>

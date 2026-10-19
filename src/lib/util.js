@@ -1,3 +1,4 @@
+import { claveEj, mismoEj } from './nombres.js';
 import { COLOR_GRUPO } from '../data/constants.js';
 
 // ---------- números y fechas ----------
@@ -49,18 +50,22 @@ export function normEj(e = {}) {
     series: n(e.series, 3, 1, 12), repMin: n(e.repMin, 8, 1, 100), repMax: Math.max(n(e.repMin, 8, 1, 100), n(e.repMax, 12, 1, 100)),
     segundos: n(e.segundos, 40, 5, 3600), descanso: e.descanso === '' || e.descanso == null ? 90 : Math.max(0, Math.round(nSeg(e.descanso))),
     rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), nota: String(e.nota || ''), video: String(e.video || ''),
+    ...(e.bibId ? { bibId: e.bibId } : {}),
   };
 }
 export const copiaEj = (e) => normEj({ ...e, id: uuid() });
 export const resumenEj = (e) => `${e.series} × ${esTiempo(e) ? `${e.segundos} s` : `${e.repMin}–${e.repMax}`}`;
 
 // ---------- historial ----------
-export const seriesDe = (s, ej) => (s.series || []).filter((x) => x.ejercicio === ej).sort((a, b) => (a.serie || 0) - (b.serie || 0));
+// El mismo ejercicio escrito distinto o corregido ("Extencion de cuadriceps" → "Extensión de cuádriceps")
+// sigue siendo el mismo para el historial.
+export const seriesDe = (s, ej) => (s.series || []).filter((x) => mismoEj(x.ejercicio, ej)).sort((a, b) => (a.serie || 0) - (b.serie || 0));
+const notaDe = (s, ej) => { const n = s.notas || {}; if (n[ej]) return n[ej]; const k = Object.keys(n).find((x) => mismoEj(x, ej)); return k ? n[k] : ''; };
 export function seriesPrevias(sesiones, ej, antesDe) {
-  const s = sesiones.filter((x) => (!antesDe || x.fecha <= antesDe) && (x.series || []).some((y) => y.ejercicio === ej))
+  const s = sesiones.filter((x) => (!antesDe || x.fecha <= antesDe) && (x.series || []).some((y) => mismoEj(y.ejercicio, ej)))
     .sort((a, b) => (a.fecha === b.fecha ? String(b.creado || '').localeCompare(String(a.creado || '')) : a.fecha < b.fecha ? 1 : -1))[0];
   if (!s) return null;
-  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null })), nota: (s.notas || {})[ej] || '' };
+  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null })), nota: notaDe(s, ej) };
 }
 export function records(sesiones, ej) {
   let maxPeso = 0, maxE1 = 0, maxVol = 0, maxSeg = 0;
@@ -92,7 +97,12 @@ export function seriesPorGrupo(sesiones, semanas = 8) {
   }
   return out;
 }
-export const ejerciciosDe = (sesiones) => { const m = new Map(); sesiones.forEach((s) => (s.series || []).forEach((x) => m.set(x.ejercicio, (m.get(x.ejercicio) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]); };
+// un nombre por ejercicio (el más reciente), aunque se haya escrito de varias formas
+export const ejerciciosDe = (sesiones) => {
+  const m = new Map();
+  [...sesiones].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)).forEach((s) => (s.series || []).forEach((x) => { const k = claveEj(x.ejercicio) || x.ejercicio; const v = m.get(k) || { n: 0 }; m.set(k, { nombre: x.ejercicio, n: v.n + 1 }); }));
+  return [...m.values()].sort((a, b) => b.n - a.n).map((x) => x.nombre);
+};
 
 // ---------- programas ----------
 export const nDias = (p) => (p?.dias || []).length;

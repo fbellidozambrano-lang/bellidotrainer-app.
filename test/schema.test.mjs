@@ -113,6 +113,16 @@ await t('archivado corta el acceso; nuevo token invalida el viejo', async () => 
   const r = await como(db, null, (tx) => tx.query(`select atleta_cargar($1) as d`, [token]));
   assert.equal(r.rows[0].d, null);
 });
+await t('biblioteca y plantillas: cada coach ve solo las suyas, anónimo nada', async () => {
+  await como(db, A, (tx) => tx.query(`insert into biblioteca (nombre, grupo, video, alias) values ('Extensión de cuádriceps','Cuádriceps','https://youtu.be/abc123xyz','["extensiones de cuadriceps"]')`));
+  await como(db, A, (tx) => tx.query(`insert into plantillas (nombre, dias) values ('Pierna 3 días','[]')`));
+  assert.equal((await como(db, A, (tx) => tx.query(`select * from biblioteca`))).rows.length, 1);
+  assert.equal((await como(db, B, (tx) => tx.query(`select * from biblioteca`))).rows.length, 0);
+  assert.equal((await como(db, B, (tx) => tx.query(`select * from plantillas`))).rows.length, 0);
+  await falla(como(db, B, (tx) => tx.query(`insert into biblioteca (coach_id, nombre) values ($1,'x')`, [A])));
+  await falla(como(db, null, (tx) => tx.query(`select * from biblioteca`)));
+  await falla(como(db, null, (tx) => tx.query(`select * from plantillas`)));
+});
 await t('borrar asesorado borra en cascada', async () => {
   await como(db, A, (tx) => tx.query(`delete from asesorados where id=$1`, [ana.id]));
   const r = await db.query(`select (select count(*) from programas) p, (select count(*) from sesiones) s`);

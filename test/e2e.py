@@ -78,6 +78,49 @@ with sync_playwright() as p:
     pg.goto(BASE + '/#/'); pg.wait_for_timeout(300); pg.get_by_text('Ana Chacon').first.click()
     pg.locator('.losa', has_text='Métricas').click(); pg.wait_for_timeout(400)
     shot(pg, '13_metricas'); shot(pg, '13_metricas_full', True)
+    # biblioteca: crear desde lo existente
+    pg.goto(BASE + '/#/'); pg.wait_for_timeout(300)
+    shot(pg, '30_inicio_tiles')
+    pg.locator('.losa', has_text='Biblioteca').click(); pg.wait_for_timeout(400)
+    shot(pg, '31_bib_vacia')
+    pg.get_by_role('button', name='Crear biblioteca').click(); pg.wait_for_timeout(800)
+    shot(pg, '32_bib'); shot(pg, '32_bib_full', True)
+    nb = len(json.loads(pg.evaluate("localStorage.getItem('bt:v9:local')"))['biblioteca'])
+    assert nb > 10, f'biblioteca con pocos ejercicios: {nb}'
+    pg.locator('.ej').first.click(); pg.wait_for_timeout(300)
+    pg.locator('.hoja input[inputmode=url]').fill('https://youtu.be/dQw4w9WgXcQ')
+    shot(pg, '33_bib_item', True)
+    pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(500)
+    # plantillas precargadas desde los asesorados
+    pg.goto(BASE + '/#/plantillas'); pg.wait_for_timeout(400)
+    shot(pg, '34_plantillas')
+    btn = pg.locator('.tarj.destacado .btn.oro')
+    assert btn.count() == 1, 'debía ofrecer precargar plantillas'
+    btn.click(); pg.wait_for_timeout(600)
+    d = json.loads(pg.evaluate("localStorage.getItem('bt:v9:local')"))
+    firmas = [json.dumps([[e['ejercicio'].lower() for e in dd['ejercicios']] for dd in t['dias']]) for t in d['plantillas']]
+    assert len(firmas) == len(set(firmas)), 'plantillas repetidas'
+    print('plantillas:', [t['nombre'] for t in d['plantillas']], 'biblioteca:', len(d['biblioteca']))
+    shot(pg, '35_plantillas_creadas')
+    assert pg.locator('.tarj.destacado').count() == 0, 'no debía volver a ofrecer las mismas'
+    # nueva plantilla eligiendo de la biblioteca
+    pg.get_by_role('button', name='Nueva plantilla').click(); pg.locator('.hoja .chip', has_text='2').first.click()
+    pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(500)
+    pg.get_by_role('button', name='Agregar de la biblioteca').click(); pg.wait_for_timeout(300)
+    pg.locator('.hoja .buscar input').fill('sentadilla'); pg.wait_for_timeout(200)
+    shot(pg, '36_selector')
+    pg.locator('.hoja .ej').first.click()
+    pg.locator('.hoja .buscar input').fill('')
+    pg.locator('.hoja .ej', has_text='Hip thrust').first.click(); pg.wait_for_timeout(100)
+    shot(pg, '36b_selector_2')
+    pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(900)
+    assert pg.locator('.ej').count() == 2, 'la plantilla debía tener 2 ejercicios'
+    shot(pg, '37_editor_plantilla')
+    pg.get_by_role('button', name='Asignar a asesorados').click(); pg.wait_for_timeout(200)
+    pg.locator('.hoja .item', has_text='Luis Perez').click()
+    shot(pg, '38_asignar')
+    pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(700)
+    shot(pg, '39_luis_rutinas')
     # enlace del asesorado
     data = json.loads(pg.evaluate("localStorage.getItem('bt:v9:local')"))
     ana = [a for a in data['asesorados'] if a['nombre'] == 'Ana Chacon'][0]

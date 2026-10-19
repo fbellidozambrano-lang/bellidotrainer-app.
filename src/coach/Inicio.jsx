@@ -72,6 +72,10 @@ export default function Inicio({ datos, acc, store, usuario }) {
         <div><b className="num">{entrenaron}</b><span>entrenaron esta semana</span></div>
         <div><b className="num" style={{ color: inactivos ? '#FF9E4D' : undefined }}>{inactivos}</b><span>más de 7 días sin entrenar</span></div>
       </div>
+      <div className="mosaico chico">
+        <button className="losa" onClick={() => ir('biblioteca')}><span className="losa-ico"><Ico n="libro" /></span><div><h3>Biblioteca</h3><p>{datos.biblioteca.length > 1 ? `${datos.biblioteca.length} ejercicios` : 'Ármala con tus ejercicios'}</p></div></button>
+        <button className="losa" onClick={() => ir('plantillas')}><span className="losa-ico"><Ico n="plantilla" /></span><div><h3>Plantillas</h3><p>{datos.plantillas.length ? `${datos.plantillas.length} ${datos.plantillas.length === 1 ? 'rutina' : 'rutinas'}` : 'Rutinas para asignar'}</p></div></button>
+      </div>
       {store.modo === 'local' && <button className="aviso" style={{ width: '100%', textAlign: 'left' }} onClick={() => ir('ajustes')}><Ico n="nube" s={20} style={{ flex: 'none', marginTop: 1 }} /><span><b>Modo local.</b> Todo vive en este teléfono y tus asesorados no pueden entrar todavía. Toca para conectar Supabase.</span></button>}
 
       {cobros.length > 0 && <>

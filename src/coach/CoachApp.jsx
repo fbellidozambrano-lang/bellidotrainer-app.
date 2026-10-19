@@ -7,6 +7,8 @@ import Hub from './Hub.jsx';
 import Rutinas from './Rutinas.jsx';
 import Editor from './Editor.jsx';
 import Ajustes from './Ajustes.jsx';
+import Biblioteca from './Biblioteca.jsx';
+import { Plantillas, EditorPlantilla } from './Plantillas.jsx';
 import Metricas from '../shared/Metricas.jsx';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
 import { Barra } from '../ui/kit.jsx';
@@ -51,9 +53,15 @@ export default function CoachApp({ store }) {
         const nuevo = { datos: {}, objetivo: '', nivel: '', notas: '', ...a, id: a.id || uuid(), token: a.token || tokenNuevo() };
         try { const g = await store.guardarAsesorado(nuevo); setDatos((d) => ({ ...d, asesorados: d.asesorados.some((x) => x.id === g.id) ? d.asesorados.map((x) => (x.id === g.id ? g : x)) : [...d.asesorados, g] })); return g; } catch (e) { falla(e); }
       },
-      async borrarAsesorado(id) { try { await store.borrarAsesorado(id); setDatos((d) => ({ asesorados: d.asesorados.filter((x) => x.id !== id), programas: d.programas.filter((x) => x.asesoradoId !== id), sesiones: d.sesiones.filter((x) => x.asesoradoId !== id) })); } catch (e) { falla(e); } },
+      async borrarAsesorado(id) { try { await store.borrarAsesorado(id); setDatos((d) => ({ ...d, asesorados: d.asesorados.filter((x) => x.id !== id), programas: d.programas.filter((x) => x.asesoradoId !== id), sesiones: d.sesiones.filter((x) => x.asesoradoId !== id) })); } catch (e) { falla(e); } },
       ponerPrograma(p) { setDatos((d) => ({ ...d, programas: d.programas.some((x) => x.id === p.id) ? d.programas.map((x) => (x.id === p.id ? p : x)) : [...d.programas, p] })); },
       async guardarPrograma(p) { acc.ponerPrograma(p); try { await store.guardarPrograma(p); } catch (e) { falla(e); } },
+      async guardarProgramas(ps) { if (!ps.length) return; setDatos((d) => { const m = new Map(ps.map((p) => [p.id, p])); return { ...d, programas: d.programas.map((x) => m.get(x.id) || x) }; }); try { await store.guardarProgramas(ps); } catch (e) { falla(e); } },
+      async guardarEjercicios(bs) { if (!bs.length) return; setDatos((d) => { const m = new Map(bs.map((b) => [b.id, b])); const ya = new Set(d.biblioteca.map((x) => x.id)); return { ...d, biblioteca: [...d.biblioteca.map((x) => m.get(x.id) || x), ...bs.filter((b) => !ya.has(b.id))] }; }); try { await store.guardarEjercicios(bs); } catch (e) { falla(e); } },
+      async borrarEjercicio(id) { try { await store.borrarEjercicio(id); setDatos((d) => ({ ...d, biblioteca: d.biblioteca.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
+      ponerPlantilla(t) { setDatos((d) => ({ ...d, plantillas: d.plantillas.some((x) => x.id === t.id) ? d.plantillas.map((x) => (x.id === t.id ? t : x)) : [...d.plantillas, t] })); },
+      async guardarPlantillas(ts) { if (!ts.length) return; ts.forEach((t) => acc.ponerPlantilla(t)); try { await store.guardarPlantillas(ts); } catch (e) { falla(e); } },
+      async borrarPlantilla(id) { try { await store.borrarPlantilla(id); setDatos((d) => ({ ...d, plantillas: d.plantillas.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
       async borrarPrograma(id) { try { await store.borrarPrograma(id); setDatos((d) => ({ ...d, programas: d.programas.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
       async guardarSesion(s) { try { const g = await store.guardarSesion({ ...s, origen: s.origen || 'coach' }); setDatos((d) => ({ ...d, sesiones: [...d.sesiones.filter((x) => x.id !== g.id), g] })); return g; } catch (e) { falla(e); } },
       async borrarSesion(s) { try { await store.borrarSesion(s.id); setDatos((d) => ({ ...d, sesiones: d.sesiones.filter((x) => x.id !== s.id) })); avisar('Sesión borrada'); } catch (e) { falla(e); } },
@@ -63,11 +71,14 @@ export default function CoachApp({ store }) {
 
   if (usuario === undefined) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
   if (!usuario) return <Login store={store} />;
-  if (error && !datos) return <div className="pantalla"><div className="aviso rojo" style={{ marginTop: 40 }}><span>{error}</span></div><button className="btn oro full" style={{ marginTop: 14 }} onClick={cargar}>Reintentar</button><button className="btn full" style={{ marginTop: 10 }} onClick={() => ir('ajustes')}>Ajustes</button>{ruta[0] === 'ajustes' && <Ajustes store={store} datos={{ asesorados: [], programas: [], sesiones: [] }} acc={acc} usuario={usuario} />}</div>;
+  if (error && !datos) return <div className="pantalla"><div className="aviso rojo" style={{ marginTop: 40 }}><span>{error}</span></div><button className="btn oro full" style={{ marginTop: 14 }} onClick={cargar}>Reintentar</button><button className="btn full" style={{ marginTop: 10 }} onClick={() => ir('ajustes')}>Ajustes</button>{ruta[0] === 'ajustes' && <Ajustes store={store} datos={{ asesorados: [], programas: [], sesiones: [], biblioteca: [], plantillas: [] }} acc={acc} usuario={usuario} />}</div>;
   if (!datos) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
 
   const [r0, id, r2, r3, r4] = ruta;
   if (r0 === 'ajustes') return <Ajustes store={store} datos={datos} acc={acc} usuario={usuario} />;
+  if (r0 === 'biblioteca') return <Biblioteca datos={datos} acc={acc} usuario={usuario} />;
+  if (r0 === 'plantillas') return <Plantillas datos={datos} acc={acc} usuario={usuario} />;
+  if (r0 === 'plantilla') { const t = datos.plantillas.find((x) => x.id === id); if (!t) { setTimeout(() => ir('plantillas'), 0); return null; } return <EditorPlantilla key={t.id} t={t} datos={datos} acc={acc} />; }
   if (r0 === 'a') {
     const a = datos.asesorados.find((x) => x.id === id);
     if (!a) { setTimeout(() => ir(), 0); return null; }

@@ -70,6 +70,37 @@ create table if not exists public.permisos (
   usado        timestamptz,                                               -- cuando envió la sesión
   intentos     int not null default 0
 );
+-- Biblioteca de ejercicios del coach: un ejercicio por item, con sus variantes
+-- de nombre (alias), video y valores por defecto. Las rutinas de cada asesorado
+-- guardan su propia copia del ejercicio (con bibId), así su historial no cambia.
+create table if not exists public.biblioteca (
+  id          uuid primary key default gen_random_uuid(),
+  coach_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  nombre      text not null,
+  grupo       text not null default '',
+  tipo        text not null default 'reps',
+  video       text not null default '',
+  tecnica     text not null default '',
+  alias       jsonb not null default '[]'::jsonb,
+  base        jsonb not null default '{}'::jsonb,     -- series, repMin, repMax, segundos, descanso, rpe
+  creado      timestamptz not null default now(),
+  actualizado timestamptz not null default now()
+);
+create index if not exists biblioteca_coach_idx on public.biblioteca (coach_id, nombre);
+
+-- Plantillas de rutina del coach (mismo formato de días que un programa)
+create table if not exists public.plantillas (
+  id          uuid primary key default gen_random_uuid(),
+  coach_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  nombre      text not null default '',
+  nota        text not null default '',
+  orden       int  not null default 0,
+  dias        jsonb not null default '[]'::jsonb,
+  creado      timestamptz not null default now(),
+  actualizado timestamptz not null default now()
+);
+create index if not exists plantillas_coach_idx on public.plantillas (coach_id, orden);
+
 create index if not exists permisos_ases_idx on public.permisos (asesorado_id, creado desc);
 
 create index if not exists asesorados_coach_idx  on public.asesorados (coach_id);
@@ -86,6 +117,12 @@ begin new.actualizado := now(); return new; end $$;
 drop trigger if exists asesorados_tocar on public.asesorados;
 create trigger asesorados_tocar before update on public.asesorados
   for each row execute function public.tocar_actualizado();
+drop trigger if exists biblioteca_tocar on public.biblioteca;
+create trigger biblioteca_tocar before update on public.biblioteca
+  for each row execute function public.tocar_actualizado();
+drop trigger if exists plantillas_tocar on public.plantillas;
+create trigger plantillas_tocar before update on public.plantillas
+  for each row execute function public.tocar_actualizado();
 drop trigger if exists programas_tocar on public.programas;
 create trigger programas_tocar before update on public.programas
   for each row execute function public.tocar_actualizado();
@@ -96,8 +133,18 @@ alter table public.asesorados enable row level security;
 alter table public.programas  enable row level security;
 alter table public.sesiones   enable row level security;
 alter table public.permisos   enable row level security;
+alter table public.biblioteca enable row level security;
+alter table public.plantillas enable row level security;
 
-revoke all on public.asesorados, public.programas, public.sesiones, public.permisos from anon;
+revoke all on public.asesorados, public.programas, public.sesiones, public.permisos,
+              public.biblioteca, public.plantillas from anon;
+
+drop policy if exists coach_biblioteca on public.biblioteca;
+create policy coach_biblioteca on public.biblioteca for all to authenticated
+  using (coach_id = auth.uid()) with check (coach_id = auth.uid());
+drop policy if exists coach_plantillas on public.plantillas;
+create policy coach_plantillas on public.plantillas for all to authenticated
+  using (coach_id = auth.uid()) with check (coach_id = auth.uid());
 
 drop policy if exists coach_asesorados on public.asesorados;
 create policy coach_asesorados on public.asesorados for all to authenticated

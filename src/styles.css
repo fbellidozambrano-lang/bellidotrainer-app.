@@ -365,10 +365,28 @@ input[type=date].in{color-scheme:dark}
 .codigo-in::placeholder{color:var(--line2);letter-spacing:12px}
 
 /* ---------- protección de la rutina ---------- */
-.marca-agua{position:fixed;inset:0;z-index:60;pointer-events:none;background-repeat:repeat;background-size:340px 200px}
 body.protegido{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body.protegido input,body.protegido textarea{-webkit-user-select:text;user-select:text}
 body.protegido img{-webkit-user-drag:none;pointer-events:none}
 body.velado #root{filter:blur(28px) brightness(.35);transition:none}
 @media print{body.protegido{display:none!important}}
 .codigo-fila .item-t span{white-space:normal;overflow:visible;text-overflow:clip}
+
+/* ---------- biblioteca y plantillas ---------- */
+.mosaico.chico{margin:16px 0 4px}
+.mosaico.chico .losa{min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px;border-radius:16px}
+.mosaico.chico .losa h3{font-size:22px}
+.mosaico.chico .losa p{font-size:13px;margin-top:2px}
+.scroll-x{flex-wrap:nowrap;overflow-x:auto;margin-left:-18px;margin-right:-18px;padding:0 18px 2px;scrollbar-width:none}
+.scroll-x::-webkit-scrollbar{display:none}
+.scroll-x .chip{flex:none;display:inline-flex;align-items:center;gap:7px}
+.punto{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.sec h2 .punto{margin-right:8px;vertical-align:2px}
+.chip.alias{display:inline-flex;align-items:center;gap:4px;padding-right:6px;height:34px;font-weight:500}
+.chip.alias button{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;color:inherit;opacity:.7}
+.video-tag{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--goldbg);color:var(--gold);flex:none;margin-right:2px}
+.tarj.destacado{background:linear-gradient(160deg,#1c1600,#121212 70%);border-color:#4a3a00}
+.tarj.destacado h3{font-family:var(--cond);font-weight:800;font-size:26px;line-height:1;text-transform:uppercase}
+.tachado{text-decoration:line-through;color:var(--mute)!important;font-size:13px}
+.sugerencia{display:block;margin-top:8px;font-size:14px;color:var(--mute2);text-align:left}
+.sugerencia b{color:var(--gold);font-weight:600}

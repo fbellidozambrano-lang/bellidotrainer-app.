@@ -3,7 +3,7 @@ import { Barra, Ico, ir, useRuta, useAviso } from '../ui/kit.jsx';
 import { TarjetaPrograma, TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.jsx';
 import Metricas from '../shared/Metricas.jsx';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
-import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias, diasParaVencer, fLarga, fCorta } from '../lib/util.js';
+import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias, diasParaVencer, fLarga } from '../lib/util.js';
 import logo from '../assets/logo.png';
 import marca from '../assets/marca.png';
 
@@ -14,14 +14,6 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 // Sin código: solo quedan nombres de programas y días (lo mismo que manda el servidor)
 const cerrado = (x) => ({ ...x, acceso: { abierto: false }, programas: (x.programas || []).map((p) => ({ ...p, nota: '', dias: (p.dias || []).map((d) => ({ id: d.id, nombre: d.nombre })) })) });
 const vigente = (x) => { const a = x?.acceso; if (!a) return true; return !!a.abierto && (!a.hasta || Date.parse(a.hasta) > Date.now()); };
-const esc = (t) => String(t).replace(/[<>&'"]/g, '');
-
-// Marca de agua con el nombre: cualquier captura o foto lleva quién es
-function MarcaAgua({ nombre }) {
-  const t = esc(`${nombre} · BELLIDO TRAINER · ${fCorta(hoy())}`.toUpperCase());
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='340' height='200'><text x='170' y='110' text-anchor='middle' transform='rotate(-28 170 100)' fill='%23fff' fill-opacity='0.075' font-family='Barlow Condensed,Arial Narrow,sans-serif' font-size='16' font-weight='700' letter-spacing='1.5'>${t}</text></svg>`;
-  return <div className="marca-agua" aria-hidden="true" style={{ backgroundImage: `url("data:image/svg+xml;utf8,${svg.replace(/#/g, '%23')}")` }} />;
-}
 
 // Protección de la rutina: sin copiar, sin menú, se oculta al salir de la app o al imprimir
 function useProteger() {
@@ -120,25 +112,24 @@ export default function AtletaApp({ store, token, vista }) {
   const nom = primerNombre(d.asesorado.nombre); const ps = ordenarProgramas(d.programas); const ses = d.sesiones;
   const [r0, r1, r2] = ruta; const libre = vigente(d);
   const pie = estado === 'sinred' ? <p className="pill" style={{ marginTop: 10 }}>Sin conexión · mostrando lo último guardado</p> : null;
-  const agua = <MarcaAgua nombre={d.asesorado.nombre} />;
   const bloqueo = <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} /><Desbloquear nom={nom} onAbrir={abrir} />{pie}</div>;
 
   if (r0 === 'e') {
     const p = ps.find((x) => x.id === r1); const dia = p?.dias.find((x) => x.id === r2);
     if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} />{agua}</>;
+    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} /></>;
   }
   if ((r0 === 'p' || r0 === 'rutinas') && !libre) return bloqueo;
   if (r0 === 'p') {
     const p = ps.find((x) => x.id === r1); if (!p) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <div className="pantalla">{agua}<Barra volver={{ fn: () => ir('rutinas'), texto: 'Rutinas' }} titulo="" borde={false} />
+    return <div className="pantalla"><Barra volver={{ fn: () => ir('rutinas'), texto: 'Rutinas' }} titulo="" borde={false} />
       <section className="frec"><b className="num">{nDias(p)}</b><div><h1>{p.nombre}</h1><p className="etq">{nDias(p) === 1 ? 'día' : 'días'} por semana</p></div></section>
       {p.nota && <p className="nota-coach" style={{ marginTop: 14 }}><small>De tu coach</small>{p.nota}</p>}
       <div className="sec"><h2>¿Qué toca hoy?</h2><span>elige el día</span></div>
       {p.dias.map((x, i) => <TarjetaDia key={x.id} d={x} i={i} sesiones={ses} programaId={p.id} onClick={() => ir('e', p.id, x.id)} />)}{pie}</div>;
   }
-  if (r0 === 'rutinas') return <div className="pantalla">{agua}<Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} />
+  if (r0 === 'rutinas') return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} />
     <section style={{ padding: '4px 0 18px' }}><h1 className="gigante">Rutinas</h1><p className="sub">Elige el programa según los días que puedes entrenar esta semana.</p></section>
     {ps.length ? ps.map((p) => <TarjetaPrograma key={p.id} p={p} sesiones={ses} onClick={() => ir('p', p.id)} />) : <div className="vacio"><b>Tu coach está armando tus rutinas</b>Vuelve a abrir tu enlace en un rato.</div>}{pie}</div>;
   if (r0 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="Mis métricas" /><Metricas sesiones={ses} programas={ps} />{pie}</div>;

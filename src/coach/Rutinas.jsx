@@ -4,12 +4,13 @@ import { TarjetaPrograma, ordenarProgramas } from '../shared/Programas.jsx';
 import { PLANTILLAS_BASE } from '../data/constants.js';
 import { nuevoPrograma, clonarDias, normEj, uuid, nDias, primerNombre } from '../lib/util.js';
 
-const desdePlantilla = (pl) => { const orden = [...new Set(pl.ejercicios.map((e) => e.dia))]; return orden.map((d) => ({ id: uuid(), nombre: d, ejercicios: pl.ejercicios.filter((e) => e.dia === d).map((e) => normEj({ ...e, id: uuid() })) })); };
+const desdePlantilla = (pl) => { if (pl.dias) return clonarDias(pl.dias); const orden = [...new Set(pl.ejercicios.map((e) => e.dia))]; return orden.map((d) => ({ id: uuid(), nombre: d, ejercicios: pl.ejercicios.filter((e) => e.dia === d).map((e) => normEj({ ...e, id: uuid() })) })); };
 
 export function NuevoPrograma({ a, datos, onCrear, onCerrar }) {
   const [n, setN] = useState(3); const [nombre, setNombre] = useState(''); const [base, setBase] = useState('blanco'); const [elegido, setElegido] = useState(null);
   const otros = datos.programas.filter((p) => nDias(p) > 0);
-  const nDiasFinal = base === 'blanco' ? n : elegido ? (base === 'plantilla' ? new Set(elegido.ejercicios.map((e) => e.dia)).size : nDias(elegido)) : n;
+  const nDiasFinal = base === 'blanco' ? n : elegido ? (base === 'plantilla' && !elegido.dias ? new Set(elegido.ejercicios.map((e) => e.dia)).size : nDias(elegido)) : n;
+  const propias = [...(datos.plantillas || [])].sort((x, y) => nDias(y) - nDias(x) || x.nombre.localeCompare(y.nombre));
   function crear() {
     const base0 = elegido ? String(elegido.nombre || '').replace(/\s*\(copia\)$/, '') : ''; const p = nuevoPrograma(a.id, n, nombre.trim() || base0 || `Plan ${nDiasFinal} días`);
     if (base === 'plantilla' && elegido) { p.dias = desdePlantilla(elegido); p.nota = elegido.nota || ''; }
@@ -21,6 +22,9 @@ export function NuevoPrograma({ a, datos, onCrear, onCerrar }) {
     <Hoja titulo="Nuevo programa" onCerrar={onCerrar} acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={base !== 'blanco' && !elegido} onClick={crear}>Crear programa</button></>}>
       <Campo l="Empezar"><div className="seg"><button className={base === 'blanco' ? 'on' : ''} onClick={() => { setBase('blanco'); setElegido(null); }}>En blanco</button><button className={base === 'plantilla' ? 'on' : ''} onClick={() => { setBase('plantilla'); setElegido(null); }}>Plantilla</button><button className={base === 'copiar' ? 'on' : ''} onClick={() => { setBase('copiar'); setElegido(null); }}>Copiar</button></div></Campo>
       {base === 'blanco' && <Campo l="Días por semana"><div className="chips">{[2, 3, 4, 5, 6].map((x) => <button key={x} className={`chip ${n === x ? 'on' : ''}`} style={{ minWidth: 52, fontSize: 17 }} onClick={() => setN(x)}>{x}</button>)}</div></Campo>}
+      {base === 'plantilla' && propias.length > 0 && <><p className="etq" style={{ marginBottom: 4 }}>Tus plantillas</p><div className="lista" style={{ marginBottom: 14, maxHeight: 300, overflow: 'auto' }}>{propias.map((pl) => <button key={pl.id} className="item" onClick={() => setElegido(pl)}>
+        <span className={`ej-sel ${elegido?.id === pl.id ? 'on' : ''}`}>{elegido?.id === pl.id && <Ico n="check" s={16} w={3} />}</span>
+        <div className="item-t"><strong>{pl.nombre}</strong><span>{nDias(pl)} días · {pl.dias.reduce((t, d) => t + d.ejercicios.length, 0)} ejercicios</span></div></button>)}</div><p className="etq" style={{ marginBottom: 4 }}>Incluidas</p></>}
       {base === 'plantilla' && <div className="lista" style={{ marginBottom: 14 }}>{PLANTILLAS_BASE.map((pl) => <button key={pl.id} className="item" onClick={() => setElegido(pl)}>
         <span className={`ej-sel ${elegido?.id === pl.id ? 'on' : ''}`}>{elegido?.id === pl.id && <Ico n="check" s={16} w={3} />}</span>
         <div className="item-t"><strong>{pl.nombre}</strong><span style={{ whiteSpace: 'normal' }}>{pl.nota}</span></div></button>)}</div>}

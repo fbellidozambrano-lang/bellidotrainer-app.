@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Ico, ir, Hoja, Campo, Confirmar, Interruptor, Semana, useAviso, Placa } from '../ui/kit.jsx';
 import { GRUPOS } from '../data/constants.js';
 import { grupoDeEjercicio } from '../data/hevy.js';
+import { SelectorBib, asegurarEnBib, Sugerencia } from './Biblioteca.jsx';
+import { ejDesdeBib } from '../data/biblioteca.js';
 import { colorGrupo, copiaEj, esTiempo, fmt, nDias, normEj, primerNombre, resumenEj, textoCarga, uuid, clonarDias, ytId } from '../lib/util.js';
 
 // ---------- portapapeles de ejercicios (sirve entre asesorados) ----------
@@ -14,16 +16,21 @@ function usePortapapeles() {
 }
 
 // ---------- hoja de ejercicio ----------
-function HojaEjercicio({ inicial, sugerencias, onGuardar, onCerrar, onMover, onBorrar }) {
+export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, onGuardar, onCerrar, onMover, onBorrar }) {
+  const editando = !esNuevo && !!inicial?.ejercicio;
   const [e, setE] = useState(() => normEj(inicial || { series: 3, repMin: 8, repMax: 12, rpe: 8, descanso: 90 }));
   const [grupoTocado, setGT] = useState(!!inicial?.ejercicio); const [conf, setConf] = useState(false);
   const T = esTiempo(e); const f = (k, v) => setE((x) => ({ ...x, [k]: v }));
-  const nombre = (v) => setE((x) => ({ ...x, ejercicio: v, grupo: grupoTocado ? x.grupo : (v.trim().length > 3 ? grupoDeEjercicio(v) : x.grupo) }));
+  const nombre = (v) => setE((x) => {
+    const b = biblioteca.find((y) => y.nombre.toLowerCase() === v.trim().toLowerCase());
+    if (b) return { ...x, ejercicio: v, grupo: b.grupo, tipo: b.tipo, video: x.video || b.video, bibId: b.id }; // elegido de la biblioteca
+    const { bibId, ...r } = x; return { ...r, ejercicio: v, grupo: grupoTocado ? x.grupo : (v.trim().length > 3 ? grupoDeEjercicio(v) : x.grupo) };
+  });
   return (
-    <Hoja titulo={inicial?.ejercicio ? 'Editar ejercicio' : 'Nuevo ejercicio'} onCerrar={onCerrar}
+    <Hoja titulo={editando ? 'Editar ejercicio' : 'Nuevo ejercicio'} onCerrar={onCerrar}
       acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={!e.ejercicio.trim()} onClick={() => onGuardar(normEj(e))}>Guardar</button></>}>
-      <Campo l="Ejercicio"><input className="in" list="bt-ejs" autoFocus={!inicial?.ejercicio} value={e.ejercicio} onChange={(x) => nombre(x.target.value)} placeholder="Hip thrust con barra" />
-        <datalist id="bt-ejs">{sugerencias.map((s) => <option key={s} value={s} />)}</datalist></Campo>
+      <Campo l="Ejercicio"><input className="in" list="bt-ejs" autoFocus={!editando} value={e.ejercicio} onChange={(x) => nombre(x.target.value)} placeholder="Hip thrust con barra" />
+        <datalist id="bt-ejs">{sugerencias.map((s) => <option key={s} value={s} />)}</datalist><Sugerencia valor={e.ejercicio} onUsar={nombre} /></Campo>
       <Campo l="Músculo principal"><select className="in" value={e.grupo} onChange={(x) => { setGT(true); f('grupo', x.target.value); }} style={{ borderLeft: `4px solid ${colorGrupo(e.grupo)}` }}>{GRUPOS.map((g) => <option key={g}>{g}</option>)}</select></Campo>
       <Campo l="Cómo se mide"><div className="seg"><button className={!T ? 'on' : ''} onClick={() => f('tipo', 'reps')}>Repeticiones</button><button className={T ? 'on' : ''} onClick={() => f('tipo', 'tiempo')}>Tiempo</button></div></Campo>
       <div className={T ? 'dos' : 'tres'}>
@@ -37,7 +44,7 @@ function HojaEjercicio({ inicial, sugerencias, onGuardar, onCerrar, onMover, onB
       <Campo l="Descanso entre series"><div className="chips">{[45, 60, 90, 120, 150, 180].map((v) => <button key={v} className={`chip ${Number(e.descanso) === v ? 'on' : ''}`} onClick={() => f('descanso', v)}>{v < 120 ? `${v} s` : v === 150 ? '2:30' : `${v / 60} min`}</button>)}</div></Campo>
       <Campo l="Nota para el asesorado"><textarea className="in" rows={2} value={e.nota} onChange={(x) => f('nota', x.target.value)} placeholder="Tempo 3-1-1, pausa arriba, sube 2,5 kg si llegas a 12…" /></Campo>
       <Campo l="Video de YouTube" ayuda={e.video && !ytId(e.video) ? 'Ese enlace no parece de YouTube.' : null}><input className="in" inputMode="url" value={e.video} onChange={(x) => f('video', x.target.value)} placeholder="https://youtu.be/…" /></Campo>
-      {inicial?.ejercicio && <div className="fila-btn" style={{ marginTop: 4 }}>
+      {editando && onMover && <div className="fila-btn" style={{ marginTop: 4 }}>
         <button className="btn chico" onClick={() => onMover(-1)}><Ico n="arriba" s={16} />Subir</button><button className="btn chico" onClick={() => onMover(1)}><Ico n="abajo" s={16} />Bajar</button>
         <button className="btn chico peligro" onClick={() => setConf(true)}><Ico n="basura" s={16} />Quitar</button></div>}
       {conf && <Confirmar titulo="¿Quitar el ejercicio?" texto={`${e.ejercicio} sale de este día. El historial no se borra.`} si="Quitar" peligro onNo={() => setConf(false)} onSi={onBorrar} />}
@@ -96,7 +103,7 @@ export default function Editor({ a, p: inicial, datos, acc }) {
   useEffect(() => () => { clearTimeout(tm.current); guardarYa(); }, []); // eslint-disable-line
   useEffect(() => { const f = () => document.visibilityState === 'hidden' && guardarYa(); document.addEventListener('visibilitychange', f); return () => document.removeEventListener('visibilitychange', f); }, []); // eslint-disable-line
 
-  const sugerencias = useMemo(() => [...new Set(datos.programas.flatMap((x) => x.dias.flatMap((d) => d.ejercicios.map((e) => e.ejercicio))))].sort(), [datos.programas]);
+  const sugerencias = useMemo(() => [...new Set([...datos.biblioteca.map((b) => b.nombre), ...datos.programas.flatMap((x) => x.dias.flatMap((d) => d.ejercicios.map((e) => e.ejercicio)))])].sort(), [datos.programas, datos.biblioteca]);
   const conDia = (fn) => cambiar((x) => { const d = x.dias.find((y) => y.id === dia.id); fn(d, x); return x; });
   const pegar = (ejs, de) => { conDia((d) => d.ejercicios.push(...ejs.map(copiaEj))); avisar(`${ejs.length} ${ejs.length === 1 ? 'ejercicio pegado' : 'ejercicios pegados'} en ${dia.nombre}${de ? ` (de ${de})` : ''}`); };
   const elegidos = selec ? dia.ejercicios.filter((e) => selec[e.id]) : [];
@@ -122,7 +129,7 @@ export default function Editor({ a, p: inicial, datos, acc }) {
 
       <div className="dia-cab"><h2>{dia.nombre}</h2><button className="ico-b" onClick={() => setHoja({ t: 'dia' })} aria-label="Ajustes del día"><Ico n="lapiz" s={20} /></button></div>
       <div className="herr">
-        <button className="btn chico oro" onClick={() => setHoja({ t: 'ej' })}><Ico n="mas" s={16} />Ejercicio</button>
+        <button className="btn chico oro" onClick={() => setHoja({ t: 'bib' })}><Ico n="mas" s={16} />Ejercicio</button>
         <button className="btn chico" onClick={() => setHoja({ t: 'copiarDe' })}><Ico n="pegar" s={16} />Traer de otro asesorado</button>
         {dia.ejercicios.length > 0 && <button className="btn chico" onClick={() => setSelec(selec ? null : {})}><Ico n="seleccion" s={16} />{selec ? 'Listo' : 'Seleccionar'}</button>}
       </div>
@@ -145,8 +152,10 @@ export default function Editor({ a, p: inicial, datos, acc }) {
         <button className="btn chico oro" onClick={() => pegar(pp.ejercicios)}><Ico n="pegar" s={16} />Pegar aquí</button>
         <button className="ico-b" onClick={() => setPP(null)} aria-label="Vaciar copiados"><Ico n="cerrar" s={18} /></button></div>}
 
-      {hoja?.t === 'ej' && <HojaEjercicio inicial={hoja.e} sugerencias={sugerencias} onCerrar={() => setHoja(null)}
-        onGuardar={(e) => { conDia((d) => { const i = d.ejercicios.findIndex((x) => x.id === e.id); if (i >= 0) d.ejercicios[i] = e; else d.ejercicios.push(e); }); setHoja(null); }}
+      {hoja?.t === 'bib' && <SelectorBib biblioteca={datos.biblioteca} destino={dia.nombre} onCerrar={() => setHoja(null)} onNuevo={(q) => setHoja({ t: 'ej', e: q ? { ejercicio: q } : undefined, nuevo: true })}
+        onElegir={(bs) => { conDia((d) => d.ejercicios.push(...bs.map(ejDesdeBib))); setHoja(null); avisar(`${bs.length} ${bs.length === 1 ? 'ejercicio agregado' : 'ejercicios agregados'} a ${dia.nombre}`); }} />}
+      {hoja?.t === 'ej' && <HojaEjercicio biblioteca={datos.biblioteca} esNuevo={hoja.nuevo} inicial={hoja.nuevo ? (hoja.e ? { series: 3, repMin: 8, repMax: 12, rpe: 8, descanso: 90, ...hoja.e } : undefined) : hoja.e} sugerencias={sugerencias} onCerrar={() => setHoja(null)}
+        onGuardar={async (e0) => { setHoja(null); const e = await asegurarEnBib(e0, datos, acc); conDia((d) => { const i = d.ejercicios.findIndex((x) => x.id === e.id); if (i >= 0) d.ejercicios[i] = e; else d.ejercicios.push(e); }); }}
         onMover={(dir) => { conDia((d) => { const i = d.ejercicios.findIndex((x) => x.id === hoja.e.id); const j = i + dir; if (i < 0 || j < 0 || j >= d.ejercicios.length) return; [d.ejercicios[i], d.ejercicios[j]] = [d.ejercicios[j], d.ejercicios[i]]; }); setHoja(null); }}
         onBorrar={() => { conDia((d) => { d.ejercicios = d.ejercicios.filter((x) => x.id !== hoja.e.id); }); setHoja(null); }} />}
       {hoja?.t === 'copiarDe' && <HojaCopiarDe datos={datos} actual={a.id} destino={dia.nombre} onCerrar={() => setHoja(null)} onPegar={(ejs, de) => { pegar(ejs, de); setHoja(null); }} />}

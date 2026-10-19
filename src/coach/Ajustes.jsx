@@ -5,7 +5,7 @@ import { leerConfig, guardarConfigLocal } from '../data/store.js';
 import { fLarga, hoy, primerNombre, diasParaVencer } from '../lib/util.js';
 import { Cobro } from './Inicio.jsx';
 
-export const VERSION = 'v9.1 · octubre 2026';
+export const VERSION = 'v9.2 · octubre 2026';
 
 function Importar({ archivo, datos, acc, usuario, onCerrar }) {
   const avisar = useAviso(); const salt = (usuario?.id || 'local') + ':';
@@ -20,7 +20,7 @@ function Importar({ archivo, datos, acc, usuario, onCerrar }) {
   } catch (e) { planErr = e.message; }
   const err = error || planErr;
   const n = plan ? { a: plan.asesorados.length, p: plan.programas.length, s: plan.sesiones.length } : null;
-  const vacio = n && !n.a && !n.p && !n.s;
+  const vacio = n && !n.a && !n.p && !n.s && !plan.biblioteca?.length && !plan.plantillas?.length;
   async function hacer() {
     setProg(0);
     try { await acc.importar(plan, setProg); avisar(n.s === 1 && !n.a ? 'Sesión guardada en su historial' : 'Importación lista'); onCerrar(); }
