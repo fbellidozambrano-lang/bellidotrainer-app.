@@ -482,3 +482,4 @@ body.velado #root{opacity:0}
 .losa .sello{position:absolute;right:12px;top:24px;transform:rotate(-8deg);white-space:nowrap;pointer-events:none;
   font-family:var(--cond);font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,196,0,.62);
   border:1.5px solid rgba(255,196,0,.45);border-radius:7px;padding:2px 8px;background:transparent}
+.losa h3.largo{font-size:clamp(20px,6.4vw,30px);white-space:nowrap}

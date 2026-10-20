@@ -152,7 +152,7 @@ export default function AtletaApp({ store, token, vista }) {
       <div className="mosaico">
         <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n={libre ? 'pesa' : 'candado'} /></span><div><h3>Rutinas</h3><p>{!ps.length ? 'En preparación' : libre ? `Programas de ${frecuencias(ps)}` : 'Ingresa tu código para entrenar'}</p></div></button>
         <button className="losa" onClick={() => ir('metricas')}><span className="losa-ico"><Ico n="grafica" /></span><div><h3>Métricas</h3><p>{ses.length ? `${semanasSeguidas(ses)} ${semanasSeguidas(ses) === 1 ? 'semana' : 'semanas'} seguidas` : 'Tu progreso'}</p></div></button>
-        <div className="losa pronto" aria-disabled="true" aria-label="Tu alimentación, próximamente"><span className="losa-ico"><Ico n="comida" /></span><div><h3>Tu alimen&shy;tación</h3><p>Tu plan de comidas</p></div><span className="sello">Próximamente</span></div>
+        <div className="losa pronto" aria-disabled="true" aria-label="Tu alimentación, próximamente"><span className="losa-ico"><Ico n="comida" /></span><div><h3 className="largo">Tu<br />alimentación</h3><p>Tu plan de comidas</p></div><span className="sello">Próximamente</span></div>
         <div className="losa pronto" aria-disabled="true" aria-label="Ejercicios de casa, próximamente"><span className="losa-ico"><Ico n="casa" /></span><div><h3>Ejercicios de casa</h3><p>Entrena sin gimnasio</p></div><span className="sello">Próximamente</span></div>
       </div>
       {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} /></>}
