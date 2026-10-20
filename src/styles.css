@@ -477,7 +477,8 @@ body.velado #root{opacity:0}
 
 /* ---------- secciones que vienen ---------- */
 .losa.pronto{cursor:default;pointer-events:none;user-select:none}
-.losa.pronto>*:not(.sello){opacity:.32;filter:grayscale(1)}
-.losa .sello{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-14deg);white-space:nowrap;
-  font-family:var(--cond);font-weight:800;font-size:19px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);
-  border:2px solid var(--gold);border-radius:8px;padding:3px 10px;background:rgba(0,0,0,.55)}
+.losa.pronto>*:not(.sello){opacity:.78}
+.losa.pronto .losa-ico{color:var(--mute2)}
+.losa .sello{position:absolute;right:12px;top:24px;transform:rotate(-8deg);white-space:nowrap;pointer-events:none;
+  font-family:var(--cond);font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,196,0,.62);
+  border:1.5px solid rgba(255,196,0,.45);border-radius:7px;padding:2px 8px;background:transparent}
