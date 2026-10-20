@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Ico, ir, useAviso } from '../ui/kit.jsx';
-import { colorGrupo, esTiempo, fmt, fCorta, nDias, primerNombre, records, seriesPrevias, nSeg, cargaNumero, haceCuanto } from '../lib/util.js';
+import { colorGrupo, esTiempo, fmt, fCorta, nDias, primerNombre, records, seriesPrevias, nSeg, cargaNumero, haceCuanto, mejorSerie } from '../lib/util.js';
 import { ordenarProgramas } from '../shared/Programas.jsx';
 import { mismoNombre } from '../lib/nombres.js';
 
@@ -23,7 +23,7 @@ function Escala({ e1, onUsar }) {
 }
 
 function TarjetaPreparar({ e, historial, cambiar }) {
-  const T = esTiempo(e); const prev = seriesPrevias(historial, e.ejercicio); const rec = records(historial, e.ejercicio);
+  const T = esTiempo(e); const prev = seriesPrevias(historial, e.ejercicio); const rec = records(historial, e.ejercicio); const mejor = T ? null : mejorSerie(historial, e.ejercicio);
   const [escala, setEscala] = useState(false);
   const f = (k, v) => cambiar({ ...e, [k]: v });
   const n = (k, v) => cambiar({ ...e, [k]: v === '' ? '' : Math.max(0, parseInt(v, 10) || 0) });
@@ -35,6 +35,7 @@ function TarjetaPreparar({ e, historial, cambiar }) {
         <div className="previa">{prev.series.map((x, i) => <span key={i}><b>{x.seg ? `${x.seg}s` : fmt(x.peso, 1)}</b>{!x.seg && <> × {x.reps}</>}{x.rpe ? <i> @{fmt(x.rpe, 1)}</i> : null}</span>)}</div></div>
         : <p className="prep-ult"><span>Sin registros todavía</span></p>}
       {prev && !T && <div className="prep-kpi">
+        {mejor && <div><span>Mejor serie</span><b className="num">{fmt(mejor.peso, 1)}<small> kg</small> × {mejor.reps}</b></div>}
         <div><span>Mayor peso</span><b className="num">{fmt(rec.maxPeso, 1)}<small> kg</small></b></div>
         <div><span>Mayor volumen</span><b className="num">{fmt(rec.maxVol)}<small> kg</small></b></div>
         <div><span>1RM estimado</span><b className="num">{fmt(rec.maxE1, 1)}<small> kg</small></b></div>

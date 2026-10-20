@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Hoja, Ico, useAviso } from '../ui/kit.jsx';
 import { CUES, ESCALA_RPE, MOTIVACION } from '../data/constants.js';
-import { cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, seriesPrevias, textoCarga, uuid, ytId } from '../lib/util.js';
+import { cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, seriesPrevias, textoCarga, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
 import brazo from '../assets/brazo.png';
 import { analogia } from '../lib/analogias.js';
 
@@ -21,6 +21,41 @@ export function Conversor({ onCerrar }) {
       <p className="etq" style={{ margin: '16px 0 8px' }}>Mancuernas y discos comunes</p>
       <div className="conv-t">{[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70].map((l) => <button key={l} onClick={() => pon('lb', String(l))}><b className="num">{l} lb</b><span>{redondo(l / LB)} kg</span></button>)}</div>
     </Hoja>
+  );
+}
+
+// ilustraciones de las analogías (Twemoji, CC-BY 4.0)
+const IMGS = import.meta.glob('../assets/analogias/*.svg', { eager: true, query: '?url', import: 'default' });
+const imgDe = (slug) => IMGS[`../assets/analogias/${slug}.svg`];
+function Analogia({ a, kg }) {
+  const src = imgDe(a.img); const total = a.n + (a.parcial ? 1 : 0); const tam = total <= 1 ? 112 : total === 2 ? 94 : total === 3 ? 80 : total === 4 ? 68 : 58;
+  return (
+    <div className="analogia">
+      <small>Hoy moviste {fmt(kg)} kg</small>
+      {src && <div className="analogia-img" aria-hidden="true">{Array.from({ length: a.n }, (_, i) => <img key={i} src={src} alt="" style={{ width: tam, height: tam, animationDelay: `${i * 90}ms` }} />)}
+        {a.parcial && <span className="parcial" style={{ width: tam / 2, height: tam }}><img src={src} alt="" style={{ width: tam, height: tam, animationDelay: `${a.n * 90}ms` }} /></span>}</div>}
+      <p>{a.texto[0].toUpperCase() + a.texto.slice(1)}.</p>
+    </div>
+  );
+}
+
+// Tus marcas en este ejercicio: mejor serie, mayor peso, 1RM estimado y % de intensidad
+function Marcas({ historial, ej }) {
+  const T = esTiempo(ej); const rec = records(historial, ej.ejercicio); const mejor = T ? null : mejorSerie(historial, ej.ejercicio);
+  if (T ? !rec.maxSeg : !mejor) return null;
+  if (T) return <div className="marcas"><div><span>Mejor tiempo</span><b className="num">{fmt(rec.maxSeg)}<small> s</small></b></div></div>;
+  return (
+    <>
+      <div className="marcas">
+        <div><span>Mejor serie</span><b className="num">{fmt(mejor.peso, 1)}<small> kg</small> × {mejor.reps}</b><em>{fCorta(mejor.fecha)}</em></div>
+        <div><span>Mayor peso</span><b className="num">{fmt(rec.maxPeso, 1)}<small> kg</small></b></div>
+        <div><span>1RM estimado</span><b className="num">{fmt(rec.maxE1, 1)}<small> kg</small></b></div>
+      </div>
+      <details className="intens"><summary>Intensidades según tu 1RM <Ico n="abajo" s={16} /></summary>
+        <div className="intens-t">{PCTS.map((p) => <div key={p}><b>{p}%</b><span className="num">{fmt(r05((rec.maxE1 * p) / 100), 1)}<small> kg</small></span><i>{repsAlPct(p)} {repsAlPct(p) === 1 ? 'rep' : 'reps'}</i></div>)}</div>
+        <p className="ayuda" style={{ margin: '8px 0 0' }}>1RM estimado: el peso que podrías levantar una sola vez, calculado de tu mejor serie.</p>
+      </details>
+    </>
   );
 }
 
@@ -125,7 +160,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       <h1>{modo === 'coach' ? 'Sesión guardada' : fin.pendiente ? 'Entreno completo' : 'Enviado a tu coach'}</h1>
       <p className="frase">{fin.frase}</p>
       <div className="kpis"><div className="kpi"><b className="num">{fin.series}</b><span>series</span></div><div className="kpi"><b className="num">{fmt(fin.vol)}</b><span>kg movidos</span></div><div className="kpi"><b className="num">{fin.min}</b><span>minutos</span></div></div>
-      {fin.analogia && <div className="analogia"><small>Hoy moviste {fmt(fin.vol)} kg</small><p>{fin.analogia[0].toUpperCase() + fin.analogia.slice(1)}.</p></div>}
+      {fin.analogia && <Analogia a={fin.analogia} kg={fin.vol} />}
       {fin.recs.length > 0 && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="fuego" s={20} /><span>Récord en <b>{fin.recs.join(', ')}</b>.</span></p>}
       {fin.pendiente && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="nube" s={20} /><span>No hay señal ahora. La sesión quedó guardada en tu teléfono y <b>se envía sola</b> cuando vuelvas a tener conexión.</span></p>}
       <button className="btn oro xl full" onClick={onSalir}>Listo</button>
@@ -153,6 +188,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                 <p className="previa-t">La vez pasada · {fCorta(prev.fecha)}</p>
                 <div className="previa">{prev.series.map((x, i) => <span key={i}><b>{x.seg ? `${x.seg}s` : fmt(x.peso, 1)}</b>{!x.seg && <> kg × {x.reps}</>} {x.rpe ? <i>@{fmt(x.rpe, 1)}</i> : null}</span>)}</div>
                 {prev.nota && <p className="guia">“{prev.nota}”</p>}
+                <Marcas historial={historial} ej={ej} />
               </> : <p className="previa-t">Primera vez con este ejercicio</p>}
               {ej.pesoSugerido && <div className="sug"><span>Carga sugerida hoy</span><b>{textoCarga(ej.pesoSugerido)}</b></div>}
               {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}

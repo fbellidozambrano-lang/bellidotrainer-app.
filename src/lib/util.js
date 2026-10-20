@@ -72,6 +72,15 @@ export function records(sesiones, ej) {
   sesiones.forEach((s) => { const r = seriesDe(s, ej); let vol = 0; r.forEach((x) => { const p = nSeg(x.peso), n = nSeg(x.reps); maxPeso = Math.max(maxPeso, p); maxE1 = Math.max(maxE1, e1rm(p, n)); maxSeg = Math.max(maxSeg, nSeg(x.seg)); vol += p * n; }); maxVol = Math.max(maxVol, vol); });
   return { maxPeso, maxE1, maxVol, maxSeg };
 }
+// la serie con el mejor 1RM estimado (peso × reps)
+export function mejorSerie(sesiones, ej) {
+  let m = null;
+  sesiones.forEach((s) => seriesDe(s, ej).forEach((x) => { const p = nSeg(x.peso), r = nSeg(x.reps), e = e1rm(p, r); if (e > 0 && (!m || e > m.e1)) m = { peso: p, reps: Math.round(r), rpe: nSeg(x.rpe) || null, fecha: s.fecha, e1: e }; }));
+  return m;
+}
+// repeticiones que se aguantan a un % del 1RM (Epley al revés)
+export const repsAlPct = (pct) => (pct >= 100 ? 1 : Math.max(1, Math.round(30 * (100 / pct - 1))));
+export const PCTS = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50];
 export const volumen = (s) => (s.series || []).reduce((t, x) => t + nSeg(x.peso) * nSeg(x.reps), 0);
 export function semanasSeguidas(sesiones) {
   const semanas = new Set(sesiones.map((s) => lunesDe(s.fecha)));

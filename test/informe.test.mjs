@@ -44,9 +44,14 @@ await t('sin grasa visceral ni edad metabólica no inventa nada', async () => {
 await t('un PDF que no es informe se rechaza', async () => { assert.throws(() => leerInforme(['Factura', 'Total 120.00']), /no parece/); });
 await t('analogías de peso', async () => {
   assert.equal(analogia(2), null);
-  for (const kg of [50, 600, 3000, 12000, 45000, 200000]) { const a = analogia(kg, 'x' + kg); assert.ok(a && /levantar/.test(a), `${kg}: ${a}`); }
-  assert.equal(analogia(12000, 's1'), analogia(12000, 's1'));
-  const set = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((s) => analogia(12000, s))); assert.ok(set.size > 1, 'debía variar');
+  const fs = await import('node:fs');
+  for (const kg of [50, 600, 3000, 12000, 45000, 200000, 900000]) { const a = analogia(kg, 'x' + kg); assert.ok(a && /levantar/.test(a.texto), `${kg}: ${a?.texto}`);
+    assert.ok(fs.existsSync(new URL(`../src/assets/analogias/${a.img}.svg`, import.meta.url)), `falta imagen ${a.img}`); assert.ok(a.n >= 1 && a.n <= 6, `${kg}: ${a.n}`); }
+  const dos = analogia(3000, ''); // 3000 / 1500 = 2 hipopótamos exactos si sale hipopótamo
+  const { COSAS } = await import('../src/lib/analogias.js'); COSAS.forEach(([img]) => assert.ok(fs.existsSync(new URL(`../src/assets/analogias/${img}.svg`, import.meta.url)), img));
+  assert.deepEqual(analogia(12000, 's1'), analogia(12000, 's1'));
+  const set = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((s) => analogia(12000, s).texto)); assert.ok(set.size > 1, 'debía variar');
+  for (let i = 0; i < 40; i++) { const a = analogia(3000, 'h' + i); if (a.img === 'hipopotamo') { assert.equal(a.texto, 'como levantar 2 hipopótamos'); assert.equal(a.n, 2); assert.equal(a.parcial, false); } }
 });
 await t('controles en la nube: el coach guarda y el asesorado lo ve', async () => {
   const db = await crearDB(); await db.exec(`insert into auth.users values ('11111111-1111-1111-1111-111111111111','c@bt.com')`);

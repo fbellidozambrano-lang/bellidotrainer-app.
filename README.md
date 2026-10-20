@@ -49,7 +49,8 @@ Equipo → el asesorado → **Acceso → WhatsApp**. Ese enlace es fijo: con él
 - **Composición corporal:** en el asesorado → **Subir informe PDF** (el informe antropométrico de BELLIDOTRAINER). La app lee peso, % de grasa, masa grasa, masa libre de grasa, músculo esquelético, % de masa muscular, IMC y cintura; revisas, completas grasa visceral o edad metabólica si las tienes, y guardas. El asesorado lo ve en su inicio con los cambios. El PDF se lee en tu teléfono y no se sube a ningún lado.
 - **Código para entrenar:** el asesorado ve sus rutinas solo con un código de 6 números. Equipo → el asesorado → **Entrenar hoy → Dar código → Enviar** (WhatsApp). El código sirve 24 h para ingresarlo; ya ingresado, la rutina queda abierta 4 h o hasta que envíe la sesión, y ahí se vuelve a bloquear. 5 intentos fallidos lo anulan. El bloqueo lo hace la base de datos: sin código no viajan los ejercicios al teléfono.
 - **Pagos:** Ajustes → **Pagos**: la fecha de vencimiento de cada uno. Tres días antes aparece en tu inicio (con botón de recordatorio por WhatsApp) y al asesorado le sale el aviso. **Pagó** corre la fecha un mes. Pon el WhatsApp en su ficha para que el mensaje le llegue directo.
-- **Entrenamiento del asesorado:** el video de YouTube se ve de una vez en formato vertical (shorts 9:16) y entra en pantalla completa sin quedar negro; hay conversor **kg⇄lb**; al terminar el botón dice **Enviar a Coach** y el resumen compara los kilos movidos con algo real (“como levantar 2 elefantes africanos”).
+- **Marcas en cada ejercicio:** al entrenar, cada ejercicio muestra su mejor serie, el mayor peso levantado, el 1RM estimado y la tabla de intensidades (100 % a 50 % del 1RM, con kilos y repeticiones aproximadas).
+- **Entrenamiento del asesorado:** el video de YouTube se ve de una vez en formato vertical (shorts 9:16) y entra en pantalla completa sin quedar negro; hay conversor **kg⇄lb**; al terminar el botón dice **Enviar a Coach** y el resumen compara los kilos movidos con algo real (“como levantar 2 hipopótamos”) con la ilustración repetida las veces que corresponde.
 - **Protección:** en la rutina del asesorado no se puede copiar el texto y la pantalla se oculta al salir de la app. Un navegador no puede impedir una captura de pantalla en iPhone o Android.
 - **Programas por frecuencia:** Rutinas → Nuevo programa → elige 2, 3, 4, 5 o 6 días (en blanco, desde plantilla o copiando otro programa).
 - **Copiar y pegar ejercicios:** en un día, **Seleccionar** → marca ejercicios → **Copiar**; ve al asesorado y día que quieras → **Pegar aquí**. O usa **Traer de otro asesorado** y elige día completo o ejercicios sueltos. Solo viajan los ejercicios, nunca el historial.
@@ -65,3 +66,6 @@ node test/schema.test.mjs   # seguridad de la base (Postgres en memoria)
 node test/store.test.mjs    # datos en línea + importación de respaldos
 ```
 Sin las variables de Supabase la app arranca en **modo local** (todo en el teléfono), útil para probar.
+
+---
+Ilustraciones de las analogías de peso: [Twemoji](https://github.com/jdecked/twemoji) · © Twitter, Inc. y colaboradores · [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).

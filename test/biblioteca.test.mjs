@@ -107,4 +107,9 @@ await t('la biblioteca se arma con nombres bien escritos y guarda los mal escrit
   const r = B.armarBiblioteca({ programas: progs, sesiones: [], biblioteca: [] }, '');
   const h = r.biblioteca.find((b) => /thrust/i.test(b.nombre)); assert.ok(/^Hip thrust$/i.test(h.nombre)); assert.ok(h.alias.includes('hip trust'));
 });
+await t('mejor serie y % de intensidad', async () => {
+  const ses = [{ fecha: '2026-10-01', series: [{ ejercicio: 'Sentadilla', peso: 80, reps: 8 }, { ejercicio: 'Sentadilla', peso: 90, reps: 3 }] }, { fecha: '2026-10-08', series: [{ ejercicio: 'sentadillas', peso: 85, reps: 6 }] }];
+  const m = U.mejorSerie(ses, 'Sentadilla'); assert.equal(m.peso, 85); assert.equal(m.reps, 6); assert.equal(m.fecha, '2026-10-08'); assert.equal(Math.round(m.e1), 102);
+  assert.equal(U.records(ses, 'Sentadilla').maxPeso, 90); assert.equal(U.repsAlPct(100), 1); assert.equal(U.repsAlPct(75), 10); assert.equal(U.mejorSerie([], 'x'), null);
+});
 console.log(`\n${ok} pruebas OK`);

@@ -5,7 +5,7 @@ import { leerConfig, guardarConfigLocal } from '../data/store.js';
 import { fLarga, hoy, primerNombre, diasParaVencer } from '../lib/util.js';
 import { Cobro } from './Inicio.jsx';
 
-export const VERSION = 'v9.3 · octubre 2026';
+export const VERSION = 'v9.4 · octubre 2026';
 
 function Importar({ archivo, datos, acc, usuario, onCerrar }) {
   const avisar = useAviso(); const salt = (usuario?.id || 'local') + ':';
@@ -104,7 +104,7 @@ export default function Ajustes({ store, datos, acc, usuario }) {
         {store.modo === 'nube' && <button className="btn full" style={{ marginTop: 12 }} onClick={() => store.auth.salir()}><Ico n="salir" s={18} />Cerrar sesión</button>}
         {store.modo === 'nube' && cfg.origen === 'telefono' && <button className="btn fant full" style={{ marginTop: 6 }} onClick={() => { guardarConfigLocal(''); location.reload(); }}>Desconectar Supabase de este teléfono</button>}
       </div>
-      <p className="instalar">BELLIDO TRAINER {VERSION}. Para tenerla como app: en Safari toca Compartir → Agregar a inicio.</p>
+      <p className="instalar">BELLIDO TRAINER {VERSION}. Para tenerla como app: en Safari toca Compartir → Agregar a inicio.<br />Ilustraciones: Twemoji © Twitter, Inc. y colaboradores · CC-BY 4.0</p>
       {archivo && <Importar archivo={archivo} datos={datos} acc={acc} usuario={usuario} onCerrar={() => setArchivo(null)} />}
     </div>
   );
