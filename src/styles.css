@@ -474,3 +474,10 @@ body.velado #root{opacity:0}
 @keyframes entra{from{opacity:0;transform:translateY(14px) scale(.7)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.analogia-img img{animation:none}}
 .intens-t span small{font-size:11px;color:var(--mute2);font-weight:700}
+
+/* ---------- secciones que vienen ---------- */
+.losa.pronto{cursor:default;pointer-events:none;user-select:none}
+.losa.pronto>*:not(.sello){opacity:.32;filter:grayscale(1)}
+.losa .sello{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-14deg);white-space:nowrap;
+  font-family:var(--cond);font-weight:800;font-size:19px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);
+  border:2px solid var(--gold);border-radius:8px;padding:3px 10px;background:rgba(0,0,0,.55)}
