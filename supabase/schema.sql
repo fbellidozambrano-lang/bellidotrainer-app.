@@ -114,6 +114,10 @@ create table if not exists public.controles (
 );
 create index if not exists controles_ases_idx on public.controles (asesorado_id, fecha desc);
 
+-- En vivo: el asesorado con la rutina abierta va mandando su avance
+alter table public.permisos add column if not exists progreso jsonb;
+alter table public.permisos add column if not exists progreso_at timestamptz;
+
 create index if not exists permisos_ases_idx on public.permisos (asesorado_id, creado desc);
 
 create index if not exists asesorados_coach_idx  on public.asesorados (coach_id);
@@ -275,6 +279,24 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Avance del entreno en curso (lo ve el coach en "Entrenando ahora")
+create or replace function public.atleta_progreso(p_token text, p_progreso jsonb)
+returns boolean
+language plpgsql volatile security definer set search_path = public as $$
+declare a public.asesorados;
+begin
+  if p_token is null or length(p_token) < 16 then return false; end if;
+  select * into a from public.asesorados where token = p_token and not archivado;
+  if not found then return false; end if;
+  if p_progreso is null or jsonb_typeof(p_progreso) <> 'object' or length(p_progreso::text) > 60000 then return false; end if;
+  update public.permisos set progreso = p_progreso, progreso_at = now()
+   where id = (select id from public.permisos
+                where asesorado_id = a.id and abierto is not null and usado is null
+                  and abierto > now() - interval '4 hours'
+                order by abierto desc limit 1);
+  return found;
+end $$;
+
 create or replace function public.atleta_guardar_sesion(p_token text, p_sesion jsonb)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -323,6 +345,8 @@ revoke all on function public.atleta_cargar(text) from public;
 revoke all on function public.atleta_guardar_sesion(text, jsonb) from public;
 grant execute on function public.atleta_cargar(text) to anon, authenticated;
 grant execute on function public.atleta_guardar_sesion(text, jsonb) to anon, authenticated;
+revoke all on function public.atleta_progreso(text, jsonb) from public;
+grant execute on function public.atleta_progreso(text, jsonb) to anon, authenticated;
 revoke all on function public.atleta_abrir(text, text) from public;
 grant execute on function public.atleta_abrir(text, text) to anon, authenticated;
 revoke all on function public.nuevo_codigo(uuid, int) from public;

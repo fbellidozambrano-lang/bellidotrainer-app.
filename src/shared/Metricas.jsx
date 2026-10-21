@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Hoja, Ico, Confirmar } from '../ui/kit.jsx';
+import { merito } from '../lib/merito.js';
+import { revisarSerie } from '../lib/validar.js';
+import { Campo } from '../ui/kit.jsx';
 import { colorGrupo, ejerciciosDe, fCorta, fLarga, fmt, hoy, lunesDe, aFecha, fechaLocal, nSeg, progresion, records, semanasSeguidas, sesionesSemana, seriesPorGrupo, volumen, seriesDe, esTiempo } from '../lib/util.js';
 
 // ---------- gráficas propias (SVG, livianas) ----------
@@ -36,8 +39,48 @@ function Constancia({ sesiones, meta }) {
   );
 }
 
-export function DetalleSesion({ s, onCerrar, onBorrar }) {
-  const [conf, setConf] = useState(false);
+// Editar a mano una sesión ya guardada (fecha, series, observaciones)
+function EditarSesion({ s, historial = [], onGuardar, onCerrar }) {
+  const [fecha, setFecha] = useState(s.fecha); const [min, setMin] = useState(s.minutos ?? '');
+  const [grupos, setGrupos] = useState(() => { const ejs = [...new Set((s.series || []).map((x) => x.ejercicio))];
+    return ejs.map((e) => { const ss = seriesDe(s, e); return { ejercicio: e, grupo: ss[0]?.grupo || '', tiempo: ss.some((x) => nSeg(x.seg) > 0), nota: (s.notas || {})[e] || '',
+      filas: ss.map((x) => ({ peso: x.peso ? String(x.peso).replace('.', ',') : '', reps: x.reps ? String(x.reps) : '', seg: x.seg ? String(x.seg) : '', rpe: x.rpe ? String(x.rpe).replace('.', ',') : '' })) }; }); });
+  const [ocupado, setOcupado] = useState(false);
+  const otras = historial.filter((x) => x.id !== s.id);
+  const cambiar = (gi, fi, k, v) => setGrupos((g) => g.map((x, i) => (i !== gi ? x : { ...x, filas: x.filas.map((f, j) => (j === fi ? { ...f, [k]: v } : f)) })));
+  const series = []; grupos.forEach((g) => { let n = 0; g.filas.forEach((f) => { const p = nSeg(f.peso), r = Math.round(nSeg(f.reps)), sg = Math.round(nSeg(f.seg)); if (!(p || r || sg)) return;
+    const o = { ejercicio: g.ejercicio, grupo: g.grupo, serie: ++n, peso: p, reps: g.tiempo ? 0 : r, rpe: nSeg(f.rpe) || 8 }; if (g.tiempo) o.seg = sg; series.push(o); }); });
+  async function guardar() {
+    setOcupado(true); const notas = {}; grupos.forEach((g) => { if (g.nota.trim()) notas[g.ejercicio] = g.nota.trim(); });
+    try { await onGuardar({ ...s, fecha, minutos: min === '' ? null : Math.max(1, parseInt(min, 10) || 0), series, notas }); onCerrar(); } catch {} setOcupado(false);
+  }
+  return (
+    <Hoja titulo="Editar sesión" onCerrar={onCerrar} acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={ocupado || !series.length || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)} onClick={guardar}>{ocupado ? 'Guardando…' : 'Guardar cambios'}</button></>}>
+      <div className="dos"><Campo l="Fecha"><input className="in" type="date" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value)} /></Campo>
+        <Campo l="Minutos"><input className="in num" inputMode="numeric" value={min} onChange={(e) => setMin(e.target.value)} /></Campo></div>
+      {grupos.map((g, gi) => { const rec = records(otras, g.ejercicio); return (
+        <div key={g.ejercicio} className="edit-ej">
+          <div className="edit-cab"><strong>{g.ejercicio}</strong><button className="ico-b" aria-label={`Quitar ${g.ejercicio}`} onClick={() => setGrupos((x) => x.filter((_, i) => i !== gi))}><Ico n="basura" s={18} /></button></div>
+          <div className="edit-h"><span>#</span><span>Peso</span><span>{g.tiempo ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>
+          {g.filas.map((f, fi) => { const av = revisarSerie({ ...f, hecha: true }, { tipo: g.tiempo ? 'tiempo' : 'reps' }, rec); return (
+            <React.Fragment key={fi}>
+              <div className={`edit-f ${av ? 'raro' : ''}`}><u>{fi + 1}</u>
+                <input className="cel" inputMode="decimal" value={f.peso} placeholder="kg" onChange={(e) => cambiar(gi, fi, 'peso', e.target.value)} aria-label={`Peso serie ${fi + 1}`} />
+                <input className="cel" inputMode="numeric" value={g.tiempo ? f.seg : f.reps} onChange={(e) => cambiar(gi, fi, g.tiempo ? 'seg' : 'reps', e.target.value)} aria-label={`${g.tiempo ? 'Segundos' : 'Reps'} serie ${fi + 1}`} />
+                <input className="cel" inputMode="decimal" value={f.rpe} onChange={(e) => cambiar(gi, fi, 'rpe', e.target.value)} aria-label={`RPE serie ${fi + 1}`} />
+                <button className="ico-b" aria-label={`Quitar serie ${fi + 1}`} onClick={() => setGrupos((x) => x.map((y, i) => (i !== gi ? y : { ...y, filas: y.filas.filter((_, j) => j !== fi) })))}><Ico n="cerrar" s={16} /></button></div>
+              {av && <p className={`set-aviso ${av.nivel}`}>{av.texto}</p>}
+            </React.Fragment>); })}
+          <button className="btn chico" onClick={() => setGrupos((x) => x.map((y, i) => (i !== gi ? y : { ...y, filas: [...y.filas, { ...(y.filas[y.filas.length - 1] || { peso: '', reps: '', seg: '', rpe: '' }) }] })))}><Ico n="mas" s={14} />Serie</button>
+          <input className="in obs" style={{ marginTop: 8 }} value={g.nota} placeholder="Observación" onChange={(e) => setGrupos((x) => x.map((y, i) => (i === gi ? { ...y, nota: e.target.value } : y)))} />
+        </div>); })}
+      <p className="ayuda" style={{ margin: '12px 0 0' }}>{series.length} series. Las métricas y récords se recalculan con lo que guardes.</p>
+    </Hoja>
+  );
+}
+
+export function DetalleSesion({ s, onCerrar, onBorrar, onGuardar, historial }) {
+  const [conf, setConf] = useState(false); const [editar, setEditar] = useState(false);
   const ejs = [...new Set((s.series || []).map((x) => x.ejercicio))];
   return (
     <Hoja titulo={s.dia || 'Sesión'} onCerrar={onCerrar}>
@@ -49,13 +92,15 @@ export function DetalleSesion({ s, onCerrar, onBorrar }) {
           {(s.notas || {})[e] && <p className="nota-coach" style={{ fontSize: 14 }}><small>Observación</small>{s.notas[e]}</p>}
         </div>
       ))}
-      {onBorrar && <button className="btn peligro full" style={{ marginTop: 16 }} onClick={() => setConf(true)}><Ico n="basura" s={18} />Borrar esta sesión</button>}
+      {onGuardar && <button className="btn full" style={{ marginTop: 16 }} onClick={() => setEditar(true)}><Ico n="lapiz" s={18} />Editar registros</button>}
+      {onBorrar && <button className="btn peligro full" style={{ marginTop: onGuardar ? 8 : 16 }} onClick={() => setConf(true)}><Ico n="basura" s={18} />Borrar esta sesión</button>}
+      {editar && <EditarSesion s={s} historial={historial} onGuardar={onGuardar} onCerrar={() => { setEditar(false); onCerrar(); }} />}
       {conf && <Confirmar titulo="¿Borrar la sesión?" texto="Se quita del historial y de las métricas. No se puede deshacer." si="Borrar" peligro onNo={() => setConf(false)} onSi={() => { setConf(false); onBorrar(s); }} />}
     </Hoja>
   );
 }
 
-export default function Metricas({ sesiones, programas = [], nombre, onBorrarSesion }) {
+export default function Metricas({ sesiones, programas = [], nombre, onBorrarSesion, onGuardarSesion }) {
   const ses = useMemo(() => [...sesiones].sort((a, b) => (a.fecha < b.fecha ? 1 : -1)), [sesiones]);
   const ejercicios = useMemo(() => ejerciciosDe(ses), [ses]);
   const [ej, setEj] = useState(''); const sel = ejercicios.includes(ej) ? ej : ejercicios[0] || '';
@@ -89,7 +134,7 @@ export default function Metricas({ sesiones, programas = [], nombre, onBorrarSes
             {tiempo ? <Linea datos={prog} series={[{ k: 'seg', c: '#4FB6FF' }]} /> : <Linea datos={prog} series={[{ k: 'e1rm', c: '#FFC400' }, { k: 'carga', c: '#8F8C86', w: 2, dash: '4 4' }]} />}
           </div>
           {!tiempo && <div className="ley"><span><i style={{ background: '#FFC400' }} />Fuerza estimada (kg)</span><span><i style={{ background: '#8F8C86' }} />Carga máxima</span></div>}
-          {subida > 0.5 && <p className="aviso" style={{ marginTop: 12 }}><Ico n="fuego" s={20} /><span>En {sel} la fuerza estimada subió <b>{fmt(subida, 1)}%</b> desde el primer registro.</span></p>}
+          {subida > 0.5 && <p className="aviso" style={{ marginTop: 12 }}><Ico n="fuego" s={20} /><span>En {sel} la fuerza estimada subió <b>{fmt(subida, 1)}%</b> desde el primer registro.<small className="merito">{merito('fuerza', sel)}</small></span></p>}
           <div className="kpis">
             <div className="kpi"><b className="num">{tiempo ? `${fmt(rec.maxSeg)}s` : fmt(rec.maxPeso, 1)}</b><span>{tiempo ? 'mejor tiempo' : 'carga máxima (kg)'}</span></div>
             <div className="kpi"><b className="num">{fmt(rec.maxE1, 1)}</b><span>fuerza estimada</span></div>
@@ -113,7 +158,7 @@ export default function Metricas({ sesiones, programas = [], nombre, onBorrarSes
         ))}
       </div>
       {ses.length > 8 && !todas && <button className="btn fant full" onClick={() => setTodas(true)}>Ver las {ses.length} sesiones</button>}
-      {ver && <DetalleSesion s={ver} onCerrar={() => setVer(null)} onBorrar={onBorrarSesion ? (s) => { setVer(null); onBorrarSesion(s); } : null} />}
+      {ver && <DetalleSesion s={ver} historial={ses} onCerrar={() => setVer(null)} onGuardar={onGuardarSesion} onBorrar={onBorrarSesion ? (s) => { setVer(null); onBorrarSesion(s); } : null} />}
     </div>
   );
 }

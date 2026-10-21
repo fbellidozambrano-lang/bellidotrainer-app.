@@ -44,7 +44,8 @@ export function Cobro({ a, acc, conFecha }) {
   );
 }
 
-export default function Inicio({ datos, acc, store, usuario }) {
+export default function Inicio({ datos, acc, store, usuario, entrenando = [], recargarVivo }) {
+  React.useEffect(() => { recargarVivo?.(); }, []); // eslint-disable-line
   const avisar = useAviso();
   const [q, setQ] = useState(''); const [nuevo, setNuevo] = useState(false);
   const activos = datos.asesorados.filter((a) => !a.archivado);
@@ -72,6 +73,12 @@ export default function Inicio({ datos, acc, store, usuario }) {
         <div><b className="num">{entrenaron}</b><span>entrenaron esta semana</span></div>
         <div><b className="num" style={{ color: inactivos ? '#FF9E4D' : undefined }}>{inactivos}</b><span>más de 7 días sin entrenar</span></div>
       </div>
+      <button className={`envivo-b ${entrenando.length ? 'on' : ''}`} onClick={() => ir('envivo')}>
+        <span className="punto-vivo" />
+        <span><b>{entrenando.length ? `${entrenando.length} ${entrenando.length === 1 ? 'asesorado entrenando' : 'asesorados entrenando'} ahora` : 'Entrenando ahora'}</b>
+          <small>{entrenando.length ? entrenando.map((v) => primerNombre(datos.asesorados.find((a) => a.id === v.asesoradoId)?.nombre || '')).join(', ') + ' · toca para ver sus series' : 'Mira en vivo lo que registran con la rutina abierta'}</small></span>
+        <Ico n="chev" s={18} />
+      </button>
       <div className="mosaico chico">
         <button className="losa" onClick={() => ir('biblioteca')}><span className="losa-ico"><Ico n="libro" /></span><div><h3>Biblioteca</h3><p>{datos.biblioteca.length > 1 ? `${datos.biblioteca.length} ejercicios` : 'Ármala con tus ejercicios'}</p></div></button>
         <button className="losa" onClick={() => ir('plantillas')}><span className="losa-ico"><Ico n="plantilla" /></span><div><h3>Plantillas</h3><p>{datos.plantillas.length ? `${datos.plantillas.length} ${datos.plantillas.length === 1 ? 'rutina' : 'rutinas'}` : 'Rutinas para asignar'}</p></div></button>

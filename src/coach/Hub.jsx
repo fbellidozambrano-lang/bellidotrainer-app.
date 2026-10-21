@@ -39,9 +39,10 @@ function CodigoSesion({ a, store, sesiones }) {
         <span className={`codigo-ico ${est === 'abierto' ? 'on' : ''}`}><Ico n={est === 'abierto' ? 'llave' : 'candado'} s={22} /></span>
         <div className="item-t">
           <strong>{est === 'abierto' ? 'Entrenando ahora' : 'Rutina bloqueada'}</strong>
-          <span>{est === 'abierto' ? `Abrió su rutina a las ${hora(c.abierto)}. Se bloquea al enviar la sesión.` : est === 'usado' ? `Envió su sesión ${haceCuanto(fechaLocal(new Date(c.usado)))} a las ${hora(c.usado)}.` : `${nom} necesita un código para ver su rutina y entrenar.`}</span>
+          <span>{est === 'abierto' ? `Abrió su rutina a las ${hora(c.abierto)}${c.progreso ? ` · ${c.progreso.hechas}/${c.progreso.total} series` : ''}. Se bloquea al enviar la sesión.` : est === 'usado' ? `Envió su sesión ${haceCuanto(fechaLocal(new Date(c.usado)))} a las ${hora(c.usado)}.` : `${nom} necesita un código para ver su rutina y entrenar.`}</span>
         </div>
-        {est !== 'abierto' && <button className="btn oro chico" disabled={ocupado || c === undefined} onClick={() => ir('a', a.id, 'preparar')}>Dar código</button>}
+        {est !== 'abierto' ? <button className="btn oro chico" disabled={ocupado || c === undefined} onClick={() => ir('a', a.id, 'preparar')}>Dar código</button>
+          : <button className="btn chico" onClick={() => ir('envivo')}>Ver en vivo</button>}
       </div>}
     </div>
   );
@@ -111,7 +112,7 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
         <div className="lista">{ses.slice(0, 4).map((s) => <button key={s.id} className="item" onClick={() => setVer(s)}><div className="item-t"><strong>{s.dia || 'Entrenamiento'}</strong><span>{fLarga(s.fecha)} · {(s.series || []).length} series{s.origen === 'asesorado' ? '' : ' · contigo'}</span></div><Ico n="chev" className="chev" s={18} /></button>)}</div>
       </>}
 
-      {ver && <DetalleSesion s={ver} onCerrar={() => setVer(null)} onBorrar={(s) => { setVer(null); acc.borrarSesion(s); }} />}
+      {ver && <DetalleSesion s={ver} historial={sesiones} onCerrar={() => setVer(null)} onGuardar={async (x) => { await acc.guardarSesion(x); avisar('Sesión actualizada'); }} onBorrar={(s) => { setVer(null); acc.borrarSesion(s); }} />}
       {editar && <FichaAsesorado inicial={a} onCerrar={() => setEditar(false)} onGuardar={async (f) => { await acc.guardarAsesorado(f); setEditar(false); avisar('Ficha guardada'); }} />}
       {registrar && <Hoja titulo={regProg ? regProg.nombre : '¿Qué programa?'} onCerrar={() => setRegistrar(false)}>
         {!regProg ? ps.map((p) => <button key={p.id} className="item" onClick={() => setRegProg(p)}><div className="item-t"><strong>{p.nombre}</strong><span>{nDias(p)} días</span></div><Ico n="chev" className="chev" s={18} /></button>)

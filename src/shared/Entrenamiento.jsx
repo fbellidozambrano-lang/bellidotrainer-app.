@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Hoja, Ico, useAviso } from '../ui/kit.jsx';
 import { CUES, ESCALA_RPE, MOTIVACION } from '../data/constants.js';
-import { cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, seriesPrevias, textoCarga, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
+import { cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, semanasSeguidas, volumen, seriesPrevias, textoCarga, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
 import brazo from '../assets/brazo.png';
 import { analogia } from '../lib/analogias.js';
+import { revisarSerie } from '../lib/validar.js';
+import { merito } from '../lib/merito.js';
+import { mismoNombre } from '../lib/nombres.js';
 
 // ---------- conversor kg ⇄ lb ----------
 const LB = 2.20462;
@@ -94,7 +97,7 @@ function preparar(dia, historial) {
   return reg;
 }
 
-export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, modo = 'atleta' }) {
+export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, onProgreso, modo = 'atleta' }) {
   const avisar = useAviso();
   const guardado = useMemo(() => leer(claveBorrador), [claveBorrador]);
   const [reg, setReg] = useState(() => guardado?.reg || preparar(dia, historial));
@@ -109,6 +112,18 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
 
   useEffect(() => { if (!fin) escribir(claveBorrador, { reg, notas, inicio, fecha, t: Date.now() }); }, [reg, notas, fecha, fin, claveBorrador, inicio]);
   useEffect(() => { if (retomado.current) avisar('Sigues donde lo dejaste'); }, [avisar]);
+  // en vivo: el coach ve el avance (se manda unos segundos después de cada cambio)
+  useEffect(() => {
+    if (!onProgreso || fin) return;
+    const t = setTimeout(() => {
+      const ejs0 = dia.ejercicios || [];
+      onProgreso({ programa: programa?.nombre || '', programaId: programa?.id || null, dia: dia.nombre, inicio: new Date(inicio).toISOString(),
+        hechas: ejs0.reduce((n, e) => n + (reg[e.id] || []).filter((x) => x.hecha).length, 0), total: ejs0.reduce((n, e) => n + (reg[e.id] || []).length, 0),
+        ejercicios: ejs0.map((e) => ({ ejercicio: e.ejercicio, grupo: e.grupo, tipo: e.tipo, objetivo: `${e.series} × ${esTiempo(e) ? `${e.segundos} s` : `${e.repMin}–${e.repMax}`}`, carga: e.pesoSugerido || '', nota: notas[e.ejercicio] || '',
+          series: (reg[e.id] || []).map((x) => ({ peso: x.peso, reps: x.reps, seg: x.seg, rpe: x.rpe, hecha: !!x.hecha })) })) });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [reg, notas, fin]); // eslint-disable-line
   useEffect(() => {
     if (!finAt) return; const i = setInterval(() => { tick((x) => x + 1); if (Date.now() >= finAt) { setFinAt(0); navigator.vibrate?.([140, 70, 140]); } }, 250);
     return () => clearInterval(i);
@@ -127,7 +142,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
     const s = reg[ej.id][k]; const on = !s.hecha; set(ej.id, k, 'hecha', on);
     if (!on) return;
     audio(); const T = esTiempo(ej); const rec = records(historial, ej.ejercicio); const peso = nSeg(s.peso);
-    if (!T && rec.maxPeso > 0 && peso > rec.maxPeso) { pitar(LOGRO); navigator.vibrate?.([40, 50, 90]); avisar(`Récord de carga en ${ej.ejercicio}: ${fmt(peso, 1)} kg`); }
+    const av = revisarSerie({ ...s, hecha: true }, ej, rec);
+    if (av) { pitar([[440, 0, 0.12], [330, 0.14, 0.18]]); navigator.vibrate?.([80, 60, 80]); avisar(av.texto, 'error'); arrancar(ej.descanso ?? 90); return; }
+    if (!T && rec.maxPeso > 0 && peso > rec.maxPeso) { pitar(LOGRO); navigator.vibrate?.([40, 50, 90]); avisar(`Récord de carga en ${ej.ejercicio}: ${fmt(peso, 1)} kg. Tu progresión de cargas está funcionando.`); }
     else if (T && rec.maxSeg > 0 && nSeg(s.seg) > rec.maxSeg) { pitar(LOGRO); avisar(`Récord de tiempo en ${ej.ejercicio}`); }
     else pitar([[740, 0, 0.08]]);
     arrancar(ej.descanso ?? 90);
@@ -149,7 +166,10 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       const r = await onGuardar(p); escribir(claveBorrador, null); arrancar(0);
       const vol = p.series.reduce((t, x) => t + x.peso * x.reps, 0);
       const recs = [...new Set(p.series.filter((x) => { const rr = records(historial, x.ejercicio); return rr.maxPeso > 0 && x.peso > rr.maxPeso; }).map((x) => x.ejercicio))];
-      setFin({ series: p.series.length, vol, min: p.minutos, recs, pendiente: r?.pendiente, analogia: analogia(vol, p.id), frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)] }); pitar(LOGRO);
+      const antes = historial.filter((x) => mismoNombre(x.dia, dia.nombre) && (!programa?.id || !x.programaId || x.programaId === programa.id)).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))[0];
+      const volAntes = antes ? volumen(antes) : 0; const subeVol = volAntes > 0 && vol > volAntes * 1.03 ? Math.round((vol / volAntes - 1) * 100) : 0;
+      const semanas = semanasSeguidas([...historial, { fecha: p.fecha }]);
+      setFin({ series: p.series.length, vol, min: p.minutos, recs, subeVol, semanas, id: p.id, pendiente: r?.pendiente, analogia: analogia(vol, p.id), frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)] }); pitar(LOGRO);
     } catch (e) { avisar(e.message || 'No se pudo guardar', 'error'); }
     setGuardando(false); setCierre(false);
   }
@@ -161,7 +181,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       <p className="frase">{fin.frase}</p>
       <div className="kpis"><div className="kpi"><b className="num">{fin.series}</b><span>series</span></div><div className="kpi"><b className="num">{fmt(fin.vol)}</b><span>kg movidos</span></div><div className="kpi"><b className="num">{fin.min}</b><span>minutos</span></div></div>
       {fin.analogia && <Analogia a={fin.analogia} kg={fin.vol} />}
-      {fin.recs.length > 0 && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="fuego" s={20} /><span>Récord en <b>{fin.recs.join(', ')}</b>.</span></p>}
+      {fin.recs.length > 0 && <p className="aviso progreso"><Ico n="fuego" s={20} /><span>Récord en <b>{fin.recs.join(', ')}</b>.<small>{merito('record', fin.id)}</small></span></p>}
+      {fin.subeVol > 0 && <p className="aviso progreso"><Ico n="grafica" s={20} /><span><b>{fin.subeVol} % más volumen</b> que la última vez en este día.<small>{merito('volumen', fin.id)}</small></span></p>}
+      {!fin.recs.length && !fin.subeVol && fin.semanas >= 3 && <p className="aviso progreso"><Ico n="check" s={20} /><span><b>{fin.semanas} semanas seguidas</b> entrenando.<small>{merito('constancia', fin.id)}</small></span></p>}
       {fin.pendiente && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="nube" s={20} /><span>No hay señal ahora. La sesión quedó guardada en tu teléfono y <b>se envía sola</b> cuando vuelvas a tener conexión.</span></p>}
       <button className="btn oro xl full" onClick={onSalir}>Listo</button>
     </div>
@@ -175,7 +197,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       {modo === 'coach' && <label className="campo" style={{ marginTop: 14 }}><span>Fecha de la sesión</span><input type="date" className="in" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value || hoy())} /></label>}
 
       {ejs.map((ej) => {
-        const T = esTiempo(ej); const prev = seriesPrevias(historial, ej.ejercicio); const filas = reg[ej.id] || []; const yt = ytId(ej.video); const cues = CUES[ej.grupo] || [];
+        const T = esTiempo(ej); const prev = seriesPrevias(historial, ej.ejercicio); const filas = reg[ej.id] || []; const recEj = records(historial, ej.ejercicio); const yt = ytId(ej.video); const cues = CUES[ej.grupo] || [];
         return (
           <article className="ent" key={ej.id} style={{ borderLeft: `4px solid ${colorGrupo(ej.grupo)}` }}>
             <div className="ent-cab">
@@ -194,8 +216,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
               {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}
               <div className="sets">
                 <div className="set-h"><span>#</span><span>Peso</span><span>{T ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>
-                {filas.map((s, k) => (
-                  <div className={`set ${s.hecha ? 'ok' : ''}`} key={k}>
+                {filas.map((s, k) => { const av = s.tocada || s.hecha ? revisarSerie(s, ej, recEj) : null; return (
+                  <React.Fragment key={k}>
+                  <div className={`set ${s.hecha ? 'ok' : ''} ${av ? 'raro' : ''}`}>
                     <u>{k + 1}</u>
                     <input className="cel" inputMode="decimal" value={s.peso} placeholder="kg" onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, 'peso', e.target.value)} aria-label={`Peso serie ${k + 1}`} />
                     <input className="cel" inputMode="numeric" value={T ? s.seg : s.reps} placeholder={T ? 's' : '—'} onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, T ? 'seg' : 'reps', e.target.value)} aria-label={`${T ? 'Segundos' : 'Repeticiones'} serie ${k + 1}`} />
@@ -203,7 +226,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                       <button onClick={() => setRpe({ id: ej.id, k })} aria-label="Qué es el RPE">?</button></div>
                     <button className={`hecho ${s.hecha ? 'on' : ''}`} onClick={() => marcar(ej, k)} aria-label={`Marcar serie ${k + 1} hecha`}><Ico n="check" w={2.6} /></button>
                   </div>
-                ))}
+                  {av && <p className={`set-aviso ${av.nivel}`} role="alert">{av.texto}</p>}
+                  </React.Fragment>); })}
               </div>
               <div className="set-acc"><button className="btn chico" onClick={() => masSerie(ej.id)}><Ico n="mas" s={16} />Serie</button>{filas.length > 1 && <button className="btn chico" onClick={() => menosSerie(ej.id)}>Quitar serie</button>}</div>
               <textarea className="in obs" rows={1} placeholder={modo === 'coach' ? 'Observación del ejercicio…' : 'Cómo te sentiste, molestias…'} value={notas[ej.ejercicio] || ''} onChange={(e) => setNotas((n) => ({ ...n, [ej.ejercicio]: e.target.value }))} />

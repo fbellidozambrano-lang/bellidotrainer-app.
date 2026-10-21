@@ -26,7 +26,7 @@ const aFilaT = (t) => ({ id: t.id, nombre: t.nombre || '', nota: t.nota || '', o
 const deFilaT = (r) => ({ id: r.id, nombre: r.nombre, nota: r.nota, orden: r.orden, dias: r.dias || [], creado: r.creado, actualizado: r.actualizado });
 const aFilaC = (c) => ({ id: c.id, asesorado_id: c.asesoradoId, fecha: c.fecha, datos: c.datos || {}, archivo: c.archivo || '' });
 const deFilaC = (r, aid) => ({ id: r.id, asesoradoId: r.asesorado_id || aid, fecha: String(r.fecha).slice(0, 10), datos: r.datos || {}, archivo: r.archivo || '', creado: r.creado });
-const dePermiso = (r) => (r ? { id: r.id, codigo: r.codigo, creado: r.creado, expira: r.expira, abierto: r.abierto || null, usado: r.usado || null, intentos: r.intentos || 0 } : null);
+const dePermiso = (r) => (r ? { id: r.id, asesoradoId: r.asesorado_id || r.asesoradoId, codigo: r.codigo, creado: r.creado, expira: r.expira, abierto: r.abierto || null, usado: r.usado || null, intentos: r.intentos || 0, progreso: r.progreso || null, progresoAt: r.progreso_at || r.progresoAt || null } : null);
 const aFilaP = (p) => ({ id: p.id, asesorado_id: p.asesoradoId, nombre: p.nombre || '', nota: p.nota || '', orden: p.orden || 0, visible: p.visible !== false, dias: p.dias || [] });
 const deFilaP = (r) => ({ id: r.id, asesoradoId: r.asesorado_id, nombre: r.nombre, nota: r.nota, orden: r.orden, visible: r.visible, dias: r.dias || [], creado: r.creado, actualizado: r.actualizado });
 const aFilaS = (s) => ({ id: s.id, asesorado_id: s.asesoradoId, programa_id: s.programaId || null, programa_nombre: s.programaNombre || '', dia: s.dia || '', fecha: s.fecha, minutos: s.minutos ?? null, series: s.series || [], notas: s.notas || {}, origen: s.origen || 'coach' });
@@ -106,6 +106,9 @@ export function crearStoreNube(cfg, clienteFalso) {
     async atletaGuardarSesion(token, s) { const f = aFilaS(s); delete f.asesorado_id; delete f.origen; f.permiso = s.permiso || null; await run(sb.rpc('atleta_guardar_sesion', { p_token: token, p_sesion: f })); return true; },
     async atletaAbrir(token, codigo) { return (await run(sb.rpc('atleta_abrir', { p_token: token, p_codigo: codigo }))) || { ok: false, motivo: 'enlace' }; },
     async nuevoCodigo(asesoradoId) { return dePermiso(await run(sb.rpc('nuevo_codigo', { p_asesorado: asesoradoId }))); },
+    async atletaProgreso(token, p) { return !!(await run(sb.rpc('atleta_progreso', { p_token: token, p_progreso: p }))); },
+    // quién tiene la rutina abierta (últimas 4 h) y quién terminó hoy
+    async entrenandoAhora() { const desde = new Date(Date.now() - 16 * 36e5).toISOString(); const d = await run(sb.from('permisos').select('*').gte('abierto', desde).order('abierto', { ascending: false })); return d.map(dePermiso); },
     async codigoActual(asesoradoId) { const d = await run(sb.from('permisos').select('*').eq('asesorado_id', asesoradoId).order('creado', { ascending: false }).limit(1)); return dePermiso(d[0]); },
   };
 }
@@ -172,6 +175,8 @@ export function crearStoreLocal() {
         const v = { id: uuid(), asesoradoId, codigo: String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0'), creado: ahora(), expira: new Date(Date.now() + 24 * 36e5).toISOString(), abierto: null, usado: null, intentos: 0 };
         d.permisos.push(v); return { ...v }; });
     },
+    async atletaProgreso(token, p) { return mut((d) => { const a = d.asesorados.find((x) => x.token === token); const v = a && abiertoDe(d, a.id); if (!v) return false; v.progreso = p; v.progresoAt = ahora(); return true; }); },
+    async entrenandoAhora() { const desde = Date.now() - 16 * 36e5; return (leer().permisos || []).filter((x) => x.abierto && Date.parse(x.abierto) > desde).sort((a, b) => (a.abierto < b.abierto ? 1 : -1)).map((x) => ({ ...x })); },
     async codigoActual(asesoradoId) { return (leer().permisos || []).filter((x) => x.asesoradoId === asesoradoId).sort((x, y) => (x.creado < y.creado ? 1 : -1))[0] || null; },
   };
 }

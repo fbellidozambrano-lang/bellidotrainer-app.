@@ -66,6 +66,14 @@ await t('código incorrecto no abre; el correcto sí', async () => {
   const d = await cargar(); assert.equal(d.acceso.abierto, true); assert.equal(d.programas[0].dias[0].ejercicios[0].ejercicio, 'Sentadilla');
   assert.equal(d.acceso.permiso, cod.id);
 });
+await t('en vivo: el asesorado manda su avance solo con la rutina abierta', async () => {
+  const prog = (x) => como(db, null, (tx) => tx.query(`select atleta_progreso($1,$2) as r`, [token, JSON.stringify(x)]));
+  assert.equal((await prog({ dia: 'Pierna', hechas: 2 })).rows[0].r, true);
+  const r = await como(db, A, (tx) => tx.query(`select progreso, progreso_at from permisos where id=$1`, [cod.id]));
+  assert.equal(r.rows[0].progreso.hechas, 2); assert.ok(r.rows[0].progreso_at);
+  assert.equal((await como(db, null, (tx) => tx.query(`select atleta_progreso($1,$2) as r`, ['z'.repeat(32), '{}']))).rows[0].r, false);
+  assert.equal((await como(db, B, (tx) => tx.query(`select * from permisos`))).rows.length, 0);
+});
 await t('el mismo código no se puede ingresar dos veces', async () => { assert.equal((await abrir(cod.codigo)).motivo, 'sin_codigo'); });
 const ses = { id: '33333333-3333-3333-3333-333333333333', fecha: new Date().toISOString().slice(0, 10), dia: 'Pierna', programa_nombre: 'Plan 3 días',
   minutos: 55, series: [{ ejercicio: 'Sentadilla', serie: 1, peso: 60, reps: 8, rpe: 8 }], notas: { Sentadilla: 'bien' } };
@@ -81,6 +89,7 @@ await t('sesión con enlace falso o vacía se rechaza', async () => {
   await falla(guardar({ ...ses, id: null, series: [] }));
 });
 await t('al enviar la sesión la rutina se bloquea y el código no sirve para otra', async () => {
+  assert.equal((await como(db, null, (tx) => tx.query(`select atleta_progreso($1,'{"x":1}') as r`, [token]))).rows[0].r, false);
   const d = await cargar(); assert.equal(d.acceso.abierto, false); assert.ok(!JSON.stringify(d.programas).includes('Sentadilla'));
   await falla(guardar({ ...ses, id: '44444444-4444-4444-4444-444444444444', permiso: cod.id }));
 });

@@ -8,6 +8,7 @@ import Rutinas from './Rutinas.jsx';
 import Editor from './Editor.jsx';
 import Ajustes from './Ajustes.jsx';
 import Preparar from './Preparar.jsx';
+import EnVivo, { activos } from './EnVivo.jsx';
 import Biblioteca from './Biblioteca.jsx';
 import { Plantillas, EditorPlantilla } from './Plantillas.jsx';
 import Metricas from '../shared/Metricas.jsx';
@@ -47,6 +48,11 @@ export default function CoachApp({ store }) {
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', traer); };
   }, [usuario, store]);
 
+  // en vivo: quién tiene la rutina abierta
+  const [vivo, setVivo] = useState([]);
+  const recargarVivo = useCallback(async () => { if (document.visibilityState !== 'visible') return; try { setVivo(await store.entrenandoAhora()); } catch {} }, [store]);
+  useEffect(() => { if (!usuario) return; recargarVivo(); const i = setInterval(recargarVivo, 30000); document.addEventListener('visibilitychange', recargarVivo); return () => { clearInterval(i); document.removeEventListener('visibilitychange', recargarVivo); }; }, [usuario, recargarVivo]);
+
   const acc = useMemo(() => {
     const falla = (e) => { avisar(e.message || 'No se pudo guardar', 'error'); throw e; };
     return {
@@ -79,6 +85,7 @@ export default function CoachApp({ store }) {
 
   const [r0, id, r2, r3, r4] = ruta;
   if (r0 === 'ajustes') return <Ajustes store={store} datos={datos} acc={acc} usuario={usuario} />;
+  if (r0 === 'envivo') return <EnVivo datos={datos} vivo={vivo} recargar={recargarVivo} />;
   if (r0 === 'biblioteca') return <Biblioteca datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'plantillas') return <Plantillas datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'plantilla') { const t = datos.plantillas.find((x) => x.id === id); if (!t) { setTimeout(() => ir('plantillas'), 0); return null; } return <EditorPlantilla key={t.id} t={t} datos={datos} acc={acc} />; }
@@ -89,7 +96,7 @@ export default function CoachApp({ store }) {
     if (r2 === 'preparar') return <Preparar a={a} programas={ps} sesiones={ss} acc={acc} store={store} />;
     if (r2 === 'rutinas') return <Rutinas a={a} programas={ps} sesiones={ss} datos={datos} acc={acc} />;
     if (r2 === 'p') { const p = ps.find((x) => x.id === r3); if (!p) { setTimeout(() => ir('a', a.id, 'rutinas'), 0); return null; } return <Editor key={p.id} a={a} p={p} datos={datos} acc={acc} store={store} />; }
-    if (r2 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir('a', a.id), texto: a.nombre.split(' ')[0] }} titulo="Métricas" /><Metricas sesiones={ss} programas={ps.filter((p) => p.visible !== false)} nombre={a.nombre.split(' ')[0]} onBorrarSesion={acc.borrarSesion} /></div>;
+    if (r2 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir('a', a.id), texto: a.nombre.split(' ')[0] }} titulo="Métricas" /><Metricas sesiones={ss} programas={ps.filter((p) => p.visible !== false)} nombre={a.nombre.split(' ')[0]} onBorrarSesion={acc.borrarSesion} onGuardarSesion={async (x) => { await acc.guardarSesion(x); avisar('Sesión actualizada'); }} /></div>;
     if (r2 === 'entrenar') {
       const p = ps.find((x) => x.id === r3); const d = p?.dias.find((x) => x.id === r4);
       if (!d) { setTimeout(() => ir('a', a.id), 0); return null; }
@@ -98,5 +105,5 @@ export default function CoachApp({ store }) {
     }
     return <Hub a={a} programas={ps} sesiones={ss} acc={acc} store={store} controles={datos.controles.filter((c) => c.asesoradoId === a.id)} faltaTablas={datos.faltaTablas} />;
   }
-  return <Inicio datos={datos} acc={acc} store={store} usuario={usuario} />;
+  return <Inicio datos={datos} acc={acc} store={store} usuario={usuario} entrenando={activos(vivo)} recargarVivo={recargarVivo} />;
 }

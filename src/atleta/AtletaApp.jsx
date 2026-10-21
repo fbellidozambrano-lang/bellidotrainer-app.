@@ -122,7 +122,7 @@ export default function AtletaApp({ store, token, vista }) {
     const p = ps.find((x) => x.id === r1); const dia = p?.dias.find((x) => x.id === r2);
     if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} /></>;
+    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
   }
   if ((r0 === 'p' || r0 === 'rutinas') && !libre) return bloqueo;
   if (r0 === 'p') {
@@ -155,7 +155,7 @@ export default function AtletaApp({ store, token, vista }) {
         <div className="losa pronto" aria-disabled="true" aria-label="Tu alimentación, próximamente"><span className="losa-ico"><Ico n="comida" /></span><div><h3 className="largo">Tu<br />alimentación</h3><p>Tu plan de comidas</p></div><span className="sello">Próximamente</span></div>
         <div className="losa pronto" aria-disabled="true" aria-label="Ejercicios de casa, próximamente"><span className="losa-ico"><Ico n="casa" /></span><div><h3>Ejercicios de casa</h3><p>Para cuando no puedas ir al gym</p></div><span className="sello">Próximamente</span></div>
       </div>
-      {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} /></>}
+      {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} merito /></>}
       {u && <><div className="sec"><h2>Último entreno</h2></div><button className="item" style={{ borderTop: '1px solid var(--line)' }} onClick={() => ir('metricas')}><div className="item-t"><strong>{u.dia}</strong><span>{haceCuanto(u.fecha)} · {(u.series || []).length} series</span></div><Ico n="chev" className="chev" s={18} /></button></>}
       {pie}
       {!standalone && <p className="instalar">Tenla a mano: en Safari toca Compartir → Agregar a inicio.</p>}
