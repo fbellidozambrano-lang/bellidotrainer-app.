@@ -212,7 +212,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                 {prev.nota && <p className="guia">“{prev.nota}”</p>}
                 <Marcas historial={historial} ej={ej} />
               </> : <p className="previa-t">Primera vez con este ejercicio</p>}
-              {ej.pesoSugerido && <div className="sug"><span>Carga sugerida hoy</span><b>{textoCarga(ej.pesoSugerido)}</b></div>}
+              {ej.pesoSugerido && (String(ej.pesoSugerido).length > 14 ? <div className="sug texto"><span>Con qué hacerlo</span><b>{ej.pesoSugerido}</b></div>
+                : <div className="sug"><span>Carga sugerida hoy</span><b>{textoCarga(ej.pesoSugerido)}</b></div>)}
               {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}
               <div className="sets">
                 <div className="set-h"><span>#</span><span>Peso</span><span>{T ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>

@@ -3,6 +3,8 @@ import { Barra, Ico, ir, useRuta, useAviso } from '../ui/kit.jsx';
 import { TarjetaPrograma, TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.jsx';
 import Metricas from '../shared/Metricas.jsx';
 import Composicion from '../shared/Composicion.jsx';
+import { programaCasa, PESOS_CASEROS } from '../data/casa.js';
+import { colorGrupo } from '../lib/util.js';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
 import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias, diasParaVencer, fLarga } from '../lib/util.js';
 import logo from '../assets/logo.png';
@@ -13,7 +15,7 @@ const poner = (k, v) => { try { v == null ? localStorage.removeItem(k) : localSt
 const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 // Sin código: solo quedan nombres de programas y días (lo mismo que manda el servidor)
-const cerrado = (x) => ({ ...x, acceso: { abierto: false }, programas: (x.programas || []).map((p) => ({ ...p, nota: '', dias: (p.dias || []).map((d) => ({ id: d.id, nombre: d.nombre })) })) });
+const cerrado = (x) => ({ ...x, acceso: { abierto: false }, programas: (x.programas || []).map((p) => ({ ...p, nota: '', dias: (p.dias || []).map((d) => ({ id: d.id, nombre: d.nombre, grupos: d.grupos || (d.ejercicios || []).map((e) => e.grupo) })) })) });
 const vigente = (x) => { const a = x?.acceso; if (!a) return true; return !!a.abierto && (!a.hasta || Date.parse(a.hasta) > Date.now()); };
 
 // Protección de la rutina: sin copiar, sin menú, se oculta al salir de la app o al imprimir
@@ -78,7 +80,7 @@ export default function AtletaApp({ store, token, vista }) {
 
   const vaciarCola = useCallback(async () => {
     const pend = leer(kCola) || []; if (!pend.length) return; const quedan = [];
-    for (const s of pend) { try { await store.atletaGuardarSesion(token, s); } catch { quedan.push(s); } }
+    for (const s of pend) { try { if (s.casa) { const { casa, ...x } = s; await store.atletaGuardarCasa(token, x); } else await store.atletaGuardarSesion(token, s); } catch { quedan.push(s); } }
     poner(kCola, quedan.length ? quedan : null); setCola(quedan);
     if (quedan.length < pend.length) avisar(pend.length - quedan.length === 1 ? 'Tu sesión pendiente ya le llegó a tu coach' : 'Tus sesiones pendientes ya le llegaron a tu coach');
   }, [store, token, kCola, avisar]);
@@ -95,6 +97,15 @@ export default function AtletaApp({ store, token, vista }) {
     // enviada: la rutina queda bloqueada (al tocar "Listo", para no tapar el resumen)
     bloquearAlSalir.current = true;
     setD((x) => { const n = { ...x, sesiones: [ses, ...x.sesiones] }; poner(kCache, cerrado(n)); return n; });
+    return { pendiente };
+  }
+  async function guardarCasa(s0) {
+    if (vista === 'coach') { avisar('Vista previa: esta sesión no se guarda'); return {}; }
+    const ses = { ...s0, programaId: null, asesoradoId: d.asesorado.id, origen: 'casa', creado: new Date().toISOString() };
+    let pendiente = false;
+    try { await store.atletaGuardarCasa(token, s0); }
+    catch { const c = [...(leer(kCola) || []), { ...s0, casa: true }]; poner(kCola, c); setCola(c); pendiente = true; }
+    setD((x) => { const n = { ...x, sesiones: [ses, ...x.sesiones] }; poner(kCache, x.acceso?.abierto ? n : cerrado(n)); return n; });
     return { pendiente };
   }
   const salirEntreno = (p) => { if (bloquearAlSalir.current) { bloquearAlSalir.current = false; setD((x) => cerrado(x)); ir(); } else ir('p', p.id); };
@@ -123,6 +134,32 @@ export default function AtletaApp({ store, token, vista }) {
     if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
     return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
+  }
+  // ---------- en casa (no necesita código) ----------
+  if (r0 === 'ce') {
+    const p = ps.find((x) => x.id === r1); const pc = p && programaCasa(p); const dia = pc?.dias.find((x) => x.id === r2);
+    if (!dia) { setTimeout(() => ir('casa'), 0); return null; }
+    return <Entrenamiento programa={pc} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:casa:${token}:${dia.id}`} onGuardar={guardarCasa} onSalir={() => ir('casa')} />;
+  }
+  if (r0 === 'casa') {
+    const conDias = ps.filter((p) => nDias(p));
+    return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} />
+      <section style={{ padding: '4px 0 14px' }}><h1 className="gigante">En casa</h1>
+        <p className="sub">¿No puedes ir al gym? Haz la versión en casa del día que te toca: corta, con lo que tienes a mano, y le das a cada músculo su estímulo para no perder el día.</p></section>
+      <details className="intens casa-guia"><summary>Cómo armar tus pesos en casa <Ico n="abajo" s={16} /></summary>
+        <div className="casa-pesos">{PESOS_CASEROS.map(([a, b]) => <div key={a}><span>{a}</span><b>{b}</b></div>)}</div>
+        <p className="ayuda" style={{ margin: '8px 0 10px' }}>Como el peso es menor que en el gym, baja cada repetición en 3 segundos y llega cerca del fallo (RPE 9): así el estímulo sigue siendo bueno.</p>
+      </details>
+      {!conDias.length && <div className="vacio"><b>Tu coach está armando tus rutinas</b>Cuando tengas tu programa, aquí aparece su versión en casa.</div>}
+      {conDias.map((p) => { const pc = programaCasa(p); return <div key={p.id}>
+        {conDias.length > 1 && <div className="sec"><h2>{p.nombre}</h2><span>{nDias(p)} días</span></div>}
+        {pc.dias.map((dc, i) => { const u = ses.filter((x) => x.origen === 'casa' && x.dia === dc.nombre).map((x) => x.fecha).sort().pop();
+          return <button key={dc.id} className="dia-card casa" onClick={() => ir('ce', p.id, dc.id)}>
+            <span className="n num">{i + 1}</span>
+            <div className="item-t"><strong>{dc.base}</strong><span>En casa · ~{dc.minutos} min · {dc.ejercicios.length} ejercicios{u ? ` · hecho ${haceCuanto(u)}` : ''}</span>
+              <div className="chips-g">{dc.grupos.map((g) => <i key={g} style={{ borderColor: colorGrupo(g) }}>{g}</i>)}</div></div>
+            <Ico n="chev" className="chev" s={20} /></button>; })}
+      </div>; })}{pie}</div>;
   }
   if ((r0 === 'p' || r0 === 'rutinas') && !libre) return bloqueo;
   if (r0 === 'p') {
@@ -153,7 +190,7 @@ export default function AtletaApp({ store, token, vista }) {
         <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n={libre ? 'pesa' : 'candado'} /></span><div><h3>Rutinas</h3><p>{!ps.length ? 'En preparación' : libre ? `Programas de ${frecuencias(ps)}` : 'Ingresa tu código para entrenar'}</p></div></button>
         <button className="losa" onClick={() => ir('metricas')}><span className="losa-ico"><Ico n="grafica" /></span><div><h3>Métricas</h3><p>{ses.length ? `${semanasSeguidas(ses)} ${semanasSeguidas(ses) === 1 ? 'semana' : 'semanas'} seguidas` : 'Tu progreso'}</p></div></button>
         <div className="losa pronto" aria-disabled="true" aria-label="Tu alimentación, próximamente"><span className="losa-ico"><Ico n="comida" /></span><div><h3 className="largo">Tu<br />alimentación</h3><p>Tu plan de comidas</p></div><span className="sello">Próximamente</span></div>
-        <div className="losa pronto" aria-disabled="true" aria-label="Ejercicios de casa, próximamente"><span className="losa-ico"><Ico n="casa" /></span><div><h3>Ejercicios de casa</h3><p>Para cuando no puedas ir al gym</p></div><span className="sello">Próximamente</span></div>
+        <button className="losa" onClick={() => ir('casa')}><span className="losa-ico"><Ico n="casa" /></span><div><h3>Ejercicios de casa</h3><p>Para cuando no puedas ir al gym</p></div></button>
       </div>
       {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} merito /></>}
       {u && <><div className="sec"><h2>Último entreno</h2></div><button className="item" style={{ borderTop: '1px solid var(--line)' }} onClick={() => ir('metricas')}><div className="item-t"><strong>{u.dia}</strong><span>{haceCuanto(u.fecha)} · {(u.series || []).length} series</span></div><Ico n="chev" className="chev" s={18} /></button></>}

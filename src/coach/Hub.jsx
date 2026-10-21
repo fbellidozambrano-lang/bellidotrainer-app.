@@ -6,6 +6,8 @@ import { TarjetaDia, ordenarProgramas, frecuencias } from '../shared/Programas.j
 import { haceCuanto, primerNombre, semanasSeguidas, sesionesSemana, tokenNuevo, fLarga, nDias, abrirWa, textoVence, diasParaVencer, fechaLocal } from '../lib/util.js';
 import { enlaceAtleta } from './CoachApp.jsx';
 import SeccionComposicion from './Controles.jsx';
+import { programaCasa } from '../data/casa.js';
+import { resumenEj } from '../lib/util.js';
 
 const hora = (t) => new Date(t).toLocaleTimeString('es-VE', { hour: 'numeric', minute: '2-digit' });
 const H4 = 4 * 36e5;
@@ -51,6 +53,7 @@ function CodigoSesion({ a, store, sesiones }) {
 export default function Hub({ a, programas, sesiones, acc, store, controles = [], faltaTablas }) {
   const avisar = useAviso(); const nom = primerNombre(a.nombre);
   const [editar, setEditar] = useState(false); const [mas, setMas] = useState(false); const [borrar, setBorrar] = useState(false); const [nuevoTok, setNuevoTok] = useState(false);
+  const [verCasa, setVerCasa] = useState(false);
   const [registrar, setRegistrar] = useState(false); const [regProg, setRegProg] = useState(null); const [ver, setVer] = useState(null);
   const ses = [...sesiones].sort((x, y) => (x.fecha < y.fecha ? 1 : -1)); const u = ses[0]?.fecha;
   const semana = new Set(sesionesSemana(ses).map((s) => s.fecha + s.dia)).size;
@@ -84,6 +87,9 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
       <div className="sec"><h2>Entrenar hoy</h2><span>código de un uso</span></div>
       <CodigoSesion a={a} store={store} sesiones={sesiones} />
 
+      {ps.some((p) => nDias(p)) && <button className="item casa-coach" onClick={() => setVerCasa(true)}><span className="codigo-ico"><Ico n="casa" s={22} /></span>
+        <div className="item-t"><strong>Rutina en casa</strong><span>Lista para cada día de sus programas · la ve en “Ejercicios de casa”</span></div><Ico n="chev" className="chev" s={18} /></button>}
+
       <div className="kpis">
         <div className="kpi"><b className="num">{semana}</b><span>entrenos esta semana</span></div>
         <div className="kpi"><b className="num">{semanasSeguidas(ses)}</b><span>semanas seguidas</span></div>
@@ -112,6 +118,16 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
         <div className="lista">{ses.slice(0, 4).map((s) => <button key={s.id} className="item" onClick={() => setVer(s)}><div className="item-t"><strong>{s.dia || 'Entrenamiento'}</strong><span>{fLarga(s.fecha)} · {(s.series || []).length} series{s.origen === 'asesorado' ? '' : ' · contigo'}</span></div><Ico n="chev" className="chev" s={18} /></button>)}</div>
       </>}
 
+      {verCasa && <Hoja titulo="Rutina en casa" onCerrar={() => setVerCasa(false)}>
+        <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>Se arma sola con los grupos musculares de cada día de su rutina: un ejercicio casero por grupo, con botellas, mochila, silla o escalón. Si cambias su rutina, esta se actualiza. No necesita código.</p>
+        {ps.filter((p) => nDias(p)).map((p) => <div key={p.id} style={{ marginBottom: 12 }}>
+          {ps.length > 1 && <p className="etq" style={{ marginBottom: 6 }}>{p.nombre}</p>}
+          {programaCasa(p).dias.map((dc) => <div key={dc.id} className="tarj" style={{ marginBottom: 8 }}>
+            <strong style={{ fontWeight: 600 }}>{dc.base}</strong> <span className="etq">· ~{dc.minutos} min</span>
+            {dc.ejercicios.map((e) => <p key={e.id} style={{ fontSize: 14.5, padding: '5px 0', borderTop: '1px solid var(--line)', marginTop: 6 }}>{e.ejercicio} <span className="muted">· {resumenEj(e)} · {e.pesoSugerido}</span></p>)}
+          </div>)}
+        </div>)}
+      </Hoja>}
       {ver && <DetalleSesion s={ver} historial={sesiones} onCerrar={() => setVer(null)} onGuardar={async (x) => { await acc.guardarSesion(x); avisar('Sesión actualizada'); }} onBorrar={(s) => { setVer(null); acc.borrarSesion(s); }} />}
       {editar && <FichaAsesorado inicial={a} onCerrar={() => setEditar(false)} onGuardar={async (f) => { await acc.guardarAsesorado(f); setEditar(false); avisar('Ficha guardada'); }} />}
       {registrar && <Hoja titulo={regProg ? regProg.nombre : '¿Qué programa?'} onCerrar={() => setRegistrar(false)}>

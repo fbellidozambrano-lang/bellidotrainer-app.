@@ -84,7 +84,7 @@ export function DetalleSesion({ s, onCerrar, onBorrar, onGuardar, historial }) {
   const ejs = [...new Set((s.series || []).map((x) => x.ejercicio))];
   return (
     <Hoja titulo={s.dia || 'Sesión'} onCerrar={onCerrar}>
-      <p className="muted" style={{ marginTop: -8, marginBottom: 12 }}>{fLarga(s.fecha)}{s.programaNombre ? ` · ${s.programaNombre}` : ''}{s.minutos ? ` · ${s.minutos} min` : ''} · {s.origen === 'asesorado' ? 'la registró el asesorado' : s.origen === 'importado' ? 'importada' : 'registrada por el coach'}</p>
+      <p className="muted" style={{ marginTop: -8, marginBottom: 12 }}>{fLarga(s.fecha)}{s.programaNombre ? ` · ${s.programaNombre}` : ''}{s.minutos ? ` · ${s.minutos} min` : ''} · {s.origen === 'casa' ? 'entrenó en casa' : s.origen === 'asesorado' ? 'la registró el asesorado' : s.origen === 'importado' ? 'importada' : 'registrada por el coach'}</p>
       {ejs.map((e) => (
         <div key={e} style={{ padding: '10px 0', borderTop: '1px solid var(--line)' }}>
           <strong style={{ fontWeight: 600 }}>{e}</strong>

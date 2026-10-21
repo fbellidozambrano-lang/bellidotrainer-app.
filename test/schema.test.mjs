@@ -48,6 +48,16 @@ await t('sin código: ve nombres de programas y días, nunca los ejercicios', as
   assert.equal(d.programas[0].dias[0].ejercicios, undefined);
   assert.ok(!JSON.stringify(d).includes('Sentadilla')); assert.equal(d.asesorado.token, undefined);
 });
+await t('sin código llegan los grupos musculares de cada día (para la rutina en casa)', async () => {
+  const d = await cargar(); assert.equal(d.programas[0].dias[0].grupos.length, 1); assert.equal(d.programas[0].dias[0].ejercicios, undefined);
+});
+await t('entreno en casa se guarda sin código y no gasta códigos', async () => {
+  const s = { id: '66666666-6666-6666-6666-666666666666', fecha: new Date().toISOString().slice(0, 10), dia: 'Pierna en casa', programa_nombre: 'En casa', series: [{ ejercicio: 'Sentadilla búlgara con el pie en el sofá', serie: 1, peso: 0, reps: 12 }] };
+  await como(db, null, (tx) => tx.query(`select atleta_guardar_casa($1,$2)`, [token, JSON.stringify(s)]));
+  const r = await como(db, A, (tx) => tx.query(`select origen from sesiones where id=$1`, [s.id])); assert.equal(r.rows[0].origen, 'casa');
+  await falla(como(db, null, (tx) => tx.query(`select atleta_guardar_casa($1,$2)`, ['q'.repeat(32), JSON.stringify(s)])));
+  await como(db, A, (tx) => tx.query(`delete from sesiones where id=$1`, [s.id]));
+});
 await t('el coach en vista previa sí ve todo', async () => {
   const d = await cargar(A); assert.equal(d.acceso.abierto, true); assert.equal(d.programas[0].dias[0].ejercicios[0].ejercicio, 'Sentadilla');
 });

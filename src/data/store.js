@@ -104,6 +104,7 @@ export function crearStoreNube(cfg, clienteFalso) {
     },
     async atletaCargar(token) { const d = await run(sb.rpc('atleta_cargar', { p_token: token })); return atletaDe(d); },
     async atletaGuardarSesion(token, s) { const f = aFilaS(s); delete f.asesorado_id; delete f.origen; f.permiso = s.permiso || null; await run(sb.rpc('atleta_guardar_sesion', { p_token: token, p_sesion: f })); return true; },
+    async atletaGuardarCasa(token, s) { const f = aFilaS(s); delete f.asesorado_id; delete f.origen; await run(sb.rpc('atleta_guardar_casa', { p_token: token, p_sesion: f })); return true; },
     async atletaAbrir(token, codigo) { return (await run(sb.rpc('atleta_abrir', { p_token: token, p_codigo: codigo }))) || { ok: false, motivo: 'enlace' }; },
     async nuevoCodigo(asesoradoId) { return dePermiso(await run(sb.rpc('nuevo_codigo', { p_asesorado: asesoradoId }))); },
     async atletaProgreso(token, p) { return !!(await run(sb.rpc('atleta_progreso', { p_token: token, p_progreso: p }))); },
@@ -152,7 +153,7 @@ export function crearStoreLocal() {
       const d = leer(); const a = d.asesorados.find((x) => x.token === token && !x.archivado); if (!a) return null;
       const v = abiertoDe(d, a.id); const libre = !!v || coach;
       const ps = d.programas.filter((p) => p.asesoradoId === a.id && p.visible !== false).sort((x, y) => (x.orden || 0) - (y.orden || 0))
-        .map((p) => (libre ? p : { id: p.id, asesoradoId: p.asesoradoId, nombre: p.nombre, orden: p.orden, nota: '', dias: (p.dias || []).map((x) => ({ id: x.id, nombre: x.nombre })) }));
+        .map((p) => (libre ? p : { id: p.id, asesoradoId: p.asesoradoId, nombre: p.nombre, orden: p.orden, nota: '', dias: (p.dias || []).map((x) => ({ id: x.id, nombre: x.nombre, grupos: (x.ejercicios || []).map((e) => e.grupo) })) }));
       return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, hasta: v ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
         sesiones: d.sesiones.filter((s) => s.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 400) };
     },
@@ -162,6 +163,11 @@ export function crearStoreLocal() {
         if (!v) return { ok: false, motivo: 'sin_codigo' };
         if (v.codigo !== String(codigo || '').replace(/\D/g, '')) { v.intentos = (v.intentos || 0) + 1; if (v.intentos >= 5) v.expira = ahora(); return { ok: false, motivo: v.intentos >= 5 ? 'agotado' : 'incorrecto' }; }
         v.abierto = ahora(); return { ok: true }; });
+    },
+    async atletaGuardarCasa(token, s) {
+      mut((d) => { const a = d.asesorados.find((x) => x.token === token); if (!a) throw new Error('Enlace no válido'); if (d.sesiones.some((x) => x.id === s.id)) return;
+        const { permiso, ...ses } = s; d.sesiones.push({ ...ses, programaId: null, asesoradoId: a.id, origen: 'casa', creado: ahora() }); });
+      return true;
     },
     async atletaGuardarSesion(token, s) {
       mut((d) => { const a = d.asesorados.find((x) => x.token === token); if (!a) throw new Error('Enlace no válido'); if (d.sesiones.some((x) => x.id === s.id)) return;

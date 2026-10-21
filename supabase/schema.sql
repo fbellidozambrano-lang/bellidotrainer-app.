@@ -48,7 +48,7 @@ create table if not exists public.sesiones (
   minutos         int,
   series          jsonb not null default '[]'::jsonb,
   notas           jsonb not null default '{}'::jsonb,
-  origen          text not null default 'coach',        -- coach | asesorado | importado
+  origen          text not null default 'coach',        -- coach | asesorado | importado | casa
   creado          timestamptz not null default now()
 );
 
@@ -239,7 +239,9 @@ begin
       select jsonb_agg(jsonb_build_object('id', p.id, 'nombre', p.nombre, 'orden', p.orden,
                'nota', case when libre then p.nota else '' end,
                'dias', case when libre then p.dias else coalesce((
-                  select jsonb_agg(jsonb_build_object('id', d ->> 'id', 'nombre', d ->> 'nombre'))
+                  select jsonb_agg(jsonb_build_object('id', d ->> 'id', 'nombre', d ->> 'nombre',
+                           -- solo los grupos musculares (para armar la rutina en casa), nunca los ejercicios
+                           'grupos', coalesce((select jsonb_agg(e ->> 'grupo') from jsonb_array_elements(coalesce(d -> 'ejercicios', '[]'::jsonb)) e), '[]'::jsonb)))
                   from jsonb_array_elements(p.dias) d), '[]'::jsonb) end)
                order by p.orden, p.creado)
       from public.programas p where p.asesorado_id = a.id and p.visible), '[]'::jsonb),
@@ -297,6 +299,28 @@ begin
   return found;
 end $$;
 
+-- Entreno en casa: no necesita código (no muestra la rutina del gimnasio)
+create or replace function public.atleta_guardar_casa(p_token text, p_sesion jsonb)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare a public.asesorados; v_id uuid; v_fecha date;
+begin
+  if p_token is null or length(p_token) < 16 then raise exception 'enlace no valido'; end if;
+  select * into a from public.asesorados where token = p_token and not archivado;
+  if not found then raise exception 'enlace no valido'; end if;
+  if jsonb_typeof(p_sesion -> 'series') <> 'array' or jsonb_array_length(p_sesion -> 'series') = 0
+     or jsonb_array_length(p_sesion -> 'series') > 120 then raise exception 'sesion sin series'; end if;
+  v_id    := coalesce(nullif(p_sesion ->> 'id', '')::uuid, gen_random_uuid());
+  v_fecha := coalesce(nullif(p_sesion ->> 'fecha', '')::date, current_date);
+  if v_fecha > current_date + 2 or v_fecha < current_date - 30 then raise exception 'fecha fuera de rango'; end if;
+  insert into public.sesiones (id, coach_id, asesorado_id, programa_id, programa_nombre, dia, fecha, minutos, series, notas, origen)
+  values (v_id, a.coach_id, a.id, null, left(coalesce(p_sesion ->> 'programa_nombre', 'En casa'), 120),
+          left(coalesce(p_sesion ->> 'dia', ''), 120), v_fecha, least(nullif(p_sesion ->> 'minutos', '')::numeric, 300)::int,
+          p_sesion -> 'series', case when jsonb_typeof(p_sesion -> 'notas') = 'object' then p_sesion -> 'notas' else '{}'::jsonb end, 'casa')
+  on conflict (id) do nothing;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
 create or replace function public.atleta_guardar_sesion(p_token text, p_sesion jsonb)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -347,6 +371,8 @@ grant execute on function public.atleta_cargar(text) to anon, authenticated;
 grant execute on function public.atleta_guardar_sesion(text, jsonb) to anon, authenticated;
 revoke all on function public.atleta_progreso(text, jsonb) from public;
 grant execute on function public.atleta_progreso(text, jsonb) to anon, authenticated;
+revoke all on function public.atleta_guardar_casa(text, jsonb) from public;
+grant execute on function public.atleta_guardar_casa(text, jsonb) to anon, authenticated;
 revoke all on function public.atleta_abrir(text, text) from public;
 grant execute on function public.atleta_abrir(text, text) to anon, authenticated;
 revoke all on function public.nuevo_codigo(uuid, int) from public;
