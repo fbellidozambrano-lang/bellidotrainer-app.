@@ -7,6 +7,8 @@ import { analogia } from '../lib/analogias.js';
 import { revisarSerie } from '../lib/validar.js';
 import { merito } from '../lib/merito.js';
 import { mismoNombre } from '../lib/nombres.js';
+import { resumenCompartir } from '../lib/compartir.js';
+import Compartir from './Compartir.jsx';
 
 // ---------- conversor kg ⇄ lb ----------
 const LB = 2.20462;
@@ -107,7 +109,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   const [ocultos, setOcultos] = useState({}); const [rpe, setRpe] = useState(null); const [conv, setConv] = useState(false);
   const atleta = modo !== 'coach';
   const [finAt, setFinAt] = useState(0); const [total, setTotal] = useState(0); const [, tick] = useState(0); const alarma = useRef([]);
-  const [cierre, setCierre] = useState(false); const [fin, setFin] = useState(null); const [guardando, setGuardando] = useState(false);
+  const [cierre, setCierre] = useState(false); const [fin, setFin] = useState(null); const [guardando, setGuardando] = useState(false); const [compartir, setCompartir] = useState(false);
   const retomado = useRef(!!guardado?.reg);
 
   useEffect(() => { if (!fin) escribir(claveBorrador, { reg, notas, inicio, fecha, t: Date.now() }); }, [reg, notas, fecha, fin, claveBorrador, inicio]);
@@ -169,22 +171,25 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       const antes = historial.filter((x) => mismoNombre(x.dia, dia.nombre) && (!programa?.id || !x.programaId || x.programaId === programa.id)).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))[0];
       const volAntes = antes ? volumen(antes) : 0; const subeVol = volAntes > 0 && vol > volAntes * 1.03 ? Math.round((vol / volAntes - 1) * 100) : 0;
       const semanas = semanasSeguidas([...historial, { fecha: p.fecha }]);
-      setFin({ series: p.series.length, vol, min: p.minutos, recs, subeVol, semanas, id: p.id, pendiente: r?.pendiente, analogia: analogia(vol, p.id), frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)] }); pitar(LOGRO);
+      const resumen = resumenCompartir(p, historial, { dia: dia.nombre, programa: programa?.nombre || '' });
+      setFin({ series: p.series.length, vol, min: p.minutos, recs, subeVol, semanas, id: p.id, pendiente: r?.pendiente, analogia: analogia(vol, p.id), frase: MOTIVACION[Math.floor(Math.random() * MOTIVACION.length)], resumen }); pitar(LOGRO);
     } catch (e) { avisar(e.message || 'No se pudo guardar', 'error'); }
     setGuardando(false); setCierre(false);
   }
 
+  if (fin && compartir) return <Compartir resumen={fin.resumen} onCerrar={() => setCompartir(false)} />;
   if (fin) return (
     <div className="fin">
       <img src={brazo} alt="" />
       <h1>{modo === 'coach' ? 'Sesión guardada' : fin.pendiente ? 'Entreno completo' : 'Enviado a tu coach'}</h1>
       <p className="frase">{fin.frase}</p>
-      <div className="kpis"><div className="kpi"><b className="num">{fin.series}</b><span>series</span></div><div className="kpi"><b className="num">{fmt(fin.vol)}</b><span>kg movidos</span></div><div className="kpi"><b className="num">{fin.min}</b><span>minutos</span></div></div>
+      <div className="kpis"><div className="kpi"><b className="num">{fin.series}</b><span>series</span></div><div className="kpi"><b className="num">{fmt(fin.vol)}</b><span>kg movidos</span></div><div className="kpi"><b className="num">{fin.min}</b><span>{fin.min === 1 ? 'minuto' : 'minutos'}</span></div></div>
       {fin.analogia && <Analogia a={fin.analogia} kg={fin.vol} />}
       {fin.recs.length > 0 && <p className="aviso progreso"><Ico n="fuego" s={20} /><span>Récord en <b>{fin.recs.join(', ')}</b>.<small>{merito('record', fin.id)}</small></span></p>}
       {fin.subeVol > 0 && <p className="aviso progreso"><Ico n="grafica" s={20} /><span><b>{fin.subeVol} % más volumen</b> que la última vez en este día.<small>{merito('volumen', fin.id)}</small></span></p>}
       {!fin.recs.length && !fin.subeVol && fin.semanas >= 3 && <p className="aviso progreso"><Ico n="check" s={20} /><span><b>{fin.semanas} semanas seguidas</b> entrenando.<small>{merito('constancia', fin.id)}</small></span></p>}
       {fin.pendiente && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="nube" s={20} /><span>No hay señal ahora. La sesión quedó guardada en tu teléfono y <b>se envía sola</b> cuando vuelvas a tener conexión.</span></p>}
+      <button className="btn xl full comp-abrir" onClick={() => setCompartir(true)}><Ico n="camara" s={22} />Comparte tu entreno</button>
       <button className="btn oro xl full" onClick={onSalir}>Listo</button>
     </div>
   );
