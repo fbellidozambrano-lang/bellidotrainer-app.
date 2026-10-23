@@ -189,7 +189,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       {fin.subeVol > 0 && <p className="aviso progreso"><Ico n="grafica" s={20} /><span><b>{fin.subeVol} % más volumen</b> que la última vez en este día.<small>{merito('volumen', fin.id)}</small></span></p>}
       {!fin.recs.length && !fin.subeVol && fin.semanas >= 3 && <p className="aviso progreso"><Ico n="check" s={20} /><span><b>{fin.semanas} semanas seguidas</b> entrenando.<small>{merito('constancia', fin.id)}</small></span></p>}
       {fin.pendiente && <p className="aviso" style={{ width: '100%', textAlign: 'left', marginTop: 0, marginBottom: 18 }}><Ico n="nube" s={20} /><span>No hay señal ahora. La sesión quedó guardada en tu teléfono y <b>se envía sola</b> cuando vuelvas a tener conexión.</span></p>}
-      <button className="btn xl full comp-abrir" onClick={() => setCompartir(true)}><Ico n="camara" s={22} />Comparte tu entreno</button>
+      <button className="btn xl full comp-abrir" onClick={() => setCompartir(true)}><Ico n="camara" s={22} />Comparte tu progreso</button>
       <button className="btn oro xl full" onClick={onSalir}>Listo</button>
     </div>
   );

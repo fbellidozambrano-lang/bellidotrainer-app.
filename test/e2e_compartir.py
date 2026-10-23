@@ -36,8 +36,12 @@ with sync_playwright() as pw:
     pg.get_by_role('button', name='Enviar a Coach').click(); pg.wait_for_timeout(300)
     pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(900)
     shot(pg, '01_fin')
-    pg.get_by_role('button', name='Comparte tu entreno').click(); pg.wait_for_timeout(1200)
+    pg.get_by_role('button', name='Comparte tu progreso').click(); pg.wait_for_timeout(1200)
     shot(pg, '02_compartir_negro')
+    assert pg.locator('.comp-series button.on', has_text='Hip thrust').count() == 1, 'por defecto debía elegir la serie del PR más grande'
+    pg.locator('.comp-series button', has_text='Peso muerto rumano').click(); pg.wait_for_timeout(500)
+    assert pg.locator('.comp-series button.on', has_text='Peso muerto rumano').count() == 1
+    shot(pg, '02a_otra_serie')
     def descargar(nombre):
         with pg.expect_download() as d: pg.get_by_role('button', name='Guardar').click()
         ruta = f'{OUT}/{nombre}'; d.value.save_as(ruta); return Image.open(ruta)

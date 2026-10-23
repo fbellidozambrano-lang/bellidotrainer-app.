@@ -48,7 +48,15 @@ export function mejoresSeries(p) {
 }
 export const textoSerie = (m) => (m.seg ? (m.peso > 0 ? `${fmt(m.peso, 1)} kg · ${m.seg} s` : `${m.seg} s`) : m.peso > 0 ? `${fmt(m.peso, 1)} kg × ${m.reps}` : `${m.reps} reps`);
 
-// Lo que va en la tarjeta: nombre de la sesión y la mejor serie de cada ejercicio (el logo se dibuja aparte)
-export function lineasCompartir(r) {
-  return [{ k: 'sesion', v: r.titulo }, ...(r.mejores || []).map((m) => ({ k: 'ej', l: m.ejercicio, v: textoSerie(m) }))];
+// La serie para presumir por defecto: la del PR más grande; si no hubo, la de mayor 1RM estimado
+export function seriePorDefecto(r) {
+  const ms = r.mejores || []; if (!ms.length) return '';
+  if (r.prs?.length && ms.some((m) => m.ejercicio === r.prs[0].ejercicio)) return r.prs[0].ejercicio;
+  return ms.reduce((a, b) => (e1rm(b.peso, b.reps) > e1rm(a.peso, a.reps) ? b : a)).ejercicio;
+}
+
+// Lo que va en la tarjeta: el nombre de la sesión y la serie que eligió presumir (el logo se dibuja aparte)
+export function lineasCompartir(r, elegida = '') {
+  const m = (r.mejores || []).find((x) => x.ejercicio === elegida);
+  return [{ k: 'sesion', v: r.titulo }, ...(m ? [{ k: 'ej', l: m.ejercicio, v: textoSerie(m) }] : [])];
 }
