@@ -42,7 +42,8 @@ export function dibujarBloque({ resumen, elegida, extras = [], logo, color, somb
   items.forEach((it) => { it.alto = it.k === 'sesion' ? it.tv * 0.95 : it.tl + 6 + it.tv * 0.92; });
   const GAP = 30, GAP_T = 44, GAP_L = 60;
   const logoW = 300; const logoH = logo ? logoW * (logo.naturalHeight / logo.naturalWidth) : 0;
-  const alto = items.reduce((t, it, i) => t + it.alto + (i === 0 ? GAP_T : i < items.length - 1 ? GAP : 0), 0) + (logo ? GAP_L + logoH : 0);
+  const sep = (it, i) => (i < items.length - 1 ? (it.k === 'sesion' ? GAP_T : GAP) : 0);
+  const alto = items.reduce((t, it, i) => t + it.alto + sep(it, i), 0) + (logo && items.length ? GAP_L : 0) + logoH;
   // ancho justo al texto más largo (o al logo), así el tamaño inicial se ve bien
   let maxW = logo ? logoW : 0;
   items.forEach((it) => { if (it.k === 'sesion') { m.font = fuente(800, it.tv); maxW = Math.max(maxW, m.measureText(it.v.toUpperCase()).width); }
@@ -52,13 +53,13 @@ export function dibujarBloque({ resumen, elegida, extras = [], logo, color, somb
   if (sombra) { ctx.shadowColor = color === 'negro' ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.6)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 2; }
   ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = tinta;
   items.forEach((it, i) => {
-    if (it.k === 'sesion') { ctx.font = fuente(800, it.tv); ctx.fillText(it.v.toUpperCase(), cx, y); y += it.alto + GAP_T; return; }
+    if (it.k === 'sesion') { ctx.font = fuente(800, it.tv); ctx.fillText(it.v.toUpperCase(), cx, y); y += it.alto + sep(it, i); return; }
     ctx.font = fuente(700, it.tl); ctx.globalAlpha = 0.8; if ('letterSpacing' in ctx) ctx.letterSpacing = '4px';
     ctx.fillText(it.l.toUpperCase(), cx, y); ctx.globalAlpha = 1; if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     ctx.font = fuente(800, it.tv); ctx.fillText(it.v.toUpperCase(), cx, y + it.tl + 6);
-    y += it.alto + (i < items.length - 1 ? GAP : 0);
+    y += it.alto + sep(it, i);
   });
-  if (logo) { y += GAP_L; ctx.drawImage(logoColor(logo, tinta), cx - logoW / 2, y, logoW, logoH); }
+  if (logo) { if (items.length) y += GAP_L; ctx.drawImage(logoColor(logo, tinta), cx - logoW / 2, y, logoW, logoH); }
   return cv;
 }
 
@@ -86,6 +87,7 @@ export default function Compartir({ resumen, onCerrar }) {
   const [logo, setLogo] = useState(null); const [foto, setFoto] = useState(null);
   const [fondo, setFondo] = useState('negro'); const [formato, setFormato] = useState('historia'); const [color, setColor] = useState('blanco');
   const [elegida, setElegida] = useState(() => seriePorDefecto(resumen)); const [extras, setExtras] = useState([]);
+  const [titulo, setTitulo] = useState(resumen.titulo || '');
   const disponibles = extrasDisponibles(resumen);
   const alternar = (k) => setExtras((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]));
   const [listo, setListo] = useState(false);
@@ -105,12 +107,12 @@ export default function Compartir({ resumen, onCerrar }) {
   }, [transparente]);
   useEffect(() => {
     if (!listo) return;
-    const nuevo = dibujarBloque({ resumen, elegida, extras, logo, color, sombra: fondo === 'foto' });
+    const nuevo = dibujarBloque({ resumen: { ...resumen, titulo }, elegida, extras, logo, color, sombra: fondo === 'foto' });
     if (!capas.current.bloque || !pos.current.tocado) pos.current = { ...pos.current, k: kInicial(nuevo, FORMATOS[formato]) };
     capas.current.bloque = nuevo;
     capas.current.fondo = transparente ? null : dibujarFondo(formato, fondo, foto);
     pintar(); exportar();
-  }, [listo, resumen, elegida, extras, logo, foto, fondo, formato, color, transparente, pintar, exportar]);
+  }, [listo, resumen, titulo, elegida, extras, logo, foto, fondo, formato, color, transparente, pintar, exportar]);
 
   // gestos: un dedo mueve, dos dedos agrandan o achican
   const dedos = useRef(new Map()); const g = useRef(null); const raf = useRef(0);
@@ -173,6 +175,9 @@ export default function Compartir({ resumen, onCerrar }) {
       </div>
       <Seg etq="Fondo" v={fondo} set={setFondo} ops={[...(foto ? [['foto', 'Tu foto']] : []), ['negro', 'Negro'], ['transparente', 'Sin fondo']]} />
       {!transparente && <Seg etq="Formato" v={formato} set={setFormato} ops={[['historia', 'Historia 9:16'], ['post', 'Post 4:5']]} />}
+      <label className="comp-serie comp-titulo"><span>Título</span>
+        <div className="comp-titulo-in"><input className="in" value={titulo} maxLength={40} placeholder="Escribe tu título (o déjalo vacío)" onChange={(e) => setTitulo(e.target.value)} aria-label="Título de la imagen" />
+          {titulo !== (resumen.titulo || '') && <button type="button" className="ico-b" aria-label="Volver al nombre de la sesión" onClick={() => setTitulo(resumen.titulo || '')}><Ico n="refrescar" s={18} /></button>}</div></label>
       {resumen.mejores?.length > 0 && <div className="comp-serie"><span>¿Qué serie quieres presumir?</span>
         <div className="comp-series">{resumen.mejores.map((m) => <button key={m.ejercicio} type="button" className={elegida === m.ejercicio ? 'on' : ''} onClick={() => setElegida(m.ejercicio)}>
           <b>{m.ejercicio}</b><i className="num">{textoSerie(m)}</i></button>)}

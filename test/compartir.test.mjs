@@ -19,6 +19,8 @@ await t('volumen, mejora de fuerza frente a la última vez y PR nuevo', async ()
   assert.deepEqual(lineasCompartir(r, 'Sentadilla').map((x) => x.v), ['Pierna', '85 kg × 8']);
   assert.deepEqual(lineasCompartir(r, 'Plancha').map((x) => `${x.l || ''}${x.v}`), ['Pierna', 'Plancha45 s']);
   assert.deepEqual(lineasCompartir(r, '').map((x) => x.v), ['Pierna'], 'sin elegir: solo la sesión');
+  assert.deepEqual(lineasCompartir({ ...r, titulo: 'Día de glúteo 🔥 ' }, 'Sentadilla').map((x) => x.v), ['Día de glúteo 🔥', '85 kg × 8'], 'título personalizado');
+  assert.deepEqual(lineasCompartir({ ...r, titulo: '  ' }, 'Sentadilla').map((x) => x.k), ['ej'], 'título vacío: no se dibuja');
   assert.deepEqual(extrasDisponibles(r).map((x) => x.k), ['volumen', 'pr', 'fuerza', 'tiempo', 'series', 'fecha']);
   assert.deepEqual(lineasCompartir(r, 'Sentadilla', ['fuerza', 'volumen', 'pr']).map((x) => `${x.l || ''}: ${x.v}`),
     [': Pierna', 'Sentadilla: 85 kg × 8', 'Volumen: 2.775 kg', 'PR nuevo: Sentadilla 85 kg', 'Mejora de fuerza: +1,5 %']);

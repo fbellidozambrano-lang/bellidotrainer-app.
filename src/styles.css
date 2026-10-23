@@ -557,3 +557,6 @@ body.velado #root{opacity:0}
 .comp-series button.on{border-color:var(--gold);background:var(--goldbg)}
 .comp-series button.on i{color:var(--gold)}
 .comp-extras{flex-wrap:wrap}
+.comp-titulo{display:block}
+.comp-titulo-in{display:flex;gap:6px;align-items:center}
+.comp-titulo-in .in{flex:1;font-family:var(--cond);font-weight:700;font-size:20px;text-transform:uppercase}

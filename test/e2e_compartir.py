@@ -45,6 +45,11 @@ with sync_playwright() as pw:
     pg.locator('.comp-extras .chip', has_text='Volumen').click(); pg.locator('.comp-extras .chip', has_text='PR nuevo').click(); pg.wait_for_timeout(500)
     assert pg.locator('.comp-extras .chip.on').count() == 2
     shot(pg, '02c_extras')
+    pg.get_by_label('Título de la imagen').fill('Hoy no se negocia'); pg.wait_for_timeout(500)
+    shot(pg, '02d_titulo')
+    pg.get_by_role('button', name='Volver al nombre de la sesión').click(); pg.wait_for_timeout(300)
+    assert pg.get_by_label('Título de la imagen').input_value() == 'Glúteo y femoral'
+    pg.get_by_label('Título de la imagen').fill('Hoy no se negocia'); pg.wait_for_timeout(500)
     def descargar(nombre):
         with pg.expect_download() as d: pg.get_by_role('button', name='Guardar').click()
         ruta = f'{OUT}/{nombre}'; d.value.save_as(ruta); return Image.open(ruta)
@@ -53,6 +58,7 @@ with sync_playwright() as pw:
         return im.convert('L').point(lambda v: 255 if v > 140 else 0).getbbox()
     c0 = caja(im)
     # arrastrar con un dedo (puntero) hacia arriba
+    pg.evaluate('window.scrollTo(0, 0)'); pg.wait_for_timeout(200)
     r = pg.locator('.comp-prev canvas').bounding_box(); cx, cy = r['x'] + r['width'] / 2, r['y'] + r['height'] * 0.62
     pg.mouse.move(cx, cy); pg.mouse.down(); pg.mouse.move(cx, cy - r['height'] * 0.25, steps=8); pg.mouse.up(); pg.wait_for_timeout(500)
     c1 = caja(descargar('tarjeta_movida.jpg')); assert c1[1] < c0[1] - 300, (c0, c1)
@@ -84,7 +90,7 @@ with sync_playwright() as pw:
     pg.get_by_role('button', name='Compartir').click(); pg.wait_for_timeout(600)
     c = pg.evaluate('window.__compartido'); assert c and c[0]['type'] == 'image/png' and c[0]['size'] > 5000, c
     print('compartido:', c)
-    pg.get_by_role('button', name='Volver').click(); pg.wait_for_timeout(400)
+    pg.get_by_role('button', name='Volver', exact=True).click(); pg.wait_for_timeout(400)
     assert pg.get_by_role('button', name='Listo').count() == 1
     b.close()
 print('\n'.join(errs) or 'SIN ERRORES')

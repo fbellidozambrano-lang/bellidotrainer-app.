@@ -71,5 +71,6 @@ export function extrasDisponibles(r) {
 export function lineasCompartir(r, elegida = '', extras = []) {
   const m = (r.mejores || []).find((x) => x.ejercicio === elegida);
   const ex = extrasDisponibles(r).filter((x) => extras.includes(x.k)).map((x) => ({ k: x.k, l: x.l, v: x.v }));
-  return [{ k: 'sesion', v: r.titulo }, ...(m ? [{ k: 'ej', l: m.ejercicio, v: textoSerie(m) }] : []), ...ex];
+  const titulo = String(r.titulo || '').trim(); // el asesorado puede cambiarlo o dejarlo vacío
+  return [...(titulo ? [{ k: 'sesion', v: titulo }] : []), ...(m ? [{ k: 'ej', l: m.ejercicio, v: textoSerie(m) }] : []), ...ex];
 }
