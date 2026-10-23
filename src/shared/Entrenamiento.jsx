@@ -97,7 +97,7 @@ function preparar(dia, historial) {
   return reg;
 }
 
-export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, onProgreso, modo = 'atleta' }) {
+export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, onProgreso, modo = 'atleta', sinCodigo = false }) {
   const avisar = useAviso();
   const guardado = useMemo(() => leer(claveBorrador), [claveBorrador]);
   const [reg, setReg] = useState(() => guardado?.reg || preparar(dia, historial));
@@ -250,7 +250,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
 
       {conv && <Conversor onCerrar={() => setConv(false)} />}
       {cierre && <Hoja titulo={atleta ? '¿Enviar a tu coach?' : '¿Terminar el entreno?'} onCerrar={() => setCierre(false)} acciones={<><button className="btn" onClick={() => setCierre(false)}>Seguir</button><button className="btn oro" disabled={guardando} onClick={terminar}>{guardando ? (atleta ? 'Enviando…' : 'Guardando…') : atleta ? 'Enviar a Coach' : 'Terminar y guardar'}</button></>}>
-        <p className="muted">Se guardan <b style={{ color: 'var(--chalk)' }}>{paquete().series.length} series</b>: las que marcaste con ✓ o escribiste a mano. {atleta ? 'Tu coach las ve al instante y la rutina se bloquea hasta tu próximo código.' : ''}</p>
+        <p className="muted">Se guardan <b style={{ color: 'var(--chalk)' }}>{paquete().series.length} series</b>: las que marcaste con ✓ o escribiste a mano. {atleta ? (sinCodigo ? 'Tu coach las ve al instante.' : 'Tu coach las ve al instante y la rutina se bloquea hasta tu próximo código.') : ''}</p>
       </Hoja>}
     </div>
   );

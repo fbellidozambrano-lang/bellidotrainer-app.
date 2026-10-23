@@ -94,9 +94,10 @@ export default function AtletaApp({ store, token, vista }) {
     let pendiente = false;
     try { await store.atletaGuardarSesion(token, s); }
     catch { const c = [...(leer(kCola) || []), s]; poner(kCola, c); setCola(c); pendiente = true; }
-    // enviada: la rutina queda bloqueada (al tocar "Listo", para no tapar el resumen)
-    bloquearAlSalir.current = true;
-    setD((x) => { const n = { ...x, sesiones: [ses, ...x.sesiones] }; poner(kCache, cerrado(n)); return n; });
+    // enviada: la rutina queda bloqueada (al tocar "Listo", para no tapar el resumen); con acceso libre sigue abierta
+    const libreSiempre = !!d.acceso?.sinCodigo;
+    bloquearAlSalir.current = !libreSiempre;
+    setD((x) => { const n = { ...x, sesiones: [ses, ...x.sesiones] }; poner(kCache, libreSiempre ? n : cerrado(n)); return n; });
     return { pendiente };
   }
   async function guardarCasa(s0) {
@@ -133,7 +134,7 @@ export default function AtletaApp({ store, token, vista }) {
     const p = ps.find((x) => x.id === r1); const dia = p?.dias.find((x) => x.id === r2);
     if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
+    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} sinCodigo={!!d.acceso?.sinCodigo} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
   }
   // ---------- en casa (no necesita código) ----------
   if (r0 === 'ce') {

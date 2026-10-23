@@ -19,7 +19,7 @@ export function estadoCodigo(c) {
 }
 
 // Código de 6 dígitos que el asesorado necesita para abrir su rutina
-function CodigoSesion({ a, store, sesiones }) {
+function CodigoSesion({ a, store, sesiones, acc }) {
   const avisar = useAviso(); const nom = primerNombre(a.nombre);
   const [c, setC] = useState(undefined); const [ocupado, setOcupado] = useState(false);
   const traer = useCallback(async () => { try { setC(await store.codigoActual(a.id)); } catch { setC((x) => (x === undefined ? null : x)); } }, [store, a.id]);
@@ -27,6 +27,26 @@ function CodigoSesion({ a, store, sesiones }) {
   const est = estadoCodigo(c);
   async function generar() { setOcupado(true); try { const n = await store.nuevoCodigo(a.id); setC(n); avisar('Código listo: mándaselo'); } catch (e) { avisar(e.message, 'error'); } setOcupado(false); }
   const enviar = () => abrirWa(a.datos?.tel, `${nom}, tu código para entrenar hoy es: ${c.codigo}\nÁbrelo en tu app → Rutinas. Sirve para una sesión.`);
+  const [cambiando, setCambiando] = useState(false);
+  async function acceso(libre) {
+    setCambiando(true);
+    try { await acc.guardarAsesorado({ ...a, sinCodigo: libre }); avisar(libre ? `${nom} ya entra a su rutina sin código` : `${nom} vuelve a necesitar código`); } catch {}
+    setCambiando(false);
+  }
+  if (a.sinCodigo) return (
+    <div className="tarj codigo-c">
+      <div className="codigo-fila">
+        <span className={`codigo-ico ${est === 'abierto' ? 'on' : ''}`}><Ico n={est === 'abierto' ? 'llave' : 'pesa'} s={22} /></span>
+        <div className="item-t">
+          <strong>{est === 'abierto' ? 'Entrenando ahora' : 'Acceso libre'}</strong>
+          <span>{est === 'abierto' ? `Empezó a las ${hora(c.abierto)}${c.progreso ? ` · ${c.progreso.hechas}/${c.progreso.total} series` : ''}.` : `${nom} abre su rutina cuando quiera, sin código.`}</span>
+        </div>
+        {est === 'abierto' ? <button className="btn chico" onClick={() => ir('envivo')}>Ver en vivo</button>
+          : <button className="btn chico" onClick={() => ir('a', a.id, 'preparar')}>Ajustar</button>}
+      </div>
+      <button className="btn fant full" style={{ marginTop: 8 }} disabled={cambiando} onClick={() => acceso(false)}><Ico n="candado" s={16} />Pedir código otra vez</button>
+    </div>
+  );
   return (
     <div className="tarj codigo-c">
       {est === 'pendiente' ? <>
@@ -43,9 +63,10 @@ function CodigoSesion({ a, store, sesiones }) {
           <strong>{est === 'abierto' ? 'Entrenando ahora' : 'Rutina bloqueada'}</strong>
           <span>{est === 'abierto' ? `Abrió su rutina a las ${hora(c.abierto)}${c.progreso ? ` · ${c.progreso.hechas}/${c.progreso.total} series` : ''}. Se bloquea al enviar la sesión.` : est === 'usado' ? `Envió su sesión ${haceCuanto(fechaLocal(new Date(c.usado)))} a las ${hora(c.usado)}.` : `${nom} necesita un código para ver su rutina y entrenar.`}</span>
         </div>
-        {est !== 'abierto' ? <button className="btn oro chico" disabled={ocupado || c === undefined} onClick={() => ir('a', a.id, 'preparar')}>Dar código</button>
+        {est !== 'abierto' ? <button className="btn oro chico" disabled={ocupado} onClick={() => ir('a', a.id, 'preparar')}>Dar código</button>
           : <button className="btn chico" onClick={() => ir('envivo')}>Ver en vivo</button>}
       </div>}
+      {est !== 'pendiente' && est !== 'abierto' && <button className="btn fant full" style={{ marginTop: 8 }} disabled={cambiando} onClick={() => acceso(true)}><Ico n="llave" s={16} />Dejarlo entrar sin código</button>}
     </div>
   );
 }
@@ -78,14 +99,14 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
         </button>
         <button className="losa" onClick={() => ir('a', a.id, 'metricas')}>
           <span className="losa-ico"><Ico n="grafica" /></span>
-          <div><h3>Métricas</h3><p>{ses.length ? `${ses.length} sesiones · ${haceCuanto(u)}` : 'Sin sesiones todavía'}</p></div>
+          <div><h3>Métricas</h3><p>{ses.length ? `${ses.length} ${ses.length === 1 ? 'sesión' : 'sesiones'} · ${haceCuanto(u)}` : 'Sin sesiones todavía'}</p></div>
         </button>
       </div>
 
       {a.vence && diasParaVencer(a.vence) <= 3 && <button className="aviso" style={{ width: '100%', textAlign: 'left' }} onClick={() => ir('ajustes', 'pagos')}><Ico n="reloj" s={20} style={{ flex: 'none', marginTop: 1 }} /><span><b>Mensualidad: {textoVence(a.vence)}.</b> Toca para marcar el pago o recordarle.</span></button>}
 
-      <div className="sec"><h2>Entrenar hoy</h2><span>código de un uso</span></div>
-      <CodigoSesion a={a} store={store} sesiones={sesiones} />
+      <div className="sec"><h2>Entrenar hoy</h2><span>{a.sinCodigo ? 'acceso libre' : 'código de un uso'}</span></div>
+      <CodigoSesion a={a} store={store} sesiones={sesiones} acc={acc} />
 
       {ps.some((p) => nDias(p)) && <button className="item casa-coach" onClick={() => setVerCasa(true)}><span className="codigo-ico"><Ico n="casa" s={22} /></span>
         <div className="item-t"><strong>Rutina en casa</strong><span>Lista para cada día de sus programas · la ve en “Ejercicios de casa”</span></div><Ico n="chev" className="chev" s={18} /></button>}

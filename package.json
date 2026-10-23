@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node test/schema.test.mjs && node test/store.test.mjs && node test/biblioteca.test.mjs && node test/informe.test.mjs && node test/vivo.test.mjs && node test/casa.test.mjs"
+    "test": "node test/schema.test.mjs && node test/store.test.mjs && node test/biblioteca.test.mjs && node test/informe.test.mjs && node test/vivo.test.mjs && node test/casa.test.mjs && node test/sincodigo.test.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

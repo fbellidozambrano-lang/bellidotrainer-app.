@@ -18,6 +18,10 @@ export function FichaAsesorado({ inicial, onGuardar, onCerrar }) {
         <Campo l="Peso (kg)"><input className="in" inputMode="decimal" value={f.datos.peso || ''} onChange={(e) => d('peso', e.target.value)} /></Campo></div>
       <div className="dos"><Campo l="WhatsApp"><input className="in" inputMode="tel" value={f.datos.tel || ''} onChange={(e) => d('tel', e.target.value)} placeholder="0412 1234567" /></Campo>
         <Campo l="Vence la mensualidad"><input className="in" type="date" value={f.vence || ''} onChange={(e) => setF({ ...f, vence: e.target.value || null })} /></Campo></div>
+      <Campo l="Acceso a la rutina"><div className="seg">
+        <button type="button" className={!f.sinCodigo ? 'on' : ''} onClick={() => setF({ ...f, sinCodigo: false })}>Con código</button>
+        <button type="button" className={f.sinCodigo ? 'on' : ''} onClick={() => setF({ ...f, sinCodigo: true })}>Sin código</button></div>
+        <p className="ayuda" style={{ marginTop: 6 }}>{f.sinCodigo ? 'Abre su rutina cuando quiera, sin pedirte código. Igual ves sus entrenos en vivo.' : 'Para entrenar necesita el código de 6 números que le das cada sesión.'}</p></Campo>
       <Campo l="Notas (solo tú las ves)"><textarea className="in" rows={3} value={f.notas} onChange={(e) => setF({ ...f, notas: e.target.value })} placeholder="Lesiones, horarios, preferencias…" /></Campo>
     </Hoja>
   );

@@ -18,8 +18,9 @@ export function guardarConfigLocal(url, key) {
 }
 
 // ---------- conversión app ⇄ tabla ----------
-const aFilaA = (a) => ({ id: a.id, nombre: a.nombre, objetivo: a.objetivo || '', nivel: a.nivel || '', notas: a.notas || '', datos: a.datos || {}, token: a.token, archivado: !!a.archivado, vence: a.vence || null });
-const deFilaA = (r) => ({ id: r.id, nombre: r.nombre, objetivo: r.objetivo, nivel: r.nivel, notas: r.notas, datos: r.datos || {}, token: r.token, archivado: r.archivado, vence: r.vence ? String(r.vence).slice(0, 10) : null, creado: r.creado });
+// sin_codigo solo viaja si se tocó (así funciona aunque la base aún no tenga la columna)
+const aFilaA = (a) => ({ id: a.id, nombre: a.nombre, objetivo: a.objetivo || '', nivel: a.nivel || '', notas: a.notas || '', datos: a.datos || {}, token: a.token, archivado: !!a.archivado, vence: a.vence || null, ...('sinCodigo' in a ? { sin_codigo: !!a.sinCodigo } : {}) });
+const deFilaA = (r) => ({ id: r.id, nombre: r.nombre, objetivo: r.objetivo, nivel: r.nivel, notas: r.notas, datos: r.datos || {}, token: r.token, archivado: r.archivado, vence: r.vence ? String(r.vence).slice(0, 10) : null, creado: r.creado, ...(r.sin_codigo !== undefined ? { sinCodigo: !!r.sin_codigo } : {}) });
 const aFilaB = (b) => ({ id: b.id, nombre: b.nombre, grupo: b.grupo || '', tipo: b.tipo || 'reps', video: b.video || '', tecnica: b.tecnica || '', alias: b.alias || [], base: b.base || {} });
 const deFilaB = (r) => ({ id: r.id, nombre: r.nombre, grupo: r.grupo, tipo: r.tipo, video: r.video, tecnica: r.tecnica, alias: r.alias || [], base: r.base || {}, creado: r.creado });
 const aFilaT = (t) => ({ id: t.id, nombre: t.nombre || '', nota: t.nota || '', orden: t.orden || 0, dias: t.dias || [] });
@@ -33,9 +34,28 @@ const aFilaS = (s) => ({ id: s.id, asesorado_id: s.asesoradoId, programa_id: s.p
 export const deFilaS = (r, asesoradoId) => ({ id: r.id, asesoradoId: r.asesorado_id || asesoradoId, programaId: r.programa_id, programaNombre: r.programa_nombre, dia: r.dia, fecha: String(r.fecha).slice(0, 10), minutos: r.minutos, series: r.series || [], notas: r.notas || {}, origen: r.origen, creado: r.creado });
 const atletaDe = (d) => (d ? { asesorado: { ...d.asesorado, vence: d.asesorado.vence ? String(d.asesorado.vence).slice(0, 10) : null }, acceso: d.acceso || { abierto: true }, controles: (d.controles || []).map((c) => deFilaC(c, d.asesorado.id)), programas: (d.programas || []).map((p) => ({ ...p, asesoradoId: d.asesorado.id })), sesiones: (d.sesiones || []).map((s) => deFilaS(s, d.asesorado.id)) } : null);
 
+// Ninguna llamada al servidor puede quedarse esperando para siempre: con señal mala el teléfono
+// deja peticiones colgadas y la app (y el candado de sesión de Supabase) se quedaban pegados.
+export const LIMITE_MS = 20000;
+export function fetchConLimite(input, init = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), LIMITE_MS);
+  const ext = init.signal;
+  if (ext) { if (ext.aborted) ctrl.abort(); else ext.addEventListener('abort', () => ctrl.abort(), { once: true }); }
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+// espera una promesa como máximo ms; si no llega, usa el valor de respaldo
+export const conLimite = (prom, ms, respaldo) => new Promise((ok, mal) => {
+  const t = setTimeout(() => (respaldo !== undefined ? ok(respaldo()) : mal(new Error('La conexión está muy lenta y no respondió. Intenta de nuevo.'))), ms);
+  prom.then((v) => { clearTimeout(t); ok(v); }, (e) => { clearTimeout(t); mal(e); });
+});
+const sesionGuardada = () => { try { const j = JSON.parse(localStorage.getItem('bt:auth') || 'null'); return j?.user || j?.currentSession?.user || null; } catch { return null; } };
+
 const trozos = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o; };
 function traducirError(e) {
   const m = String(e?.message || e || '');
+  if (e?.name === 'AbortError' || /aborted|AbortError|timeout/i.test(m)) return new Error('La conexión está muy lenta y no respondió. Intenta de nuevo.');
+  if (/column .*sin_codigo|sin_codigo.* does not exist/i.test(m)) return new Error('Falta actualizar la base: corre el archivo schema.sql en Supabase → SQL Editor.');
   if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return new Error('Sin conexión. Revisa tu señal e intenta de nuevo.');
   if (/Invalid login credentials/i.test(m)) return new Error('Correo o contraseña incorrectos.');
   if (/Email not confirmed/i.test(m)) return new Error('Falta confirmar tu correo: abre el enlace que te mandó Supabase.');
@@ -51,7 +71,7 @@ function traducirError(e) {
 //  En línea
 // =====================================================================
 export function crearStoreNube(cfg, clienteFalso) {
-  const sb = clienteFalso || createClient(cfg.url, cfg.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'bt:auth' } });
+  const sb = clienteFalso || createClient(cfg.url, cfg.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'bt:auth' }, global: { fetch: fetchConLimite } });
   const run = async (q) => { const { data, error } = await q; if (error) throw traducirError(error); return data; };
   async function todo(tabla, orden) {
     const out = []; const N = 1000;
@@ -64,7 +84,8 @@ export function crearStoreNube(cfg, clienteFalso) {
   return {
     modo: 'nube', url: cfg.url,
     auth: {
-      async usuario() { const { data } = await sb.auth.getSession(); return data?.session?.user || null; },
+      // si renovar la sesión se cuelga (señal mala), entra con la sesión guardada en vez de quedarse en el logo
+      async usuario() { try { return await conLimite(sb.auth.getSession().then(({ data }) => data?.session?.user || null), 8000, sesionGuardada); } catch { return sesionGuardada(); } },
       async entrar(email, pass) { try { const { data, error } = await sb.auth.signInWithPassword({ email, password: pass }); if (error) throw error; return data.user; } catch (e) { throw traducirError(e); } },
       async registrar(email, pass) { try { const { data, error } = await sb.auth.signUp({ email, password: pass }); if (error) throw error; return data.user && data.session ? data.user : null; } catch (e) { throw traducirError(e); } },
       async salir() { await sb.auth.signOut(); },
@@ -151,10 +172,10 @@ export function crearStoreLocal() {
     // mismas reglas que el servidor (schema.sql), para probar sin Supabase
     async atletaCargar(token, { coach = false } = {}) {
       const d = leer(); const a = d.asesorados.find((x) => x.token === token && !x.archivado); if (!a) return null;
-      const v = abiertoDe(d, a.id); const libre = !!v || coach;
+      const v = abiertoDe(d, a.id); const libre = !!v || coach || !!a.sinCodigo;
       const ps = d.programas.filter((p) => p.asesoradoId === a.id && p.visible !== false).sort((x, y) => (x.orden || 0) - (y.orden || 0))
         .map((p) => (libre ? p : { id: p.id, asesoradoId: p.asesoradoId, nombre: p.nombre, orden: p.orden, nota: '', dias: (p.dias || []).map((x) => ({ id: x.id, nombre: x.nombre, grupos: (x.ejercicios || []).map((e) => e.grupo) })) }));
-      return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, hasta: v ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
+      return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, sinCodigo: !!a.sinCodigo, hasta: v && !a.sinCodigo ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
         sesiones: d.sesiones.filter((s) => s.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 400) };
     },
     async atletaAbrir(token, codigo) {
@@ -172,7 +193,9 @@ export function crearStoreLocal() {
     async atletaGuardarSesion(token, s) {
       mut((d) => { const a = d.asesorados.find((x) => x.token === token); if (!a) throw new Error('Enlace no válido'); if (d.sesiones.some((x) => x.id === s.id)) return;
         const v = (d.permisos || []).find((x) => x.id === s.permiso && x.asesoradoId === a.id && x.abierto && !x.usado && Date.now() - Date.parse(x.abierto) < 3 * 864e5);
-        if (!v) throw new Error('Esta sesión necesita un código de tu coach'); v.usado = ahora();
+        if (v) v.usado = ahora();
+        else if (a.sinCodigo) { const w = abiertoDe(d, a.id); if (w) w.usado = ahora(); }
+        else throw new Error('Esta sesión necesita un código de tu coach');
         const { permiso, ...ses } = s; d.sesiones.push({ ...ses, asesoradoId: a.id, origen: 'asesorado', creado: ahora() }); });
       return true;
     },
@@ -181,7 +204,9 @@ export function crearStoreLocal() {
         const v = { id: uuid(), asesoradoId, codigo: String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0'), creado: ahora(), expira: new Date(Date.now() + 24 * 36e5).toISOString(), abierto: null, usado: null, intentos: 0 };
         d.permisos.push(v); return { ...v }; });
     },
-    async atletaProgreso(token, p) { return mut((d) => { const a = d.asesorados.find((x) => x.token === token); const v = a && abiertoDe(d, a.id); if (!v) return false; v.progreso = p; v.progresoAt = ahora(); return true; }); },
+    async atletaProgreso(token, p) { return mut((d) => { const a = d.asesorados.find((x) => x.token === token); if (!a) return false; let v = abiertoDe(d, a.id);
+      if (!v && a.sinCodigo) { v = { id: uuid(), asesoradoId: a.id, codigo: 'libre', creado: ahora(), expira: new Date(Date.now() + 24 * 36e5).toISOString(), abierto: ahora(), usado: null, intentos: 0 }; d.permisos = [...(d.permisos || []), v]; }
+      if (!v) return false; v.progreso = p; v.progresoAt = ahora(); return true; }); },
     async entrenandoAhora() { const desde = Date.now() - 16 * 36e5; return (leer().permisos || []).filter((x) => x.abierto && Date.parse(x.abierto) > desde).sort((a, b) => (a.abierto < b.abierto ? 1 : -1)).map((x) => ({ ...x })); },
     async codigoActual(asesoradoId) { return (leer().permisos || []).filter((x) => x.asesoradoId === asesoradoId).sort((x, y) => (x.creado < y.creado ? 1 : -1))[0] || null; },
   };

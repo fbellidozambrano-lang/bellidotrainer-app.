@@ -56,6 +56,8 @@ alter table public.sesiones alter column coach_id set default auth.uid();
 
 -- Pagos: próxima fecha de vencimiento de la mensualidad
 alter table public.asesorados add column if not exists vence date;
+-- Acceso libre: el asesorado abre su rutina sin código (el coach lo decide por asesorado)
+alter table public.asesorados add column if not exists sin_codigo boolean not null default false;
 
 -- Códigos para entrenar: el coach genera uno, el asesorado lo ingresa para
 -- ver su rutina, y al enviar la sesión se gasta.
@@ -228,12 +230,12 @@ begin
    where asesorado_id = a.id and abierto is not null and usado is null
      and abierto > now() - interval '4 hours'
    order by abierto desc limit 1;
-  libre := found or coach;
+  libre := found or coach or a.sin_codigo;
   return jsonb_build_object(
     'asesorado', jsonb_build_object('id', a.id, 'nombre', a.nombre,
                                     'objetivo', a.objetivo, 'nivel', a.nivel, 'vence', a.vence),
-    'acceso', jsonb_build_object('abierto', libre, 'coach', coach, 'permiso', v.id,
-                                 'hasta', v.abierto + interval '4 hours'),
+    'acceso', jsonb_build_object('abierto', libre, 'coach', coach, 'permiso', v.id, 'sinCodigo', a.sin_codigo,
+                                 'hasta', case when a.sin_codigo then null else v.abierto + interval '4 hours' end),
     -- sin código solo viajan los nombres de programas y días, nunca los ejercicios
     'programas', coalesce((
       select jsonb_agg(jsonb_build_object('id', p.id, 'nombre', p.nombre, 'orden', p.orden,
@@ -291,6 +293,12 @@ begin
   select * into a from public.asesorados where token = p_token and not archivado;
   if not found then return false; end if;
   if p_progreso is null or jsonb_typeof(p_progreso) <> 'object' or length(p_progreso::text) > 60000 then return false; end if;
+  -- sin código: el entreno en curso se registra igual para que el coach lo vea en vivo
+  if a.sin_codigo and not exists (select 1 from public.permisos where asesorado_id = a.id and abierto is not null
+                                     and usado is null and abierto > now() - interval '4 hours') then
+    insert into public.permisos (coach_id, asesorado_id, codigo, abierto, expira)
+    values (a.coach_id, a.id, 'libre', now(), now() + interval '24 hours');
+  end if;
   update public.permisos set progreso = p_progreso, progreso_at = now()
    where id = (select id from public.permisos
                 where asesorado_id = a.id and abierto is not null and usado is null
@@ -348,7 +356,13 @@ begin
   update public.permisos set usado = now()
    where id = v_perm and asesorado_id = a.id and abierto is not null and usado is null
      and abierto > now() - interval '3 days';
-  if not found then raise exception 'sesion sin codigo'; end if;
+  if not found then
+    if not a.sin_codigo then raise exception 'sesion sin codigo'; end if;
+    -- acceso libre: no pide código; cierra el entreno en vivo si había uno
+    update public.permisos set usado = now()
+     where id = (select id from public.permisos where asesorado_id = a.id and abierto is not null and usado is null
+                   and abierto > now() - interval '3 days' order by abierto desc limit 1);
+  end if;
   insert into public.sesiones (id, coach_id, asesorado_id, programa_id, programa_nombre,
                                dia, fecha, minutos, series, notas, origen)
   values (v_id, a.coach_id, a.id,

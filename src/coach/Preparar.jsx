@@ -82,7 +82,9 @@ export default function Preparar({ a, programas, sesiones, acc, store }) {
   };
   async function darCodigo() {
     setOcupado(true);
-    try { clearTimeout(tm.current); await guardarYa(); await store.nuevoCodigo(a.id); avisar('Sesión lista y código creado: mándaselo'); ir('a', a.id); }
+    try { clearTimeout(tm.current); await guardarYa();
+      if (a.sinCodigo) { avisar(`Sesión lista: ${nom} ya la ve en su app`); ir('a', a.id); }
+      else { await store.nuevoCodigo(a.id); avisar('Sesión lista y código creado: mándaselo'); ir('a', a.id); } }
     catch (e) { avisar(e.message || 'No se pudo crear el código', 'error'); }
     setOcupado(false);
   }
@@ -90,14 +92,14 @@ export default function Preparar({ a, programas, sesiones, acc, store }) {
     <div className="pantalla">
       <Barra volver={{ fn: () => { guardarYa(); ir('a', a.id); }, texto: nom }} titulo="Preparar sesión"
         derecha={<span className={`guardado ${estado === 'pend' ? 'pend' : estado === 'err' ? 'err' : ''}`}><i />{estado === 'pend' ? 'Guardando' : estado === 'err' ? 'Sin guardar' : 'Guardado'}</span>} />
-      <p className="sub" style={{ margin: '12px 0 14px' }}>Ajusta series, reps, descanso, RPE y carga con lo que hizo la última vez. {nom} lo ve así al abrir su rutina con el código.</p>
+      <p className="sub" style={{ margin: '12px 0 14px' }}>Ajusta series, reps, descanso, RPE y carga con lo que hizo la última vez. {nom} lo ve así al abrir su rutina{a.sinCodigo ? '' : ' con el código'}.</p>
       {!ps.length ? <div className="vacio"><b>{nom} no tiene programas visibles</b>Arma su rutina primero.</div> : <>
         {ps.length > 1 && <div className="chips scroll-x" style={{ marginBottom: 10 }}>{ps.map((x) => <button key={x.id} className={`chip ${x.id === pid ? 'on' : ''}`} onClick={() => { guardarYa(); setPid(x.id); setDid(x.dias[0]?.id); }}>{x.nombre}</button>)}</div>}
         <nav className="tabs-dias" aria-label="Días">{p.dias.map((d) => { const u = sesiones.filter((s) => s.programaId === p.id && mismoNombre(s.dia, d.nombre)).map((s) => s.fecha).sort().pop();
           return <button key={d.id} className={`tab-dia ${d.id === dia?.id ? 'on' : ''}`} onClick={() => setDid(d.id)}>{d.nombre}{u ? <span style={{ opacity: .55 }}> · {haceCuanto(u)}</span> : null}{d.id === sug.d && p.id === sug.p ? <span className="toca">toca</span> : null}</button>; })}</nav>
         {dia && (dia.ejercicios.length ? dia.ejercicios.map((e) => <TarjetaPreparar key={e.id} e={e} historial={sesiones} cambiar={cambiarEj} />) : <div className="vacio">Este día no tiene ejercicios.</div>)}
       </>}
-      <div className="flotante"><button className="btn oro xl full" disabled={ocupado} onClick={darCodigo}><Ico n="llave" s={20} />{ocupado ? 'Creando…' : 'Guardar y dar código'}</button></div>
+      <div className="flotante"><button className="btn oro xl full" disabled={ocupado} onClick={darCodigo}><Ico n={a.sinCodigo ? 'check' : 'llave'} s={20} />{ocupado ? 'Guardando…' : a.sinCodigo ? 'Guardar sesión' : 'Guardar y dar código'}</button></div>
     </div>
   );
 }

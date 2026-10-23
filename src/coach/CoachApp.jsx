@@ -16,6 +16,17 @@ import Entrenamiento from '../shared/Entrenamiento.jsx';
 import { Barra } from '../ui/kit.jsx';
 import logo from '../assets/logo.png';
 
+// Pantalla de carga que nunca deja al coach atrapado: si tarda, ofrece reintentar
+function Cargando({ reintentar }) {
+  const [tarda, setTarda] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setTarda(true), 12000); return () => clearTimeout(t); }, []);
+  return (
+    <div className="cargando"><div style={{ display: 'grid', placeItems: 'center', gap: 18 }}><img src={logo} alt="BELLIDO TRAINER" />
+      {tarda && <><p className="sub" style={{ textAlign: 'center', maxWidth: 280 }}>Está tardando más de lo normal. Puede ser la señal.</p>
+        <button className="btn oro" onClick={reintentar}>Reintentar</button></>}</div></div>
+  );
+}
+
 export const enlaceAtleta = (a) => `${location.origin}${location.pathname}?a=${a.token}`;
 
 export default function CoachApp({ store }) {
@@ -26,7 +37,10 @@ export default function CoachApp({ store }) {
   const ruta = useRuta();
   const ultimo = useRef('');
 
-  useEffect(() => { store.auth.usuario().then(setUsuario); return store.auth.escuchar((u) => setUsuario(u)); }, [store]);
+  // Supabase avisa de cada renovación de la sesión (al volver a la app, cada hora): si es el mismo
+  // usuario no se recarga todo, antes eso volvía a bajar todos los datos y la app se quedaba pegada
+  const mismo = (u) => setUsuario((prev) => (prev && u && prev.id === u.id ? prev : u));
+  useEffect(() => { store.auth.usuario().then(mismo, () => setUsuario(null)); return store.auth.escuchar(mismo); }, [store]); // eslint-disable-line
 
   const cargar = useCallback(async () => {
     try { setError(''); const d = await store.cargarTodo(); setDatos(d); ultimo.current = d.sesiones.reduce((m, s) => (s.creado > m ? s.creado : m), ''); }
@@ -50,7 +64,8 @@ export default function CoachApp({ store }) {
 
   // en vivo: quién tiene la rutina abierta
   const [vivo, setVivo] = useState([]);
-  const recargarVivo = useCallback(async () => { if (document.visibilityState !== 'visible') return; try { setVivo(await store.entrenandoAhora()); } catch {} }, [store]);
+  const vivoTxt = useRef('[]');
+  const recargarVivo = useCallback(async () => { if (document.visibilityState !== 'visible') return; try { const v = await store.entrenandoAhora(); const t = JSON.stringify(v); if (t !== vivoTxt.current) { vivoTxt.current = t; setVivo(v); } } catch {} }, [store]);
   useEffect(() => { if (!usuario) return; recargarVivo(); const i = setInterval(recargarVivo, 30000); document.addEventListener('visibilitychange', recargarVivo); return () => { clearInterval(i); document.removeEventListener('visibilitychange', recargarVivo); }; }, [usuario, recargarVivo]);
 
   const acc = useMemo(() => {
@@ -78,10 +93,10 @@ export default function CoachApp({ store }) {
     };
   }, [store, avisar, cargar]);
 
-  if (usuario === undefined) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
+  if (usuario === undefined) return <Cargando reintentar={() => location.reload()} />;
   if (!usuario) return <Login store={store} />;
   if (error && !datos) return <div className="pantalla"><div className="aviso rojo" style={{ marginTop: 40 }}><span>{error}</span></div><button className="btn oro full" style={{ marginTop: 14 }} onClick={cargar}>Reintentar</button><button className="btn full" style={{ marginTop: 10 }} onClick={() => ir('ajustes')}>Ajustes</button>{ruta[0] === 'ajustes' && <Ajustes store={store} datos={{ asesorados: [], programas: [], sesiones: [], biblioteca: [], plantillas: [], controles: [] }} acc={acc} usuario={usuario} />}</div>;
-  if (!datos) return <div className="cargando"><img src={logo} alt="BELLIDO TRAINER" /></div>;
+  if (!datos) return <Cargando reintentar={cargar} />;
 
   const [r0, id, r2, r3, r4] = ruta;
   if (r0 === 'ajustes') return <Ajustes store={store} datos={datos} acc={acc} usuario={usuario} />;
