@@ -42,14 +42,31 @@ with sync_playwright() as pw:
         with pg.expect_download() as d: pg.get_by_role('button', name='Guardar').click()
         ruta = f'{OUT}/{nombre}'; d.value.save_as(ruta); return Image.open(ruta)
     im = descargar('tarjeta_negro.jpg'); assert im.size == (1080, 1920), im.size
+    def caja(im):  # dónde quedó el texto (píxeles claros sobre el negro)
+        return im.convert('L').point(lambda v: 255 if v > 140 else 0).getbbox()
+    c0 = caja(im)
+    # arrastrar con un dedo (puntero) hacia arriba
+    r = pg.locator('.comp-prev canvas').bounding_box(); cx, cy = r['x'] + r['width'] / 2, r['y'] + r['height'] * 0.62
+    pg.mouse.move(cx, cy); pg.mouse.down(); pg.mouse.move(cx, cy - r['height'] * 0.25, steps=8); pg.mouse.up(); pg.wait_for_timeout(500)
+    c1 = caja(descargar('tarjeta_movida.jpg')); assert c1[1] < c0[1] - 300, (c0, c1)
+    # pellizcar con dos dedos para agrandar
+    pg.evaluate('''([x, y]) => { const c = document.querySelector('.comp-prev canvas');
+      const ev = (t, id, px) => c.dispatchEvent(new PointerEvent(t, { pointerId: id, clientX: px, clientY: y, bubbles: true, pointerType: 'touch' }));
+      ev('pointerdown', 11, x - 40); ev('pointerdown', 12, x + 40);
+      for (let i = 1; i <= 10; i++) { ev('pointermove', 11, x - 40 - i * 6); ev('pointermove', 12, x + 40 + i * 6); }
+      ev('pointerup', 11, x - 100); ev('pointerup', 12, x + 100); }''', [cx, r['y'] + r['height'] * 0.4]); pg.wait_for_timeout(500)
+    c2 = caja(descargar('tarjeta_pellizco.jpg')); assert (c2[2] - c2[0]) > (c1[2] - c1[0]) * 1.4, (c1, c2)
+    for _ in range(8): pg.get_by_role('button', name='Achicar').click()
+    c3 = caja(descargar('tarjeta_achicada.jpg')); assert (c3[2] - c3[0]) < 1000 and (c3[3] - c3[1]) < (c2[3] - c2[1]) * 0.75, (c2, c3)
+    shot(pg, '02b_movida')
+    pg.get_by_role('button', name='Centrar').click(); pg.wait_for_timeout(400)
     if FOTO:
         pg.locator('input[type=file]:not([capture])').set_input_files(FOTO); pg.wait_for_timeout(1200)
         shot(pg, '03_compartir_foto')
         im = descargar('tarjeta_foto.jpg'); assert im.size == (1080, 1920)
         pg.locator('.comp-op .seg button', has_text='Post 4:5').click(); pg.wait_for_timeout(600)
-        pg.locator('.comp-op .seg button', has_text='Centro').click(); pg.wait_for_timeout(600)
         im = descargar('tarjeta_foto_post.jpg'); assert im.size == (1080, 1350), im.size
-        pg.locator('.comp-op .seg button', has_text='Historia 9:16').click(); pg.locator('.comp-op .seg button', has_text='Abajo').click()
+        pg.locator('.comp-op .seg button', has_text='Historia 9:16').click(); pg.wait_for_timeout(500)
     pg.locator('.comp-op .seg button', has_text='Sin fondo').click(); pg.wait_for_timeout(700)
     shot(pg, '04_compartir_sin_fondo')
     im = descargar('tarjeta_sin_fondo.png'); assert im.mode == 'RGBA' and im.getchannel('A').getextrema()[0] == 0, 'debía ser transparente'
