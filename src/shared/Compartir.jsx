@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ico, useAviso } from '../ui/kit.jsx';
-import { lineasCompartir, seriePorDefecto, textoSerie } from '../lib/compartir.js';
+import { lineasCompartir, seriePorDefecto, textoSerie, extrasDisponibles } from '../lib/compartir.js';
 import logoTeam from '../assets/logo-team.png';
 
 // Tarjeta para compartir el entreno (estilo Strava): nombre de la sesión, la mejor serie de cada
@@ -31,9 +31,9 @@ function ajustar(ctx, texto, peso, tam, min, ancho) {
 }
 
 // El bloque de información en su propio lienzo transparente, recortado a su tamaño
-export function dibujarBloque({ resumen, elegida, logo, color, sombra }) {
+export function dibujarBloque({ resumen, elegida, extras = [], logo, color, sombra }) {
   const tinta = color === 'negro' ? '#0A0A0A' : '#FFFFFF';
-  const lineas = lineasCompartir(resumen, elegida);
+  const lineas = lineasCompartir(resumen, elegida, extras);
   const ANCHO = 960, PAD = 48;
   const m = document.createElement('canvas').getContext('2d');
   const items = lineas.map((l) => (l.k === 'sesion'
@@ -85,7 +85,9 @@ export default function Compartir({ resumen, onCerrar }) {
   const cv = useRef(null); const blob = useRef(null); const capas = useRef({ fondo: null, bloque: null });
   const [logo, setLogo] = useState(null); const [foto, setFoto] = useState(null);
   const [fondo, setFondo] = useState('negro'); const [formato, setFormato] = useState('historia'); const [color, setColor] = useState('blanco');
-  const [elegida, setElegida] = useState(() => seriePorDefecto(resumen));
+  const [elegida, setElegida] = useState(() => seriePorDefecto(resumen)); const [extras, setExtras] = useState([]);
+  const disponibles = extrasDisponibles(resumen);
+  const alternar = (k) => setExtras((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]));
   const [listo, setListo] = useState(false);
   const pos = useRef({ ...INICIAL }); const [, setVer] = useState(0);
   const transparente = fondo === 'transparente';
@@ -103,12 +105,12 @@ export default function Compartir({ resumen, onCerrar }) {
   }, [transparente]);
   useEffect(() => {
     if (!listo) return;
-    const nuevo = dibujarBloque({ resumen, elegida, logo, color, sombra: fondo === 'foto' });
+    const nuevo = dibujarBloque({ resumen, elegida, extras, logo, color, sombra: fondo === 'foto' });
     if (!capas.current.bloque || !pos.current.tocado) pos.current = { ...pos.current, k: kInicial(nuevo, FORMATOS[formato]) };
     capas.current.bloque = nuevo;
     capas.current.fondo = transparente ? null : dibujarFondo(formato, fondo, foto);
     pintar(); exportar();
-  }, [listo, resumen, elegida, logo, foto, fondo, formato, color, transparente, pintar, exportar]);
+  }, [listo, resumen, elegida, extras, logo, foto, fondo, formato, color, transparente, pintar, exportar]);
 
   // gestos: un dedo mueve, dos dedos agrandan o achican
   const dedos = useRef(new Map()); const g = useRef(null); const raf = useRef(0);
@@ -175,6 +177,8 @@ export default function Compartir({ resumen, onCerrar }) {
         <div className="comp-series">{resumen.mejores.map((m) => <button key={m.ejercicio} type="button" className={elegida === m.ejercicio ? 'on' : ''} onClick={() => setElegida(m.ejercicio)}>
           <b>{m.ejercicio}</b><i className="num">{textoSerie(m)}</i></button>)}
           <button type="button" className={!elegida ? 'on' : ''} onClick={() => setElegida('')}><b>Ninguna</b><i>solo la sesión</i></button></div></div>}
+      {disponibles.length > 0 && <div className="comp-serie"><span>Agregar a la imagen</span>
+        <div className="chips comp-extras">{disponibles.map((x) => <button key={x.k} type="button" className={`chip ${extras.includes(x.k) ? 'on' : ''}`} aria-pressed={extras.includes(x.k)} onClick={() => alternar(x.k)}>{extras.includes(x.k) ? '✓ ' : '+ '}{x.n}</button>)}</div></div>}
       <Seg etq="Letras" v={color} set={setColor} ops={[['blanco', 'Blancas'], ['negro', 'Negras']]} />
       {transparente && <p className="ayuda" style={{ margin: '4px 0 14px' }}>Sin fondo: pégala como sticker encima de tu foto o video en Instagram y ahí la mueves y cambias de tamaño.</p>}
       <div className="flotante"><div className="fila-btn">

@@ -556,3 +556,4 @@ body.velado #root{opacity:0}
 .comp-series button i{font-style:normal;font-family:var(--cond);font-weight:700;font-size:18px;color:var(--mute2)}
 .comp-series button.on{border-color:var(--gold);background:var(--goldbg)}
 .comp-series button.on i{color:var(--gold)}
+.comp-extras{flex-wrap:wrap}

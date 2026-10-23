@@ -42,6 +42,9 @@ with sync_playwright() as pw:
     pg.locator('.comp-series button', has_text='Peso muerto rumano').click(); pg.wait_for_timeout(500)
     assert pg.locator('.comp-series button.on', has_text='Peso muerto rumano').count() == 1
     shot(pg, '02a_otra_serie')
+    pg.locator('.comp-extras .chip', has_text='Volumen').click(); pg.locator('.comp-extras .chip', has_text='PR nuevo').click(); pg.wait_for_timeout(500)
+    assert pg.locator('.comp-extras .chip.on').count() == 2
+    shot(pg, '02c_extras')
     def descargar(nombre):
         with pg.expect_download() as d: pg.get_by_role('button', name='Guardar').click()
         ruta = f'{OUT}/{nombre}'; d.value.save_as(ruta); return Image.open(ruta)

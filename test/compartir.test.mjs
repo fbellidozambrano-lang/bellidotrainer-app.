@@ -1,6 +1,6 @@
 // Tarjeta para compartir el entreno: métricas correctas y sin inventar nada.
 import assert from 'node:assert/strict';
-const { resumenCompartir, lineasCompartir, mejoresSeries, textoSerie, seriePorDefecto } = await import('../src/lib/compartir.js');
+const { resumenCompartir, lineasCompartir, mejoresSeries, textoSerie, seriePorDefecto, extrasDisponibles } = await import('../src/lib/compartir.js');
 let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n); };
 const S = (ej, peso, reps, extra = {}) => ({ ejercicio: ej, grupo: 'x', peso, reps, ...extra });
 
@@ -19,10 +19,14 @@ await t('volumen, mejora de fuerza frente a la última vez y PR nuevo', async ()
   assert.deepEqual(lineasCompartir(r, 'Sentadilla').map((x) => x.v), ['Pierna', '85 kg × 8']);
   assert.deepEqual(lineasCompartir(r, 'Plancha').map((x) => `${x.l || ''}${x.v}`), ['Pierna', 'Plancha45 s']);
   assert.deepEqual(lineasCompartir(r, '').map((x) => x.v), ['Pierna'], 'sin elegir: solo la sesión');
+  assert.deepEqual(extrasDisponibles(r).map((x) => x.k), ['volumen', 'pr', 'fuerza', 'tiempo', 'series', 'fecha']);
+  assert.deepEqual(lineasCompartir(r, 'Sentadilla', ['fuerza', 'volumen', 'pr']).map((x) => `${x.l || ''}: ${x.v}`),
+    [': Pierna', 'Sentadilla: 85 kg × 8', 'Volumen: 2.775 kg', 'PR nuevo: Sentadilla 85 kg', 'Mejora de fuerza: +1,5 %']);
 });
 await t('primer entreno: sin historial no inventa fuerza ni PR y completa con el tiempo', async () => {
   const r = resumenCompartir({ fecha: '2026-10-23', dia: 'Torso', minutos: 48, series: [S('Press banca', 60, 10)] }, [], { dia: 'Torso' });
   assert.equal(r.fuerza, null); assert.equal(r.prs.length, 0);
+  assert.deepEqual(extrasDisponibles(r).map((x) => x.k), ['volumen', 'tiempo', 'series', 'fecha'], 'sin historial no ofrece PR ni fuerza');
   assert.equal(seriePorDefecto(r), 'Press banca'); assert.deepEqual(lineasCompartir(r, seriePorDefecto(r)).map((x) => x.v), ['Torso', '60 kg × 10']);
 });
 await t('si bajó la fuerza no se muestra como mejora', async () => {

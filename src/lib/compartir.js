@@ -1,5 +1,5 @@
 // Datos de la tarjeta para compartir el entreno en redes (estilo Strava).
-import { e1rm, fmt, records, seriesPrevias, nSeg } from './util.js';
+import { e1rm, fmt, records, seriesPrevias, nSeg, fLarga } from './util.js';
 
 const esTiempoS = (x) => nSeg(x.seg) > 0 && !(nSeg(x.reps) > 0);
 
@@ -55,8 +55,21 @@ export function seriePorDefecto(r) {
   return ms.reduce((a, b) => (e1rm(b.peso, b.reps) > e1rm(a.peso, a.reps) ? b : a)).ejercicio;
 }
 
-// Lo que va en la tarjeta: el nombre de la sesión y la serie que eligió presumir (el logo se dibuja aparte)
-export function lineasCompartir(r, elegida = '') {
+// Datos opcionales que el asesorado puede sumar a la imagen (solo los que tienen valor real)
+export function extrasDisponibles(r) {
+  const o = [];
+  if (r.volumen > 0) o.push({ k: 'volumen', n: 'Volumen', l: 'Volumen', v: `${fmt(r.volumen)} kg` });
+  if (r.prs?.length) o.push({ k: 'pr', n: 'PR nuevo', l: r.prs.length > 1 ? `PR nuevos · ${r.prs.length}` : 'PR nuevo', v: `${r.prs[0].ejercicio} ${fmt(r.prs[0].peso, 1)} kg` });
+  if (r.fuerza != null && r.fuerza >= 0.5) o.push({ k: 'fuerza', n: 'Mejora de fuerza', l: 'Mejora de fuerza', v: `+${String(r.fuerza).replace('.', ',')} %` });
+  if (r.minutos) o.push({ k: 'tiempo', n: 'Tiempo', l: 'Tiempo', v: `${r.minutos} min` });
+  if (r.series) o.push({ k: 'series', n: 'Series', l: 'Series', v: String(r.series) });
+  if (r.fecha) o.push({ k: 'fecha', n: 'Fecha', l: 'Fecha', v: fLarga(r.fecha) });
+  return o;
+}
+
+// Lo que va en la tarjeta: el nombre de la sesión, la serie que eligió presumir y los datos que sumó (el logo se dibuja aparte)
+export function lineasCompartir(r, elegida = '', extras = []) {
   const m = (r.mejores || []).find((x) => x.ejercicio === elegida);
-  return [{ k: 'sesion', v: r.titulo }, ...(m ? [{ k: 'ej', l: m.ejercicio, v: textoSerie(m) }] : [])];
+  const ex = extrasDisponibles(r).filter((x) => extras.includes(x.k)).map((x) => ({ k: x.k, l: x.l, v: x.v }));
+  return [{ k: 'sesion', v: r.titulo }, ...(m ? [{ k: 'ej', l: m.ejercicio, v: textoSerie(m) }] : []), ...ex];
 }
