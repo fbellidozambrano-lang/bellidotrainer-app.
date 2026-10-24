@@ -391,3 +391,6 @@ revoke all on function public.atleta_abrir(text, text) from public;
 grant execute on function public.atleta_abrir(text, text) to anon, authenticated;
 revoke all on function public.nuevo_codigo(uuid, int) from public;
 grant execute on function public.nuevo_codigo(uuid, int) to authenticated;
+
+-- que la API de Supabase vea al instante las columnas y funciones nuevas
+notify pgrst, 'reload schema';

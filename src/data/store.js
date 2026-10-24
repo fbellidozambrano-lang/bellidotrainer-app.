@@ -55,7 +55,9 @@ const trozos = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += 
 function traducirError(e) {
   const m = String(e?.message || e || '');
   if (e?.name === 'AbortError' || /aborted|AbortError|timeout/i.test(m)) return new Error('La conexión está muy lenta y no respondió. Intenta de nuevo.');
-  if (/column .*sin_codigo|sin_codigo.* does not exist/i.test(m)) return new Error('Falta actualizar la base: corre el archivo schema.sql en Supabase → SQL Editor.');
+  // columna nueva que aún no existe en Supabase (ej. "Could not find the 'sin_codigo' column of 'asesorados' in the schema cache")
+  if (/sin_codigo/i.test(m)) return new Error('Para dejarlo sin código falta actualizar tu base: en Supabase → SQL Editor pega el archivo schema.sql completo y toca Run. Tus datos no se tocan.');
+  if (/Could not find the '.*' column|column .* does not exist/i.test(m)) return new Error('Falta actualizar tu base: en Supabase → SQL Editor pega el archivo schema.sql completo y toca Run. Tus datos no se tocan.');
   if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return new Error('Sin conexión. Revisa tu señal e intenta de nuevo.');
   if (/Invalid login credentials/i.test(m)) return new Error('Correo o contraseña incorrectos.');
   if (/Email not confirmed/i.test(m)) return new Error('Falta confirmar tu correo: abre el enlace que te mandó Supabase.');
