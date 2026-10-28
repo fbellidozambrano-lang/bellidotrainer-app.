@@ -63,6 +63,33 @@ function Desbloquear({ nom, onAbrir }) {
   );
 }
 
+// Aviso de pago: tarjeta grande arriba del inicio y, una vez al día, una ventana que hay que cerrar
+export function AvisoPago({ vence, nom, clave }) {
+  const nv = diasParaVencer(vence);
+  const hoyK = hoy(); const visto = leer(clave) === hoyK;
+  const [abierta, setAbierta] = useState(() => nv != null && nv <= 3 && !visto);
+  if (nv == null || nv > 5) return null;
+  const vencida = nv < 0; const urgente = nv <= 1;
+  const titulo = vencida ? 'Tu mensualidad venció' : nv === 0 ? 'Tu mensualidad vence hoy' : nv === 1 ? 'Tu mensualidad vence mañana' : `Tu mensualidad vence en ${nv} días`;
+  const texto = vencida ? `Venció el ${fLarga(vence)}. Habla con tu coach para no pausar tu plan.` : `Fecha de pago: ${fLarga(vence)}. Renuévala a tiempo para seguir sin pausa.`;
+  const cerrar = () => { poner(clave, hoyK); setAbierta(false); };
+  return <>
+    <div className={`pago ${vencida ? 'vencida' : urgente ? 'urgente' : ''}`} role="alert">
+      <span className="pago-ico"><Ico n="reloj" s={26} w={2.2} /></span>
+      <div><small>{vencida ? 'Pago pendiente' : 'Pago próximo'}</small><strong>{titulo}</strong><p>{texto}</p></div>
+      {!vencida && <b className="pago-n num">{nv === 0 ? 'HOY' : <>{nv}<i>{nv === 1 ? 'día' : 'días'}</i></>}</b>}
+    </div>
+    {abierta && <div className="velo pago-velo" onMouseDown={(e) => e.target === e.currentTarget && cerrar()}>
+      <div className={`pago-modal ${vencida ? 'vencida' : ''}`} role="alertdialog" aria-label={titulo}>
+        <span className="pago-ico grande"><Ico n="reloj" s={40} w={2} /></span>
+        <h2>{titulo}</h2>
+        <p>{nom}, {vencida ? `tu mensualidad venció el ${fLarga(vence)}. Habla con tu coach para seguir con tu plan.` : `tu mensualidad ${nv === 0 ? 'vence hoy' : nv === 1 ? 'vence mañana' : `vence el ${fLarga(vence)}`}. Recuerda renovarla para seguir sin pausa.`}</p>
+        <button className="btn oro xl full" onClick={cerrar}>Entendido</button>
+      </div>
+    </div>}
+  </>;
+}
+
 export default function AtletaApp({ store, token, vista }) {
   const avisar = useAviso(); const ruta = useRuta();
   const kCache = `bt:at:${token}`, kCola = `bt:cola:${token}`;
@@ -134,13 +161,13 @@ export default function AtletaApp({ store, token, vista }) {
     const p = ps.find((x) => x.id === r1); const dia = p?.dias.find((x) => x.id === r2);
     if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} sinCodigo={!!d.acceso?.sinCodigo} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
+    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} sinCodigo={!!d.acceso?.sinCodigo} sexo={d.asesorado.sexo || ''} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
   }
   // ---------- en casa (no necesita código) ----------
   if (r0 === 'ce') {
     const p = ps.find((x) => x.id === r1); const pc = p && programaCasa(p); const dia = pc?.dias.find((x) => x.id === r2);
     if (!dia) { setTimeout(() => ir('casa'), 0); return null; }
-    return <Entrenamiento programa={pc} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:casa:${token}:${dia.id}`} onGuardar={guardarCasa} onSalir={() => ir('casa')} />;
+    return <Entrenamiento programa={pc} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:casa:${token}:${dia.id}`} onGuardar={guardarCasa} sexo={d.asesorado.sexo || ''} onSalir={() => ir('casa')} />;
   }
   if (r0 === 'casa') {
     const conDias = ps.filter((p) => nDias(p));
@@ -178,14 +205,14 @@ export default function AtletaApp({ store, token, vista }) {
 
   // inicio
   const l = aFecha(lunesDe(hoy())); const sem = DIAS.map((x, i) => { const f = new Date(l); f.setDate(f.getDate() + i); const fs = fechaLocal(f); return { x, on: ses.some((s) => s.fecha === fs), hoy: fs === hoy() }; });
-  const u = ses[0]; const nv = diasParaVencer(d.asesorado.vence); const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone;
+  const u = ses[0]; const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone;
   return (
     <div className="pantalla">
       <header className="barra" style={{ background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none', position: 'relative' }}><img src={marca} className="marca-top" alt="BT" /><div className="barra-t" />{vista === 'coach' && <span className="pill oro">Vista previa</span>}</header>
+      <AvisoPago vence={d.asesorado.vence} nom={nom} clave={vista === 'coach' ? 'bt:pago:vista' : `bt:pago:${token}`} />
       <section className="at-hero"><p className="etq">{saludo()}</p><h1 className="gigante" style={{ marginTop: 4 }}>{nom}</h1>
         <p className="sub">{d.asesorado.objetivo ? `${d.asesorado.objetivo} · ` : ''}Programa de Bellido Trainer</p></section>
       <div className="dias-sem" aria-label="Tu semana">{sem.map((s, i) => <div key={i}><i className={`${s.on ? 'on' : ''} ${s.hoy ? 'hoy' : ''}`} /><span>{s.x}</span></div>)}</div>
-      {nv != null && nv <= 3 && <p className={`aviso ${nv < 0 ? 'rojo' : ''}`}><Ico n="reloj" s={20} /><span>{nv < 0 ? <>Tu mensualidad <b>venció el {fLarga(d.asesorado.vence)}</b>. Habla con tu coach para seguir con tu plan.</> : <>Tu mensualidad <b>{nv === 0 ? 'vence hoy' : nv === 1 ? 'vence mañana' : `vence el ${fLarga(d.asesorado.vence)}`}</b>. Recuerda renovarla para seguir sin pausa.</>}</span></p>}
       {cola.length > 0 && <p className="aviso"><Ico n="nube" s={20} /><span>{cola.length === 1 ? 'Tienes 1 entreno' : `Tienes ${cola.length} entrenos`} esperando señal. <b>Se envían solos</b> cuando vuelvas a tener conexión.</span></p>}
       <div className="mosaico">
         <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n={libre ? 'pesa' : 'candado'} /></span><div><h3>Rutinas</h3><p>{!ps.length ? 'En preparación' : libre ? `Programas de ${frecuencias(ps)}` : 'Ingresa tu código para entrenar'}</p></div></button>

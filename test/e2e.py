@@ -139,6 +139,8 @@ with sync_playwright() as p:
     at.goto(f"{BASE}/?a={ana['token']}"); at.wait_for_timeout(700)
     assert 'mensualidad' in at.inner_text('body'), 'el asesorado debía ver el aviso de pago'
     shot(at, '20_atleta_inicio')
+    assert at.get_by_role('alertdialog').count() == 1, 'con 2 días debía salir la ventana de pago'
+    at.get_by_role('button', name='Entendido').click(); at.wait_for_timeout(200)
     at.locator('.losa', has_text='Rutinas').click(); at.wait_for_timeout(300)
     assert at.locator('.candado').count() == 1, 'sin código la rutina debía estar bloqueada'
     shot(at, '20b_bloqueada')

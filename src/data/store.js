@@ -109,6 +109,7 @@ export function crearStoreNube(cfg, clienteFalso) {
     async guardarProgramas(ps) { if (!ps.length) return []; const d = await run(sb.from('programas').upsert(ps.map(aFilaP)).select()); return d.map(deFilaP); },
     async borrarPrograma(id) { await run(sb.from('programas').delete().eq('id', id)); },
     async guardarSesion(s) { const d = await run(sb.from('sesiones').upsert(aFilaS(s)).select()); return deFilaS(d[0]); },
+    async guardarSesiones(ss) { if (!ss.length) return []; const out = []; for (const c of trozos(ss.map(aFilaS), 300)) out.push(...(await run(sb.from('sesiones').upsert(c).select()))); return out.map((r) => deFilaS(r)); },
     async borrarSesion(id) { await run(sb.from('sesiones').delete().eq('id', id)); },
     async guardarControl(c) { const d = await run(sb.from('controles').upsert(aFilaC(c)).select()); return deFilaC(d[0]); },
     async borrarControl(id) { await run(sb.from('controles').delete().eq('id', id)); },
@@ -161,6 +162,7 @@ export function crearStoreLocal() {
     async guardarProgramas(ps) { return mut((d) => ps.map((p) => upsert(d.programas, { creado: ahora(), ...p, actualizado: ahora() }))); },
     async borrarPrograma(id) { mut((d) => { d.programas = d.programas.filter((x) => x.id !== id); }); },
     async guardarSesion(s) { return mut((d) => upsert(d.sesiones, { creado: ahora(), ...s })); },
+    async guardarSesiones(ss) { return mut((d) => ss.map((s) => upsert(d.sesiones, { creado: ahora(), ...s }))); },
     async borrarSesion(id) { mut((d) => { d.sesiones = d.sesiones.filter((x) => x.id !== id); }); },
     async guardarControl(c) { return mut((d) => upsert(d.controles, { creado: ahora(), ...c })); },
     async borrarControl(id) { mut((d) => { d.controles = d.controles.filter((x) => x.id !== id); }); },
@@ -177,7 +179,7 @@ export function crearStoreLocal() {
       const v = abiertoDe(d, a.id); const libre = !!v || coach || !!a.sinCodigo;
       const ps = d.programas.filter((p) => p.asesoradoId === a.id && p.visible !== false).sort((x, y) => (x.orden || 0) - (y.orden || 0))
         .map((p) => (libre ? p : { id: p.id, asesoradoId: p.asesoradoId, nombre: p.nombre, orden: p.orden, nota: '', dias: (p.dias || []).map((x) => ({ id: x.id, nombre: x.nombre, grupos: (x.ejercicios || []).map((e) => e.grupo) })) }));
-      return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, sinCodigo: !!a.sinCodigo, hasta: v && !a.sinCodigo ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
+      return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null, sexo: a.datos?.sexo || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, sinCodigo: !!a.sinCodigo, hasta: v && !a.sinCodigo ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
         sesiones: d.sesiones.filter((s) => s.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 400) };
     },
     async atletaAbrir(token, codigo) {

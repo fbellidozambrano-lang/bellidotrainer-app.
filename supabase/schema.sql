@@ -233,7 +233,8 @@ begin
   libre := found or coach or a.sin_codigo;
   return jsonb_build_object(
     'asesorado', jsonb_build_object('id', a.id, 'nombre', a.nombre,
-                                    'objetivo', a.objetivo, 'nivel', a.nivel, 'vence', a.vence),
+                                    'objetivo', a.objetivo, 'nivel', a.nivel, 'vence', a.vence,
+                                    'sexo', a.datos ->> 'sexo'),
     'acceso', jsonb_build_object('abierto', libre, 'coach', coach, 'permiso', v.id, 'sinCodigo', a.sin_codigo,
                                  'hasta', case when a.sin_codigo then null else v.abierto + interval '4 hours' end),
     -- sin código solo viajan los nombres de programas y días, nunca los ejercicios

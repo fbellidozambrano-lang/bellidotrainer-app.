@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Barra, Ico, ir, Placa } from '../ui/kit.jsx';
+import MarcaSerie from '../shared/MarcaSerie.jsx';
 import { fmt, primerNombre, nSeg } from '../lib/util.js';
 
 const H4 = 4 * 36e5;
@@ -25,7 +26,7 @@ function Tarjeta({ v, a, abierta, onToggle }) {
       {abierta && pr && <div className="vivo-ejs">{pr.ejercicios.map((e, i) => { const hechas = e.series.filter((x) => x.hecha).length;
         return <div key={i} className={`vivo-ej ${hechas && hechas === e.series.length ? 'listo' : ''}`}>
           <div className="vivo-ej-t"><strong>{e.ejercicio}</strong><span>{e.objetivo}{e.carga ? ` · ${e.carga}` : ''} · {hechas}/{e.series.length}</span></div>
-          <div className="previa">{e.series.map((x, k) => <span key={k} className={x.hecha ? 'hecha' : 'pend'}><b>{e.tipo === 'tiempo' ? `${fmt(nSeg(x.seg))}s` : fmt(nSeg(x.peso), 1)}</b>{e.tipo !== 'tiempo' && <> × {x.reps || '—'}</>}{x.rpe ? <i> @{x.rpe}</i> : null}</span>)}</div>
+          <div className="previa">{e.series.map((x, k) => <span key={k} className={x.hecha ? 'hecha' : 'pend'}><b>{e.tipo === 'tiempo' ? `${fmt(nSeg(x.seg))}s` : fmt(nSeg(x.peso), 1)}</b>{e.tipo !== 'tiempo' && <> × {x.reps || '—'}</>}{x.rpe ? <i> @{x.rpe}</i> : null}<MarcaSerie x={x} /></span>)}</div>
           {e.nota && <p className="guia">“{e.nota}”</p>}
         </div>; })}</div>}
       {abierta && <button className="btn chico fant" onClick={() => ir('a', v.asesoradoId)}>Ver ficha de {primerNombre(a?.nombre)}<Ico n="chev" s={16} /></button>}

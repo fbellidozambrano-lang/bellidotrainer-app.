@@ -3,6 +3,7 @@ import { Ico, Placa, Semana, ir, Hoja, Campo, useAviso } from '../ui/kit.jsx';
 import { haceCuanto, saludo, sesionesSemana, diasEntre, hoy, primerNombre, fCorta, fLarga, diasParaVencer, textoVence, sumarMes, abrirWa } from '../lib/util.js';
 import { NIVELES, OBJETIVOS } from '../data/constants.js';
 import marca from '../assets/marca.png';
+import { analizarTodos } from '../lib/periodizacion.js';
 
 export function FichaAsesorado({ inicial, onGuardar, onCerrar }) {
   const [f, setF] = useState(() => ({ nombre: '', objetivo: '', nivel: '', notas: '', ...inicial, datos: { ...(inicial?.datos || {}) } }));
@@ -14,6 +15,8 @@ export function FichaAsesorado({ inicial, onGuardar, onCerrar }) {
       <Campo l="Nombre y apellido"><input className="in" autoFocus value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></Campo>
       <Campo l="Objetivo"><div className="chips">{OBJETIVOS.map((o) => <button type="button" key={o} className={`chip ${f.objetivo === o ? 'on' : ''}`} onClick={() => setF({ ...f, objetivo: f.objetivo === o ? '' : o })}>{o}</button>)}</div></Campo>
       <Campo l="Nivel"><div className="seg">{NIVELES.map((o) => <button type="button" key={o} className={f.nivel === o ? 'on' : ''} onClick={() => setF({ ...f, nivel: o })}>{o}</button>)}</div></Campo>
+      <Campo l="Sexo"><div className="seg">{[['F', 'Femenino'], ['M', 'Masculino']].map(([k, n]) => <button type="button" key={k} className={f.datos.sexo === k ? 'on' : ''} onClick={() => d('sexo', f.datos.sexo === k ? '' : k)}>{n}</button>)}</div>
+        <p className="ayuda" style={{ marginTop: 6 }}>Para la silueta de músculos trabajados al terminar cada entreno.</p></Campo>
       <div className="dos"><Campo l="Edad"><input className="in" inputMode="numeric" value={f.datos.edad || ''} onChange={(e) => d('edad', e.target.value)} /></Campo>
         <Campo l="Peso (kg)"><input className="in" inputMode="decimal" value={f.datos.peso || ''} onChange={(e) => d('peso', e.target.value)} /></Campo></div>
       <div className="dos"><Campo l="WhatsApp"><input className="in" inputMode="tel" value={f.datos.tel || ''} onChange={(e) => d('tel', e.target.value)} placeholder="0412 1234567" /></Campo>
@@ -60,6 +63,7 @@ export default function Inicio({ datos, acc, store, usuario, entrenando = [], re
   const recientes = [...datos.sesiones].filter((s) => s.origen === 'asesorado' && diasEntre(s.fecha, hoy()) <= 4).sort((a, b) => String(b.creado || b.fecha).localeCompare(String(a.creado || a.fecha))).slice(0, 8);
   const lista = activos.filter((a) => !q || a.nombre.toLowerCase().includes(q.toLowerCase())).sort((a, b) => (ultima[b.id] || '').localeCompare(ultima[a.id] || '') || a.nombre.localeCompare(b.nombre));
   const nombreCoach = primerNombre(usuario?.user_metadata?.nombre || '') || 'coach';
+  const peri = useMemo(() => { const l = analizarTodos(datos); return { urgentes: l.filter((r) => ['descarga', 'estancado', 'retomar'].includes(r.estado)).length }; }, [datos]);
   const cobros = activos.filter((a) => a.vence && diasParaVencer(a.vence) <= 3).sort((x, y) => x.vence.localeCompare(y.vence));
 
   return (
@@ -86,6 +90,7 @@ export default function Inicio({ datos, acc, store, usuario, entrenando = [], re
       <div className="mosaico chico">
         <button className="losa" onClick={() => ir('biblioteca')}><span className="losa-ico"><Ico n="libro" /></span><div><h3>Biblioteca</h3><p>{datos.biblioteca.length > 1 ? `${datos.biblioteca.length} ejercicios` : 'Ármala con tus ejercicios'}</p></div></button>
         <button className="losa" onClick={() => ir('plantillas')}><span className="losa-ico"><Ico n="plantilla" /></span><div><h3>Plantillas</h3><p>{datos.plantillas.length ? `${datos.plantillas.length} ${datos.plantillas.length === 1 ? 'rutina' : 'rutinas'}` : 'Rutinas para asignar'}</p></div></button>
+        <button className="losa ancha" onClick={() => ir('periodizacion')}><span className="losa-ico"><Ico n="tendencia" /></span><div><h3>Periodización</h3><p>{peri.urgentes ? `${peri.urgentes} ${peri.urgentes === 1 ? 'asesorado necesita' : 'asesorados necesitan'} un cambio de fase` : 'Fase sugerida para cada asesorado según su progreso'}</p></div>{peri.urgentes > 0 && <span className="losa-n">{peri.urgentes}</span>}</button>
       </div>
       {store.modo === 'local' && <button className="aviso" style={{ width: '100%', textAlign: 'left' }} onClick={() => ir('ajustes')}><Ico n="nube" s={20} style={{ flex: 'none', marginTop: 1 }} /><span><b>Modo local.</b> Todo vive en este teléfono y tus asesorados no pueden entrar todavía. Toca para conectar Supabase.</span></button>}
 

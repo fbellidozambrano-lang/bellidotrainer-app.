@@ -10,6 +10,7 @@ import Ajustes from './Ajustes.jsx';
 import Preparar from './Preparar.jsx';
 import EnVivo, { activos } from './EnVivo.jsx';
 import Biblioteca from './Biblioteca.jsx';
+import Periodizacion from './Periodizacion.jsx';
 import { Plantillas, EditorPlantilla } from './Plantillas.jsx';
 import Metricas from '../shared/Metricas.jsx';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
@@ -88,6 +89,7 @@ export default function CoachApp({ store }) {
       async borrarPlantilla(id) { try { await store.borrarPlantilla(id); setDatos((d) => ({ ...d, plantillas: d.plantillas.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
       async borrarPrograma(id) { try { await store.borrarPrograma(id); setDatos((d) => ({ ...d, programas: d.programas.filter((x) => x.id !== id) })); } catch (e) { falla(e); } },
       async guardarSesion(s) { try { const g = await store.guardarSesion({ ...s, origen: s.origen || 'coach' }); setDatos((d) => ({ ...d, sesiones: [...d.sesiones.filter((x) => x.id !== g.id), g] })); return g; } catch (e) { falla(e); } },
+      async guardarSesiones(ss) { if (!ss.length) return; try { const gs = await store.guardarSesiones(ss); const m = new Map(gs.map((g) => [g.id, g])); setDatos((d) => ({ ...d, sesiones: d.sesiones.map((x) => m.get(x.id) || x) })); } catch (e) { falla(e); } },
       async borrarSesion(s) { try { await store.borrarSesion(s.id); setDatos((d) => ({ ...d, sesiones: d.sesiones.filter((x) => x.id !== s.id) })); avisar('Sesión borrada'); } catch (e) { falla(e); } },
       async importar(x, prog) { await store.importar(x, prog); await cargar(); },
     };
@@ -101,6 +103,7 @@ export default function CoachApp({ store }) {
   const [r0, id, r2, r3, r4] = ruta;
   if (r0 === 'ajustes') return <Ajustes store={store} datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'envivo') return <EnVivo datos={datos} vivo={vivo} recargar={recargarVivo} />;
+  if (r0 === 'periodizacion') return <Periodizacion datos={datos} acc={acc} inicial={id} />;
   if (r0 === 'biblioteca') return <Biblioteca datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'plantillas') return <Plantillas datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'plantilla') { const t = datos.plantillas.find((x) => x.id === id); if (!t) { setTimeout(() => ir('plantillas'), 0); return null; } return <EditorPlantilla key={t.id} t={t} datos={datos} acc={acc} />; }
@@ -116,7 +119,7 @@ export default function CoachApp({ store }) {
       const p = ps.find((x) => x.id === r3); const d = p?.dias.find((x) => x.id === r4);
       if (!d) { setTimeout(() => ir('a', a.id), 0); return null; }
       return <Entrenamiento modo="coach" programa={p} dia={d} historial={ss} quien={a.nombre.split(' ')[0]} claveBorrador={`bt:borrador:c:${a.id}:${p.id}:${d.id}`}
-        onGuardar={async (s) => { await acc.guardarSesion({ ...s, asesoradoId: a.id, origen: 'coach' }); return {}; }} onSalir={() => ir('a', a.id)} />;
+        sexo={a.datos?.sexo || ''} onGuardar={async (s) => { await acc.guardarSesion({ ...s, asesoradoId: a.id, origen: 'coach' }); return {}; }} onSalir={() => ir('a', a.id)} />;
     }
     return <Hub a={a} programas={ps} sesiones={ss} acc={acc} store={store} controles={datos.controles.filter((c) => c.asesoradoId === a.id)} faltaTablas={datos.faltaTablas} />;
   }

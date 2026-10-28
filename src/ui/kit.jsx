@@ -16,7 +16,7 @@ const P = {
   comida: 'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 0-3 2.5-3 6s1 4 3 4v8M16 3v18', casa: 'M3 11l9-7 9 7M5 9.5V20h5v-6h4v6h5V9.5',
   libro: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 5v16M8 7h7', plantilla: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM16.5 13v7M13 16.5h7',
   candado: 'M6 11h12v10H6zM8 11V7.5a4 4 0 0 1 8 0V11M12 15v2', llave: 'M14 10a4 4 0 1 0-3.5 4L4 20.5V22h3v-2h2v-2h2l1.5-1.5A4 4 0 0 0 14 10z',
-  refrescar: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', duplicar: 'M8 8h12v12H8zM4 16V4h12',
+  refrescar: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', tendencia: 'M3 17l6-6 4 4 8-8M15 7h6v6', duplicar: 'M8 8h12v12H8zM4 16V4h12',
   camara: 'M4 8h3.5l2-3h5l2 3H20v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', imagen: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9h.01', compartir: 'M12 15V3M7.5 7.5 12 3l4.5 4.5M5 12v8h14v-8',
 };
 export function Ico({ n, s = 22, w = 1.8, ...r }) {

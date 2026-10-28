@@ -5,6 +5,9 @@ import { grupoDeEjercicio } from '../data/hevy.js';
 import { SelectorBib, asegurarEnBib, Sugerencia } from './Biblioteca.jsx';
 import { ejDesdeBib } from '../data/biblioteca.js';
 import { colorGrupo, copiaEj, esTiempo, fmt, nDias, normEj, primerNombre, resumenEj, textoCarga, uuid, clonarDias, ytId } from '../lib/util.js';
+import { esUnilateral } from '../lib/series.js';
+import { mismoEj } from '../lib/nombres.js';
+import { sesionesCon, renombrarEnSesiones, renombrarEnProgramas } from '../lib/renombrar.js';
 
 // ---------- portapapeles de ejercicios (sirve entre asesorados) ----------
 const KEY_PP = 'bt:portapapeles';
@@ -39,6 +42,7 @@ export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, 
           : <><Campo l="Reps mín."><input className="in num" style={{ fontSize: 20 }} inputMode="numeric" value={e.repMin} onChange={(x) => f('repMin', x.target.value)} /></Campo>
             <Campo l="Reps máx."><input className="in num" style={{ fontSize: 20 }} inputMode="numeric" value={e.repMax} onChange={(x) => f('repMax', x.target.value)} /></Campo></>}
       </div>
+      <Interruptor on={esUnilateral(e)} onChange={(v) => f('unilateral', v)} label="Un lado a la vez" ayuda={esUnilateral(e) ? 'Registra la derecha y la izquierda por separado.' : 'Actívalo en ejercicios unilaterales (búlgara, remo a una mano…).'} />
       <Campo l="Carga sugerida"><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder="22,5 kg · banda verde · máquina 3" /></Campo>
       <Campo l="RPE objetivo"><div className="chips">{[6, 7, 8, 9, 10].map((v) => <button key={v} className={`chip ${Number(e.rpe) === v ? 'on' : ''}`} style={{ minWidth: 48 }} onClick={() => f('rpe', v)}>{v}</button>)}</div></Campo>
       <Campo l="Descanso entre series"><div className="chips">{[45, 60, 90, 120, 150, 180].map((v) => <button key={v} className={`chip ${Number(e.descanso) === v ? 'on' : ''}`} onClick={() => f('descanso', v)}>{v < 120 ? `${v} s` : v === 150 ? '2:30' : `${v / 60} min`}</button>)}</div></Campo>
@@ -107,6 +111,19 @@ export default function Editor({ a, p: inicial, datos, acc }) {
   const conDia = (fn) => cambiar((x) => { const d = x.dias.find((y) => y.id === dia.id); fn(d, x); return x; });
   const pegar = (ejs, de) => { conDia((d) => d.ejercicios.push(...ejs.map(copiaEj))); avisar(`${ejs.length} ${ejs.length === 1 ? 'ejercicio pegado' : 'ejercicios pegados'} en ${dia.nombre}${de ? ` (de ${de})` : ''}`); };
   const elegidos = selec ? dia.ejercicios.filter((e) => selec[e.id]) : [];
+  const sesA = useMemo(() => datos.sesiones.filter((s) => s.asesoradoId === a.id), [datos.sesiones, a.id]);
+  // guarda el ejercicio; con "antes", además corrige el nombre en su historial y en sus otras rutinas
+  async function guardarEj(e0, antes) {
+    const e = await asegurarEnBib(e0, datos, acc);
+    conDia((d) => { const i = d.ejercicios.findIndex((x) => x.id === e.id); if (i >= 0) d.ejercicios[i] = e; else d.ejercicios.push(e); });
+    if (!antes) return;
+    const grupo = e.grupo !== antes.grupo ? e.grupo : null;
+    const ss = renombrarEnSesiones(sesA, antes.ejercicio, e.ejercicio, grupo);
+    const ps = renombrarEnProgramas(datos.programas.filter((x) => x.asesoradoId === a.id), antes.ejercicio, e.ejercicio, grupo, p.id);
+    // en esta misma rutina, otros días con el mismo ejercicio
+    cambiar((x) => { x.dias.forEach((d) => d.ejercicios.forEach((y) => { if (y.id !== e.id && mismoEj(y.ejercicio, antes.ejercicio)) { y.ejercicio = e.ejercicio; if (grupo) y.grupo = grupo; } })); return x; });
+    try { await acc.guardarSesiones(ss); if (ps.length) await acc.guardarProgramas(ps); avisar(ss.length ? `Nombre corregido en ${ss.length} ${ss.length === 1 ? 'sesión' : 'sesiones'} de su historial` : 'Nombre corregido'); } catch {}
+  }
 
   if (!dia) return <div className="pantalla"><Barra volver={{ fn: () => ir('a', a.id, 'rutinas'), texto: 'Rutinas' }} titulo={p.nombre} />
     <div className="vacio" style={{ marginTop: 20 }}><b>Este programa no tiene días</b><button className="btn oro" style={{ marginTop: 12 }} onClick={() => cambiar((x) => { const id = uuid(); x.dias.push({ id, nombre: 'Día 1', ejercicios: [] }); setDiaId(id); return x; })}>Agregar un día</button></div></div>;
@@ -139,7 +156,7 @@ export default function Editor({ a, p: inicial, datos, acc }) {
           <button key={e.id} className="ej" onClick={() => (selec ? setSelec((s) => ({ ...s, [e.id]: !s[e.id] })) : setHoja({ t: 'ej', e, i }))}>
             {selec && <span className={`ej-sel ${selec[e.id] ? 'on' : ''}`}>{selec[e.id] && <Ico n="check" s={16} w={3} />}</span>}
             <span className="ej-barra" style={{ background: colorGrupo(e.grupo) }} />
-            <div className="ej-t"><strong>{e.ejercicio}</strong><span>{e.grupo} · {resumenEj(e)} · RPE {fmt(e.rpe, 1)} · {e.descanso} s{e.video ? ' · video' : ''}</span>
+            <div className="ej-t"><strong>{e.ejercicio}</strong><span>{e.grupo} · {resumenEj(e)}{esUnilateral(e) ? ' por lado' : ''} · RPE {fmt(e.rpe, 1)} · {e.descanso} s{e.video ? ' · video' : ''}</span>
               {e.pesoSugerido && <span className="carga">{textoCarga(e.pesoSugerido)}</span>}{e.nota && <em>{e.nota}</em>}</div>
             {!selec && <Ico n="chev" className="chev" s={18} />}
           </button>))}</div>}
@@ -155,9 +172,25 @@ export default function Editor({ a, p: inicial, datos, acc }) {
       {hoja?.t === 'bib' && <SelectorBib biblioteca={datos.biblioteca} destino={dia.nombre} onCerrar={() => setHoja(null)} onNuevo={(q) => setHoja({ t: 'ej', e: q ? { ejercicio: q } : undefined, nuevo: true })}
         onElegir={(bs) => { conDia((d) => d.ejercicios.push(...bs.map(ejDesdeBib))); setHoja(null); avisar(`${bs.length} ${bs.length === 1 ? 'ejercicio agregado' : 'ejercicios agregados'} a ${dia.nombre}`); }} />}
       {hoja?.t === 'ej' && <HojaEjercicio biblioteca={datos.biblioteca} esNuevo={hoja.nuevo} inicial={hoja.nuevo ? (hoja.e ? { series: 3, repMin: 8, repMax: 12, rpe: 8, descanso: 90, ...hoja.e } : undefined) : hoja.e} sugerencias={sugerencias} onCerrar={() => setHoja(null)}
-        onGuardar={async (e0) => { setHoja(null); const e = await asegurarEnBib(e0, datos, acc); conDia((d) => { const i = d.ejercicios.findIndex((x) => x.id === e.id); if (i >= 0) d.ejercicios[i] = e; else d.ejercicios.push(e); }); }}
+        onGuardar={async (e0) => {
+          const antes = hoja.nuevo ? null : hoja.e;
+          // le cambió el nombre a un ejercicio que ya tiene historial: ¿es el mismo (corrección) u otro?
+          if (antes?.ejercicio && e0.ejercicio !== antes.ejercicio && sesionesCon(sesA, antes.ejercicio).length) {
+            if (mismoEj(e0.ejercicio, antes.ejercicio)) { setHoja(null); await guardarEj(e0, antes); return; }
+            setHoja({ t: 'renombrar', e0, antes }); return;
+          }
+          setHoja(null); await guardarEj(e0);
+        }}
         onMover={(dir) => { conDia((d) => { const i = d.ejercicios.findIndex((x) => x.id === hoja.e.id); const j = i + dir; if (i < 0 || j < 0 || j >= d.ejercicios.length) return; [d.ejercicios[i], d.ejercicios[j]] = [d.ejercicios[j], d.ejercicios[i]]; }); setHoja(null); }}
         onBorrar={() => { conDia((d) => { d.ejercicios = d.ejercicios.filter((x) => x.id !== hoja.e.id); }); setHoja(null); }} />}
+      {hoja?.t === 'renombrar' && (() => { const n = sesionesCon(sesA, hoja.antes.ejercicio).length; return (
+        <Hoja titulo="¿Es el mismo ejercicio?" onCerrar={() => setHoja(null)}>
+          <p className="muted" style={{ marginTop: -6, marginBottom: 14 }}>{nom} tiene <b style={{ color: 'var(--chalk)' }}>{n} {n === 1 ? 'sesión' : 'sesiones'}</b> registradas con <b style={{ color: 'var(--chalk)' }}>{hoja.antes.ejercicio}</b>.</p>
+          <div className="tipos">
+            <button className="tipo on" onClick={async () => { const { e0, antes } = hoja; setHoja(null); await guardarEj(e0, antes); }}><b><Ico n="check" s={20} /></b><div><strong>Sí, solo corrijo el nombre</strong><span>Todo su historial, récords y gráficas pasan a {hoja.e0.ejercicio}.</span></div></button>
+            <button className="tipo" onClick={async () => { const { e0 } = hoja; setHoja(null); await guardarEj(e0); }}><b><Ico n="refrescar" s={20} /></b><div><strong>No, es otro ejercicio</strong><span>{hoja.e0.ejercicio} empieza su propio historial. Lo de {hoja.antes.ejercicio} queda guardado.</span></div></button>
+          </div>
+        </Hoja>); })()}
       {hoja?.t === 'copiarDe' && <HojaCopiarDe datos={datos} actual={a.id} destino={dia.nombre} onCerrar={() => setHoja(null)} onPegar={(ejs, de) => { pegar(ejs, de); setHoja(null); }} />}
       {hoja?.t === 'mover' && <Hoja titulo="Mover a otro día" onCerrar={() => setHoja(null)}>
         {p.dias.filter((d) => d.id !== dia.id).map((d) => <button key={d.id} className="item" onClick={() => { const ids = new Set(elegidos.map((x) => x.id)); cambiar((x) => { const o = x.dias.find((y) => y.id === dia.id); const m = o.ejercicios.filter((e) => ids.has(e.id)); o.ejercicios = o.ejercicios.filter((e) => !ids.has(e.id)); x.dias.find((y) => y.id === d.id).ejercicios.push(...m); return x; }); setSelec(null); setHoja(null); avisar(`Movidos a ${d.nombre}`); }}>

@@ -50,7 +50,7 @@ export function normEj(e = {}) {
     series: n(e.series, 3, 1, 12), repMin: n(e.repMin, 8, 1, 100), repMax: Math.max(n(e.repMin, 8, 1, 100), n(e.repMax, 12, 1, 100)),
     segundos: n(e.segundos, 40, 5, 3600), descanso: e.descanso === '' || e.descanso == null ? 90 : Math.max(0, Math.round(nSeg(e.descanso))),
     rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), nota: String(e.nota || ''), video: String(e.video || ''),
-    ...(e.bibId ? { bibId: e.bibId } : {}),
+    ...(e.bibId ? { bibId: e.bibId } : {}), ...(typeof e.unilateral === 'boolean' ? { unilateral: e.unilateral } : {}),
   };
 }
 export const copiaEj = (e) => normEj({ ...e, id: uuid() });
@@ -65,7 +65,7 @@ export function seriesPrevias(sesiones, ej, antesDe) {
   const s = sesiones.filter((x) => (!antesDe || x.fecha <= antesDe) && (x.series || []).some((y) => mismoEj(y.ejercicio, ej)))
     .sort((a, b) => (a.fecha === b.fecha ? String(b.creado || '').localeCompare(String(a.creado || '')) : a.fecha < b.fecha ? 1 : -1))[0];
   if (!s) return null;
-  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null })), nota: notaDe(s, ej) };
+  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null, ...(x.lado ? { lado: x.lado } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}) })), nota: notaDe(s, ej) };
 }
 export function records(sesiones, ej) {
   let maxPeso = 0, maxE1 = 0, maxVol = 0, maxSeg = 0;

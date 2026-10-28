@@ -3,6 +3,7 @@ import { Hoja, Ico, Confirmar } from '../ui/kit.jsx';
 import { merito } from '../lib/merito.js';
 import { revisarSerie } from '../lib/validar.js';
 import { Campo } from '../ui/kit.jsx';
+import MarcaSerie from './MarcaSerie.jsx';
 import { colorGrupo, ejerciciosDe, fCorta, fLarga, fmt, hoy, lunesDe, aFecha, fechaLocal, nSeg, progresion, records, semanasSeguidas, sesionesSemana, seriesPorGrupo, volumen, seriesDe, esTiempo } from '../lib/util.js';
 
 // ---------- gráficas propias (SVG, livianas) ----------
@@ -44,12 +45,14 @@ function EditarSesion({ s, historial = [], onGuardar, onCerrar }) {
   const [fecha, setFecha] = useState(s.fecha); const [min, setMin] = useState(s.minutos ?? '');
   const [grupos, setGrupos] = useState(() => { const ejs = [...new Set((s.series || []).map((x) => x.ejercicio))];
     return ejs.map((e) => { const ss = seriesDe(s, e); return { ejercicio: e, grupo: ss[0]?.grupo || '', tiempo: ss.some((x) => nSeg(x.seg) > 0), nota: (s.notas || {})[e] || '',
-      filas: ss.map((x) => ({ peso: x.peso ? String(x.peso).replace('.', ',') : '', reps: x.reps ? String(x.reps) : '', seg: x.seg ? String(x.seg) : '', rpe: x.rpe ? String(x.rpe).replace('.', ',') : '' })) }; }); });
+      filas: ss.map((x) => ({ peso: x.peso ? String(x.peso).replace('.', ',') : '', reps: x.reps ? String(x.reps) : '', seg: x.seg ? String(x.seg) : '', rpe: x.rpe ? String(x.rpe).replace('.', ',') : '', lado: x.lado || '', tecnica: x.tecnica || '' })) }; }); });
   const [ocupado, setOcupado] = useState(false);
   const otras = historial.filter((x) => x.id !== s.id);
   const cambiar = (gi, fi, k, v) => setGrupos((g) => g.map((x, i) => (i !== gi ? x : { ...x, filas: x.filas.map((f, j) => (j === fi ? { ...f, [k]: v } : f)) })));
-  const series = []; grupos.forEach((g) => { let n = 0; g.filas.forEach((f) => { const p = nSeg(f.peso), r = Math.round(nSeg(f.reps)), sg = Math.round(nSeg(f.seg)); if (!(p || r || sg)) return;
-    const o = { ejercicio: g.ejercicio, grupo: g.grupo, serie: ++n, peso: p, reps: g.tiempo ? 0 : r, rpe: nSeg(f.rpe) || 8 }; if (g.tiempo) o.seg = sg; series.push(o); }); });
+  // la derecha y la izquierda de una misma serie comparten número
+  const series = []; grupos.forEach((g) => { let n = 0; let ult = null; g.filas.forEach((f) => { const p = nSeg(f.peso), r = Math.round(nSeg(f.reps)), sg = Math.round(nSeg(f.seg)); if (!(p || r || sg)) return;
+    const mismaSerie = f.lado === 'I' && ult === 'D'; ult = f.lado || null;
+    const o = { ejercicio: g.ejercicio, grupo: g.grupo, serie: mismaSerie ? n : ++n, peso: p, reps: g.tiempo ? 0 : r, rpe: nSeg(f.rpe) || 8 }; if (g.tiempo) o.seg = sg; if (f.lado) o.lado = f.lado; if (f.tecnica) o.tecnica = f.tecnica; series.push(o); }); });
   async function guardar() {
     setOcupado(true); const notas = {}; grupos.forEach((g) => { if (g.nota.trim()) notas[g.ejercicio] = g.nota.trim(); });
     try { await onGuardar({ ...s, fecha, minutos: min === '' ? null : Math.max(1, parseInt(min, 10) || 0), series, notas }); onCerrar(); } catch {} setOcupado(false);
@@ -64,7 +67,7 @@ function EditarSesion({ s, historial = [], onGuardar, onCerrar }) {
           <div className="edit-h"><span>#</span><span>Peso</span><span>{g.tiempo ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>
           {g.filas.map((f, fi) => { const av = revisarSerie({ ...f, hecha: true }, { tipo: g.tiempo ? 'tiempo' : 'reps' }, rec); return (
             <React.Fragment key={fi}>
-              <div className={`edit-f ${av ? 'raro' : ''}`}><u>{fi + 1}</u>
+              <div className={`edit-f ${av ? 'raro' : ''}`}><u>{fi + 1}{f.lado && <small>{f.lado}</small>}</u>
                 <input className="cel" inputMode="decimal" value={f.peso} placeholder="kg" onChange={(e) => cambiar(gi, fi, 'peso', e.target.value)} aria-label={`Peso serie ${fi + 1}`} />
                 <input className="cel" inputMode="numeric" value={g.tiempo ? f.seg : f.reps} onChange={(e) => cambiar(gi, fi, g.tiempo ? 'seg' : 'reps', e.target.value)} aria-label={`${g.tiempo ? 'Segundos' : 'Reps'} serie ${fi + 1}`} />
                 <input className="cel" inputMode="decimal" value={f.rpe} onChange={(e) => cambiar(gi, fi, 'rpe', e.target.value)} aria-label={`RPE serie ${fi + 1}`} />
@@ -88,7 +91,7 @@ export function DetalleSesion({ s, onCerrar, onBorrar, onGuardar, historial }) {
       {ejs.map((e) => (
         <div key={e} style={{ padding: '10px 0', borderTop: '1px solid var(--line)' }}>
           <strong style={{ fontWeight: 600 }}>{e}</strong>
-          <div className="previa">{seriesDe(s, e).map((x, i) => <span key={i}><b>{x.seg ? `${x.seg}s` : `${fmt(x.peso, 1)}`}</b>{!x.seg && <> kg × {x.reps}</>} {x.rpe ? <i>@{fmt(x.rpe, 1)}</i> : null}</span>)}</div>
+          <div className="previa">{seriesDe(s, e).map((x, i) => <span key={i}><b>{x.seg ? `${x.seg}s` : `${fmt(x.peso, 1)}`}</b>{!x.seg && <> kg × {x.reps}</>} {x.rpe ? <i>@{fmt(x.rpe, 1)}</i> : null}<MarcaSerie x={x} /></span>)}</div>
           {(s.notas || {})[e] && <p className="nota-coach" style={{ fontSize: 14 }}><small>Observación</small>{s.notas[e]}</p>}
         </div>
       ))}

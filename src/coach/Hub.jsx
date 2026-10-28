@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Barra, Ico, ir, Hoja, Confirmar, useAviso, copiarTexto } from '../ui/kit.jsx';
 import { FichaAsesorado } from './Inicio.jsx';
 import { DetalleSesion } from '../shared/Metricas.jsx';
@@ -8,6 +8,7 @@ import { enlaceAtleta } from './CoachApp.jsx';
 import SeccionComposicion from './Controles.jsx';
 import { programaCasa } from '../data/casa.js';
 import { resumenEj } from '../lib/util.js';
+import { analizar } from '../lib/periodizacion.js';
 
 const hora = (t) => new Date(t).toLocaleTimeString('es-VE', { hour: 'numeric', minute: '2-digit' });
 const H4 = 4 * 36e5;
@@ -77,6 +78,7 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
   const [verCasa, setVerCasa] = useState(false);
   const [registrar, setRegistrar] = useState(false); const [regProg, setRegProg] = useState(null); const [ver, setVer] = useState(null);
   const ses = [...sesiones].sort((x, y) => (x.fecha < y.fecha ? 1 : -1)); const u = ses[0]?.fecha;
+  const peri = useMemo(() => (sesiones.length ? analizar(a, sesiones, programas) : null), [a, sesiones, programas]);
   const semana = new Set(sesionesSemana(ses).map((s) => s.fecha + s.dia)).size;
   const url = enlaceAtleta(a);
   const mensaje = `Hola ${nom}, este es tu acceso a BELLIDO TRAINER. Ahí tienes tus rutinas y tus métricas, y registras cada entreno. Cada vez que vayas a entrenar te paso un código para abrir la rutina. Guárdalo: es tu enlace personal.\n${url}`;
@@ -110,6 +112,9 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
 
       {ps.some((p) => nDias(p)) && <button className="item casa-coach" onClick={() => setVerCasa(true)}><span className="codigo-ico"><Ico n="casa" s={22} /></span>
         <div className="item-t"><strong>Rutina en casa</strong><span>Lista para cada día de sus programas · la ve en “Ejercicios de casa”</span></div><Ico n="chev" className="chev" s={18} /></button>}
+
+      {peri && <button className="item casa-coach" onClick={() => ir('periodizacion', a.id)}><span className="codigo-ico"><Ico n="tendencia" s={22} /></span>
+        <div className="item-t"><strong>Periodización · {peri.plan.nombre}</strong><span>{peri.titulo} · {peri.resumen}</span></div><Ico n="chev" className="chev" s={18} /></button>}
 
       <div className="kpis">
         <div className="kpi"><b className="num">{semana}</b><span>entrenos esta semana</span></div>
