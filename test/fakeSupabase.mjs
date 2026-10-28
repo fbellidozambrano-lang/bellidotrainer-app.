@@ -13,6 +13,7 @@ export function fakeSupabase(db) {
       limit(n) { st.range = [0, n - 1]; return b; },
       eq(c, v) { st.where.push([c, '=', v]); return b; },
       gte(c, v) { st.where.push([c, '>=', v]); return b; },
+      lte(c, v) { st.where.push([c, '<=', v]); return b; },
       upsert(r) { st.op = 'upsert'; st.rows = Array.isArray(r) ? r : [r]; return b; },
       delete() { st.op = 'delete'; return b; },
       then(res, rej) { return run().then(res, rej); },
@@ -38,8 +39,8 @@ export function fakeSupabase(db) {
   const fix = (row) => { const o = { ...row }; for (const k in o) if (o[k] instanceof Date) o[k] = k === 'fecha' ? o[k].toISOString().slice(0, 10) : o[k].toISOString(); return o; };
   return {
     from: builder,
-    async rpc(fn, args) {
-      try { const ks = Object.keys(args); const r = await exec((tx) => tx.query(`select ${fn}(${ks.map((k, i) => `${k} => $${i + 1}`).join(',')}) as r`, ks.map((k) => (typeof args[k] === 'object' ? JSON.stringify(args[k]) : args[k])))); return { data: r.rows[0].r, error: null }; }
+    async rpc(fn, args = {}) {
+      try { const ks = Object.keys(args); const r = await exec((tx) => tx.query(`select ${fn}(${ks.map((k, i) => `${k} => $${i + 1}`).join(',')}) as r`, ks.map((k) => (args[k] === null || args[k] === undefined ? null : Array.isArray(args[k]) && args[k].every((x) => typeof x === 'string') && /_ids$/.test(k) ? `{${args[k].join(',')}}` : typeof args[k] === 'object' ? JSON.stringify(args[k]) : args[k])))); return { data: r.rows[0].r, error: null }; }
       catch (e) { return { data: null, error: { message: e.message } }; }
     },
     auth: {

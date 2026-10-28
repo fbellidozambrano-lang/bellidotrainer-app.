@@ -11,6 +11,9 @@ import Preparar from './Preparar.jsx';
 import EnVivo, { activos } from './EnVivo.jsx';
 import Biblioteca from './Biblioteca.jsx';
 import Periodizacion from './Periodizacion.jsx';
+// alimentación: se carga recién cuando se abre (trae el motor nutricional)
+const AlimentacionCoach = React.lazy(() => import('./Alimentacion.jsx'));
+const BaseAlimentos = React.lazy(() => import('./BaseAlimentos.jsx'));
 import { Plantillas, EditorPlantilla } from './Plantillas.jsx';
 import Metricas from '../shared/Metricas.jsx';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
@@ -103,6 +106,7 @@ export default function CoachApp({ store }) {
   const [r0, id, r2, r3, r4] = ruta;
   if (r0 === 'ajustes') return <Ajustes store={store} datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'envivo') return <EnVivo datos={datos} vivo={vivo} recargar={recargarVivo} />;
+  if (r0 === 'alimentos') return <React.Suspense fallback={<Cargando reintentar={() => location.reload()} />}><BaseAlimentos store={store} /></React.Suspense>;
   if (r0 === 'periodizacion') return <Periodizacion datos={datos} acc={acc} inicial={id} />;
   if (r0 === 'biblioteca') return <Biblioteca datos={datos} acc={acc} usuario={usuario} />;
   if (r0 === 'plantillas') return <Plantillas datos={datos} acc={acc} usuario={usuario} />;
@@ -112,6 +116,7 @@ export default function CoachApp({ store }) {
     if (!a) { setTimeout(() => ir(), 0); return null; }
     const ps = datos.programas.filter((p) => p.asesoradoId === a.id); const ss = datos.sesiones.filter((s) => s.asesoradoId === a.id);
     if (r2 === 'preparar') return <Preparar a={a} programas={ps} sesiones={ss} acc={acc} store={store} />;
+    if (r2 === 'alimentacion') return <React.Suspense fallback={<Cargando reintentar={() => location.reload()} />}><AlimentacionCoach a={a} store={store} /></React.Suspense>;
     if (r2 === 'rutinas') return <Rutinas a={a} programas={ps} sesiones={ss} datos={datos} acc={acc} />;
     if (r2 === 'p') { const p = ps.find((x) => x.id === r3); if (!p) { setTimeout(() => ir('a', a.id, 'rutinas'), 0); return null; } return <Editor key={p.id} a={a} p={p} datos={datos} acc={acc} store={store} />; }
     if (r2 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir('a', a.id), texto: a.nombre.split(' ')[0] }} titulo="Métricas" /><Metricas sesiones={ss} programas={ps.filter((p) => p.visible !== false)} nombre={a.nombre.split(' ')[0]} onBorrarSesion={acc.borrarSesion} onGuardarSesion={async (x) => { await acc.guardarSesion(x); avisar('Sesión actualizada'); }} /></div>;

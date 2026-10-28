@@ -5,7 +5,7 @@ import { leerConfig, guardarConfigLocal } from '../data/store.js';
 import { fLarga, hoy, primerNombre, diasParaVencer } from '../lib/util.js';
 import { Cobro } from './Inicio.jsx';
 
-export const VERSION = 'v9.11 · octubre 2026';
+export const VERSION = 'v9.12 · octubre 2026';
 
 function Importar({ archivo, datos, acc, usuario, onCerrar }) {
   const avisar = useAviso(); const salt = (usuario?.id || 'local') + ':';
@@ -80,6 +80,9 @@ export default function Ajustes({ store, datos, acc, usuario }) {
         <p style={{ marginBottom: 6 }}>Pon la fecha en que vence la mensualidad de cada uno. Tres días antes te aparece en el inicio con un botón para recordarle por WhatsApp, y a él le sale el aviso en su app. Cuando pague, toca <b>Pagó</b> y la fecha corre un mes.</p>
         {pagos.length ? <div className="lista">{pagos.map((a) => <Cobro key={a.id} a={a} acc={acc} conFecha />)}</div> : <p className="ayuda">Todavía no tienes asesorados.</p>}
       </div>
+
+      <div className="sec"><h2>Alimentación</h2></div>
+      <button className="item" style={{ borderTop: '1px solid var(--line)' }} onClick={() => ir('alimentos')}><Ico n="comida" /><div className="item-t"><strong>Base de alimentos</strong><span>Importar USDA, fuentes, licencias y alimentos personalizados</span></div><Ico n="chev" className="chev" s={18} /></button>
 
       <div className="sec"><h2>Respaldos</h2></div>
       <div className="tarj">

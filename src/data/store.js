@@ -2,6 +2,7 @@
 // Las dos exponen exactamente las mismas funciones.
 import { createClient } from '@supabase/supabase-js';
 import { tokenNuevo, uuid } from '../lib/util.js';
+import { crearNutriLocal } from './nutriLocal.js';
 
 // ---------- configuración ----------
 export function leerConfig() {
@@ -135,6 +136,26 @@ export function crearStoreNube(cfg, clienteFalso) {
     // quién tiene la rutina abierta (últimas 4 h) y quién terminó hoy
     async entrenandoAhora() { const desde = new Date(Date.now() - 16 * 36e5).toISOString(); const d = await run(sb.from('permisos').select('*').gte('abierto', desde).order('abierto', { ascending: false })); return d.map(dePermiso); },
     async codigoActual(asesoradoId) { const d = await run(sb.from('permisos').select('*').eq('asesorado_id', asesoradoId).order('creado', { ascending: false }).limit(1)); return dePermiso(d[0]); },
+    // ---------- alimentación ----------
+    nutri: {
+      estado: () => run(sb.rpc('nutri_estado')),
+      buscar: (q, filtros = {}, token = null) => run(sb.rpc('nutri_buscar', { p_q: q, p_filtros: filtros, p_token: token, p_limite: 40 })),
+      async fichas(ids, token = null) { const u = [...new Set(ids.filter(Boolean))]; if (!u.length) return {}; return (await run(sb.rpc('nutri_fichas', { p_ids: u, p_token: token }))) || {}; },
+      ficha: (id, token = null) => run(sb.rpc('nutri_ficha', { p_id: id, p_token: token })),
+      guardarAlimento: (a, token = null) => run(sb.rpc('nutri_guardar_alimento', { p: a, p_token: token })),
+      importacionIniciar: (p) => run(sb.rpc('nutri_importacion_iniciar', { p })),
+      importarLote: (id, parte, lote, forzar = false) => run(sb.rpc('nutri_importar_lote', { p_importacion: id, p_parte: parte, p_lote: lote, p_forzar: forzar })),
+      importacionCerrar: (id, estado = null) => run(sb.rpc('nutri_importacion_cerrar', { p_importacion: id, p_estado: estado })),
+      async plan(asesoradoId) { const d = await run(sb.from('nutri_planes').select('*').eq('asesorado_id', asesoradoId)); return d[0] ? { objetivos: d[0].objetivos || {}, plan: d[0].plan || null, actualizado: d[0].actualizado } : { objetivos: {}, plan: null }; },
+      async guardarPlan(asesoradoId, { objetivos, plan }) { await run(sb.from('nutri_planes').upsert({ id: asesoradoId, asesorado_id: asesoradoId, objetivos: objetivos || {}, plan: plan ?? null }).select()); return true; },
+      recetas: (asesoradoId) => run(sb.from('nutri_recetas').select('*').eq('asesorado_id', asesoradoId).order('nombre', { ascending: true })),
+      async guardarReceta(r) { const d = await run(sb.from('nutri_recetas').upsert({ id: r.id, asesorado_id: r.asesorado_id || null, nombre: r.nombre, porciones: r.porciones || 1, comida: r.comida || null, ingredientes: r.ingredientes || [], nota: r.nota || '' }).select()); return d[0]; },
+      borrarReceta: (id) => run(sb.from('nutri_recetas').delete().eq('id', id)),
+      registros: (asesoradoId, desde, hasta) => run(sb.from('nutri_registros').select('*').eq('asesorado_id', asesoradoId).gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: true })),
+      atletaCargar: (token, desde, hasta) => run(sb.rpc('atleta_nutri_cargar', { p_token: token, p_desde: desde, p_hasta: hasta })),
+      atletaGuardar: (token, r) => run(sb.rpc('atleta_nutri_guardar', { p_token: token, p_registro: r })),
+      atletaBorrar: (token, id) => run(sb.rpc('atleta_nutri_borrar', { p_token: token, p_id: id })),
+    },
   };
 }
 
@@ -213,6 +234,37 @@ export function crearStoreLocal() {
       if (!v) return false; v.progreso = p; v.progresoAt = ahora(); return true; }); },
     async entrenandoAhora() { const desde = Date.now() - 16 * 36e5; return (leer().permisos || []).filter((x) => x.abierto && Date.parse(x.abierto) > desde).sort((a, b) => (a.abierto < b.abierto ? 1 : -1)).map((x) => ({ ...x })); },
     async codigoActual(asesoradoId) { return (leer().permisos || []).filter((x) => x.asesoradoId === asesoradoId).sort((x, y) => (x.creado < y.creado ? 1 : -1))[0] || null; },
+    // ---------- alimentación (base de alimentos en IndexedDB; lo personal en este mismo respaldo) ----------
+    nutri: (() => {
+      const base = crearNutriLocal();
+      const deToken = (token) => { const a = leer().asesorados.find((x) => x.token === token && !x.archivado); if (!a) throw new Error('enlace no valido'); return a; };
+      const idsPlan = (plan) => { const out = new Set(); const rec = (x) => { if (!x || typeof x !== 'object') return; if (typeof x.alimento_id === 'string') out.add(x.alimento_id); Object.values(x).forEach(rec); }; rec(plan); return [...out]; };
+      const validarRegistro = (r) => {
+        const f = String(r.fecha || ''); const hoyL = new Date(); const d = (x) => Math.round((Date.parse(x + 'T12:00:00') - Date.parse(hoyL.toISOString().slice(0, 10) + 'T12:00:00')) / 864e5);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || d(f) > 1 || d(f) < -60) throw new Error('fecha no valida');
+        if (!['alimento', 'receta', 'plan', 'agua', 'sal'].includes(r.tipo)) throw new Error('tipo no valido');
+        if (Object.values(r.nutrientes || {}).some((v) => typeof v !== 'number' || v < 0)) throw new Error('nutrientes no validos');
+      };
+      return {
+        ...base,
+        buscar: (q, filtros = {}, token = null) => { if (token) deToken(token); return base.buscar(q, filtros); },
+        fichas: (ids) => base.fichas([...new Set(ids.filter(Boolean))]),
+        guardarAlimento: (a, token = null) => { if (token) deToken(token); return base.guardarAlimento(a, { asesorado: !!token }); },
+        async plan(asesoradoId) { const p = (leer().nutri_planes || []).find((x) => x.asesorado_id === asesoradoId); return p ? { objetivos: p.objetivos || {}, plan: p.plan || null, actualizado: p.actualizado } : { objetivos: {}, plan: null }; },
+        async guardarPlan(asesoradoId, { objetivos, plan }) { mut((d) => { d.nutri_planes = (d.nutri_planes || []).filter((x) => x.asesorado_id !== asesoradoId); d.nutri_planes.push({ id: asesoradoId, asesorado_id: asesoradoId, objetivos: objetivos || {}, plan: plan ?? null, actualizado: ahora() }); }); return true; },
+        async recetas(asesoradoId) { return (leer().nutri_recetas || []).filter((r) => r.asesorado_id === asesoradoId).sort((a, b) => a.nombre.localeCompare(b.nombre)); },
+        async guardarReceta(r) { return mut((d) => { d.nutri_recetas = d.nutri_recetas || []; return upsert(d.nutri_recetas, { creado: ahora(), ...r, porciones: r.porciones || 1, actualizado: ahora() }); }); },
+        async borrarReceta(id) { mut((d) => { d.nutri_recetas = (d.nutri_recetas || []).filter((x) => x.id !== id); }); },
+        async registros(asesoradoId, desde, hasta) { return (leer().nutri_registros || []).filter((r) => r.asesorado_id === asesoradoId && r.fecha >= desde && r.fecha <= hasta).sort((a, b) => (a.fecha + (a.creado || '')).localeCompare(b.fecha + (b.creado || ''))); },
+        async atletaCargar(token, desde, hasta) {
+          const a = deToken(token); const d = leer(); const p = (d.nutri_planes || []).find((x) => x.asesorado_id === a.id); const recetas = (d.nutri_recetas || []).filter((r) => r.asesorado_id === a.id);
+          const ids = [...idsPlan(p?.plan), ...recetas.flatMap((r) => (r.ingredientes || []).map((i) => i.alimento_id))];
+          return { objetivos: p?.objetivos || {}, plan: p?.plan || null, recetas, registros: (d.nutri_registros || []).filter((r) => r.asesorado_id === a.id && r.fecha >= desde && r.fecha <= hasta), fichas: await base.fichas([...new Set(ids)]) };
+        },
+        async atletaGuardar(token, r) { const a = deToken(token); validarRegistro(r); return mut((d) => { d.nutri_registros = d.nutri_registros || []; const ex = d.nutri_registros.find((x) => x.id === r.id); if (ex && ex.asesorado_id !== a.id) throw new Error('registro ajeno'); upsert(d.nutri_registros, { creado: ahora(), ...r, asesorado_id: a.id, origen: 'asesorado' }); return { ok: true, id: r.id }; }); },
+        async atletaBorrar(token, id) { const a = deToken(token); return mut((d) => { const n = (d.nutri_registros || []).length; d.nutri_registros = (d.nutri_registros || []).filter((x) => !(x.id === id && x.asesorado_id === a.id)); return d.nutri_registros.length < n; }); },
+      };
+    })(),
   };
 }
 

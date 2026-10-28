@@ -25,3 +25,6 @@ dist-ssr
 
 # graphify: la caché es local
 graphify-out/cache
+
+# Python
+__pycache__/

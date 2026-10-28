@@ -4,6 +4,7 @@ App web para armar programas de entrenamiento, que cada asesorado entrene con su
 
 - **Coach:** equipo de asesorados → cada uno con **Rutinas** (programas de 2, 3, 5… días) y **Métricas**. Copiar y pegar ejercicios entre asesorados, plantillas, registrar entrenos en persona, importar respaldos de las versiones anteriores, de Hevy y sesiones sueltas.
 - **Asesorado:** entra con su enlace personal (sin contraseña), elige cada semana el programa según los días que puede entrenar, registra series, peso, reps y RPE con cronómetro de descanso, y ve sus métricas. Si no hay señal, la sesión se guarda en el teléfono y se envía sola después.
+- **Alimentación:** objetivos y plan de cada asesorado (también leído del PDF del *Sistema de selección flexible*), recetas personalizadas y un contador de calorías, macros, agua, sal y micronutrientes con datos reales de USDA. Detalle en [`docs/NUTRICION.md`](docs/NUTRICION.md).
 
 ---
 
@@ -22,7 +23,8 @@ App web para armar programas de entrenamiento, que cada asesorado entrene con su
 2. Vercel detecta que es Vite. Antes de **Deploy**, abre **Environment Variables** y agrega:
    - `VITE_SUPABASE_URL` = la Project URL
    - `VITE_SUPABASE_ANON_KEY` = la clave anon public
-3. **Deploy**. En un minuto tienes tu dirección, algo como `https://bellidotrainer.vercel.app`.
+3. *(Opcional)* Para buscar productos de marca de EE. UU. en USDA: pide una clave gratuita en [api.data.gov](https://api.data.gov/signup/) y agrégala como `FDC_API_KEY`. No lleva `VITE_` adelante: se queda en el servidor y nunca llega al teléfono.
+4. **Deploy**. En un minuto tienes tu dirección, algo como `https://bellidotrainer.vercel.app`.
 
 > Si el nombre del proyecto da problema por el punto final del repositorio, cámbialo a `bellidotrainer` en la pantalla de importación.
 
@@ -65,6 +67,9 @@ Equipo → el asesorado → **Acceso → WhatsApp**. Ese enlace es fijo: con él
 - **Marcas en cada ejercicio:** al entrenar, cada ejercicio muestra su mejor serie, el mayor peso levantado, el 1RM estimado y la tabla de intensidades (100 % a 50 % del 1RM, con kilos y repeticiones aproximadas).
 - **Entrenamiento del asesorado:** el video de YouTube se ve de una vez en formato vertical (shorts 9:16) y entra en pantalla completa sin quedar negro; hay conversor **kg⇄lb**; al terminar el botón dice **Enviar a Coach** y el resumen compara los kilos movidos con algo real (“como levantar 2 hipopótamos”) con la ilustración repetida las veces que corresponde.
 - **Protección:** en la rutina del asesorado no se puede copiar el texto y la pantalla se oculta al salir de la app. Un navegador no puede impedir una captura de pantalla en iPhone o Android.
+- **Base de alimentos:** Inicio → **Alimentos** (o Ajustes → Base de alimentos). La primera vez toca **Importar** en *Foundation Foods*, luego *SR Legacy* y luego *FNDDS* (unos 13.600 alimentos de USDA, con la fuente, la versión y el método de cada número). Se importa por partes: si se corta la señal, vuelve a tocar y sigue donde quedó; repetirlo no duplica nada. El primer coach que importa queda como administrador de la base compartida. **Personalizado** crea un alimento propio (queda marcado como tuyo, nunca como oficial).
+- **Alimentación de cada asesorado:** en su ficha → **Alimentación**. *Objetivos*: calorías, macros, comidas al día (con macros por comida si quieres), agua, sal máxima y micronutrientes con meta. *Plan*: **Subir plan (PDF)** del Sistema de selección flexible; la app lee todo (semana 1, comidas, opciones con cantidades, frutas, grasas, agua) y une cada alimento a su ficha de USDA; los que difieren más de 20 % de lo que dice el PDF salen en ámbar para que elijas otra ficha. *Recetas*: arma las suyas con ingredientes en gramos. *Registro*: lo que va anotando, día por día.
+- **Contador del asesorado:** Inicio → **Tu alimentación**. En cada comida toca **Agregar** y elige de *Mi plan* (semana 1 o desde la 2, media porción, porciones de grasa que le quedan), de *Recetas* o *Buscar* (cualquier alimento o un producto de marca por nombre o código de barras). Anota agua (+250 / +500 ml) y sal añadida. Si a un alimento le falta un dato, se avisa: no se cuenta como cero.
 - **Programas por frecuencia:** Rutinas → Nuevo programa → elige 2, 3, 4, 5 o 6 días (en blanco, desde plantilla o copiando otro programa).
 - **Copiar y pegar ejercicios:** en un día, **Seleccionar** → marca ejercicios → **Copiar**; ve al asesorado y día que quieras → **Pegar aquí**. O usa **Traer de otro asesorado** y elige día completo o ejercicios sueltos. Solo viajan los ejercicios, nunca el historial.
 - **Carga sugerida y nota:** en cada ejercicio. El asesorado las ve resaltadas y la tabla arranca con esa carga.
@@ -77,6 +82,8 @@ npm run dev            # http://localhost:5173
 npm run build          # genera dist/
 node test/schema.test.mjs   # seguridad de la base (Postgres en memoria)
 node test/store.test.mjs    # datos en línea + importación de respaldos
+node test/nutricion.test.mjs  # base de alimentos, cálculo y lector del plan
+npm test                    # todas
 ```
 Sin las variables de Supabase la app arranca en **modo local** (todo en el teléfono), útil para probar.
 

@@ -6,6 +6,7 @@ import Composicion from '../shared/Composicion.jsx';
 import { programaCasa, PESOS_CASEROS } from '../data/casa.js';
 import { colorGrupo } from '../lib/util.js';
 import Entrenamiento from '../shared/Entrenamiento.jsx';
+const Alimentacion = React.lazy(() => import('./Alimentacion.jsx'));
 import { aFecha, fechaLocal, haceCuanto, hoy, lunesDe, primerNombre, saludo, semanasSeguidas, nDias, diasParaVencer, fLarga } from '../lib/util.js';
 import logo from '../assets/logo.png';
 import marca from '../assets/marca.png';
@@ -201,6 +202,7 @@ export default function AtletaApp({ store, token, vista }) {
   if (r0 === 'rutinas') return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="" borde={false} />
     <section style={{ padding: '4px 0 18px' }}><h1 className="gigante">Rutinas</h1><p className="sub">Elige el programa según los días que puedes entrenar esta semana.</p></section>
     {ps.length ? ps.map((p) => <TarjetaPrograma key={p.id} p={p} sesiones={ses} onClick={() => ir('p', p.id)} />) : <div className="vacio"><b>Tu coach está armando tus rutinas</b>Vuelve a abrir tu enlace en un rato.</div>}{pie}</div>;
+  if (r0 === 'alimentacion') return <React.Suspense fallback={<div className="cargando"><img src={logo} alt="" /></div>}><Alimentacion store={store} token={token} vista={vista} /></React.Suspense>;
   if (r0 === 'metricas') return <div className="pantalla"><Barra volver={{ fn: () => ir(), texto: 'Inicio' }} titulo="Mis métricas" /><Metricas sesiones={ses} programas={ps} />{pie}</div>;
 
   // inicio
@@ -217,7 +219,7 @@ export default function AtletaApp({ store, token, vista }) {
       <div className="mosaico">
         <button className="losa oro" onClick={() => ir('rutinas')}><span className="losa-ico"><Ico n={libre ? 'pesa' : 'candado'} /></span><div><h3>Rutinas</h3><p>{!ps.length ? 'En preparación' : libre ? `Programas de ${frecuencias(ps)}` : 'Ingresa tu código para entrenar'}</p></div></button>
         <button className="losa" onClick={() => ir('metricas')}><span className="losa-ico"><Ico n="grafica" /></span><div><h3>Métricas</h3><p>{ses.length ? `${semanasSeguidas(ses)} ${semanasSeguidas(ses) === 1 ? 'semana' : 'semanas'} seguidas` : 'Tu progreso'}</p></div></button>
-        <div className="losa pronto" aria-disabled="true" aria-label="Tu alimentación, próximamente"><span className="losa-ico"><Ico n="comida" /></span><div><h3 className="largo">Tu<br />alimentación</h3><p>Tu plan de comidas</p></div><span className="sello">Próximamente</span></div>
+        <button className="losa" onClick={() => ir('alimentacion')}><span className="losa-ico"><Ico n="comida" /></span><div><h3 className="largo">Tu<br />alimentación</h3><p>Calorías, macros y agua del día</p></div></button>
         <button className="losa" onClick={() => ir('casa')}><span className="losa-ico"><Ico n="casa" /></span><div><h3>Ejercicios de casa</h3><p>Para cuando no puedas ir al gym</p></div></button>
       </div>
       {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} merito /></>}

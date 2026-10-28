@@ -113,6 +113,9 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
       {ps.some((p) => nDias(p)) && <button className="item casa-coach" onClick={() => setVerCasa(true)}><span className="codigo-ico"><Ico n="casa" s={22} /></span>
         <div className="item-t"><strong>Rutina en casa</strong><span>Lista para cada día de sus programas · la ve en “Ejercicios de casa”</span></div><Ico n="chev" className="chev" s={18} /></button>}
 
+      <button className="item casa-coach" onClick={() => ir('a', a.id, 'alimentacion')}><span className="codigo-ico"><Ico n="comida" s={22} /></span>
+        <div className="item-t"><strong>Alimentación</strong><span>Objetivos, plan, recetas y lo que registra cada día</span></div><Ico n="chev" className="chev" s={18} /></button>
+
       {peri && <button className="item casa-coach" onClick={() => ir('periodizacion', a.id)}><span className="codigo-ico"><Ico n="tendencia" s={22} /></span>
         <div className="item-t"><strong>Periodización · {peri.plan.nombre}</strong><span>{peri.titulo} · {peri.resumen}</span></div><Ico n="chev" className="chev" s={18} /></button>}
 
