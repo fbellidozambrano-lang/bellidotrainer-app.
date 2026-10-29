@@ -27,7 +27,8 @@ export function Cantidad({ ficha, gramos, setGramos }) {
   );
 }
 
-export default function FichaAlimento({ id, nutri, token, onCerrar, onAgregar, accion = 'Agregar', gramosIni = 100, onAlternativa }) {
+// dentro=true: se dibuja dentro de la hoja que la abre (con "‹ Volver"), sin otra capa oscura encima
+export default function FichaAlimento({ id, nutri, token, onCerrar, onAgregar, accion = 'Agregar', gramosIni = 100, onAlternativa, dentro = false, volverTexto = 'Resultados' }) {
   const [f, setF] = useState(null); const [err, setErr] = useState(''); const [g, setG] = useState(String(gramosIni)); const [todo, setTodo] = useState(false);
   useEffect(() => { let vivo = true; setF(null); setErr(''); nutri.ficha(id, token).then((x) => { if (!vivo) return; if (!x) setErr('No encontré esa ficha.'); else setF(x); }, (e) => vivo && setErr(e.message)); return () => { vivo = false; }; }, [id, nutri, token]);
   const comp = useMemo(() => compactaDeFicha(f), [f]);
@@ -37,11 +38,10 @@ export default function FichaAlimento({ id, nutri, token, onCerrar, onAgregar, a
   const fte = f?.fuente || {};
   // una opción por preparación (la primera es la de mejor fuente) y sin repetir la de esta ficha
   const alternativas = useMemo(() => { const vistas = new Set([f?.preparacion]); return (f?.alternativas || []).filter((a) => !vistas.has(a.preparacion) && vistas.add(a.preparacion)).slice(0, 6); }, [f]);
-  return (
-    <Hoja titulo={f ? f.nombre : 'Ficha nutricional'} onCerrar={onCerrar}
-      acciones={onAgregar && f ? <><button className="btn" onClick={onCerrar}>Volver</button><button className="btn oro" disabled={!(gramos > 0)} onClick={() => onAgregar(comp, gramos)}>{accion} {gramos > 0 ? `${n0(gramos)} g` : ''}</button></> : null}>
+  const acciones = onAgregar && f ? <><button className="btn" onClick={onCerrar}>Volver</button><button className="btn oro" disabled={!(gramos > 0)} onClick={() => onAgregar(comp, gramos)}>{accion} {gramos > 0 ? `${n0(gramos)} g` : ''}</button></> : null;
+  const cuerpo = (<>
       {err && <p className="aviso rojo"><span>{err}</span></p>}
-      {!f && !err && <p className="muted">Cargando…</p>}
+      {!f && !err && <div className="esq" aria-label="Cargando"><i /><i /><i style={{ width: '60%' }} /><b /></div>}
       {f && <>
         <p className="ficha-orig">{f.nombre_original}{f.nombre_traducido ? <small> · nombre traducido automáticamente del inglés</small> : null}</p>
         <div className="ficha-tags"><Calidad calidad={f.calidad} fuente={f.fuente_id || fte.id} historico={f.historico} /><span className="q">{prepTexto(f.preparacion)}</span>{f.marca && <span className="q">{f.marca}</span>}{f.codigo_barras && <span className="q num">{f.codigo_barras}</span>}</div>
@@ -79,6 +79,14 @@ export default function FichaAlimento({ id, nutri, token, onCerrar, onAgregar, a
           {f.ref_url && <a className="btn chico" href={f.ref_url} target="_blank" rel="noreferrer"><Ico n="enlace" s={16} />Ver en la fuente</a>}
         </div>
       </>}
-    </Hoja>
+  </>);
+  if (dentro) return (
+    <div className="ficha-dentro">
+      <button className="volver-n" onClick={onCerrar}><Ico n="atras" s={18} />{volverTexto}</button>
+      <h3 className="ficha-tit">{f ? f.nombre : 'Ficha nutricional'}</h3>
+      {cuerpo}
+      {acciones && <div className="hoja-acc">{acciones}</div>}
+    </div>
   );
+  return <Hoja titulo={f ? f.nombre : 'Ficha nutricional'} onCerrar={onCerrar} acciones={acciones}>{cuerpo}</Hoja>;
 }

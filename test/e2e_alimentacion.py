@@ -100,8 +100,8 @@ with sync_playwright() as pw:
     for q, g in (('claras de huevo crudas', '198'), ('harina de maiz', '85')):
         h.get_by_role('button', name='Ingrediente').click(); c.wait_for_timeout(300)
         c.get_by_label('Buscar alimento').fill(q); c.wait_for_timeout(1200)
-        c.locator('.nres-i').first.click(); c.wait_for_timeout(600)
-        c.get_by_label('Gramos', exact=True).fill(g); c.locator('.hoja-acc .btn.oro', has_text='Usar').click(); c.wait_for_timeout(400)
+        c.locator('.nres-i').first.click(); c.locator('.rapido .btn.oro', has_text='Usar').wait_for()
+        c.get_by_label('Gramos', exact=True).fill(g); c.locator('.rapido .btn.oro', has_text='Usar').click(); c.wait_for_timeout(400)
     tot = c.locator('.hoja').last.locator('.ficha-tot').inner_text(); print('receta:', tot.replace('\n', ' '))
     shot(c, '09_receta', True)
     c.locator('.hoja-acc .btn.oro', has_text='Guardar').last.click(); c.wait_for_timeout(800)
@@ -130,9 +130,25 @@ with sync_playwright() as pw:
     p.locator('.comida-n').nth(2).get_by_role('button', name='Agregar').click(); p.wait_for_timeout(300)
     p.locator('.hoja .seg button', has_text='Buscar').click(); p.wait_for_timeout(300)
     p.get_by_label('Buscar alimento').fill('cambur'); p.wait_for_timeout(1200)
-    p.locator('.nres-i').first.click(); p.wait_for_timeout(600)
-    p.get_by_label('Gramos', exact=True).fill('120'); p.locator('.hoja-acc .btn.oro', has_text=re.compile(r'\d+ g$')).click(); p.wait_for_timeout(600)
-    shot(p, '12a_buscar_agregado'); p.keyboard.press('Escape'); p.wait_for_timeout(300)
+    shot(p, '12a_buscar_lista')
+    # se abre ahí mismo: gramos con − / +, porciones y lo que aporta, sin otra capa encima
+    p.locator('.nres-i').first.click(); p.locator('.rapido .btn.oro', has_text=re.compile(r'\d+ g$')).wait_for()
+    p.get_by_role('button', name='Más gramos').click(); assert p.get_by_label('Gramos', exact=True).input_value() == '110'
+    p.get_by_label('Gramos', exact=True).fill('120'); p.wait_for_timeout(200)
+    assert p.locator('.rap-t b').first.inner_text() != '—'
+    shot(p, '12b_rapido')
+    p.locator('.rapido .btn.oro').click(); p.wait_for_timeout(600)
+    assert p.locator('.nres-ok').count() == 1, 'el agregado queda marcado y la lista sigue abierta'
+    # ficha completa dentro de la misma hoja (antes era una hoja encima de otra: pantalla casi negra)
+    p.locator('.nres-i').nth(1).click(); p.locator('.rapido').get_by_role('button', name='Ficha completa').click(); p.wait_for_timeout(700)
+    assert p.locator('.velo').count() == 1 and p.locator('.ficha-dentro').count() == 1
+    shot(p, '12c_ficha_dentro')
+    p.locator('.volver-n').click(); p.wait_for_timeout(300); assert p.locator('.nres-i').count() > 1
+    # sin texto: recientes con sus gramos y sugerencias
+    p.get_by_role('button', name='Borrar búsqueda').click(); p.wait_for_timeout(300)
+    assert 'Recientes' in p.locator('.hoja').inner_text() and p.locator('.nres-i').count() == 1
+    shot(p, '12d_recientes')
+    p.keyboard.press('Escape'); p.wait_for_timeout(300)
     if p.locator('.hoja').count(): p.keyboard.press('Escape'); p.wait_for_timeout(300)
     # agua y sal
     p.get_by_role('button', name='+500 ml').click(); p.wait_for_timeout(300); p.get_by_role('button', name='+250 ml').click(); p.wait_for_timeout(300)

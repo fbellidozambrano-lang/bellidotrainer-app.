@@ -1,8 +1,8 @@
 {
-  "0": "Editor.jsx",
+  "0": "useAviso",
   "1": "util.js",
   "2": "Editor.jsx",
-  "3": "Hub.jsx",
+  "3": "casa.js",
   "4": "Ajustes.jsx",
   "5": "Compartir.jsx",
   "6": "store.js",
@@ -33,6 +33,6 @@
   "31": "alimentos.js",
   "32": "catalogo.js",
   "33": "usda.js",
-  "34": "traducir.js",
+  "34": "clasificar.js",
   "35": "manifest.json"
 }

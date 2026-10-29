@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "src/ui/kit.jsx": {
-    "mtime": 1793207652.2763813,
-    "seen": 1793210528.060038,
-    "ast_hash": "37da7798300b72c0ff3b389291e93c5d",
+    "mtime": 1793292202.2961788,
+    "seen": 1793293321.9906833,
+    "ast_hash": "1c1ea7f1a34bfed77c8050cb34dd8b2f",
     "semantic_hash": ""
   },
   "test/biblioteca.test.mjs": {
@@ -606,9 +606,9 @@
     "semantic_hash": ""
   },
   "public/datos/nutricion/manifest.json": {
-    "mtime": 1793209621.8148296,
-    "seen": 1793210528.0591035,
-    "ast_hash": "8a9e9bd283e86c3a2d5e691ba182a2b6",
+    "mtime": 1793293107.9497564,
+    "seen": 1793293321.988274,
+    "ast_hash": "e825430014e18ce19dc3a3ef8ebde09a",
     "semantic_hash": ""
   },
   "scripts/nutricion/importar-usda.mjs": {
@@ -720,9 +720,9 @@
     "semantic_hash": ""
   },
   "src/lib/nutricion/usda.js": {
-    "mtime": 1793206432.0451322,
-    "seen": 1793210528.0597172,
-    "ast_hash": "4a926dca80d836312cb5a915c0b53606",
+    "mtime": 1793293087.7577565,
+    "seen": 1793293321.9899876,
+    "ast_hash": "3e0e2d6ce6c818f00165249be07b793d",
     "semantic_hash": ""
   },
   "src/lib/nutricion/vincular.js": {
@@ -738,9 +738,9 @@
     "semantic_hash": ""
   },
   "src/shared/nutri/Buscador.jsx": {
-    "mtime": 1793207481.7868783,
-    "seen": 1793210528.0600293,
-    "ast_hash": "41403c055da012cca8440ccbb1df236b",
+    "mtime": 1793293039.7134163,
+    "seen": 1793293321.9905832,
+    "ast_hash": "e337b33fccecf145e9236970432c3c1b",
     "semantic_hash": ""
   },
   "src/shared/nutri/Diario.jsx": {
@@ -750,9 +750,9 @@
     "semantic_hash": ""
   },
   "src/shared/nutri/FichaAlimento.jsx": {
-    "mtime": 1793209978.1135697,
-    "seen": 1793210528.0600326,
-    "ast_hash": "071323f968674e82aaa3f266a4cda39a",
+    "mtime": 1793292215.1161113,
+    "seen": 1793293321.990643,
+    "ast_hash": "b96bb64d6ecbe5184667b3508b13afe9",
     "semantic_hash": ""
   },
   "src/shared/nutri/comunes.jsx": {
@@ -762,9 +762,9 @@
     "semantic_hash": ""
   },
   "test/e2e_alimentacion.py": {
-    "mtime": 1793209431.3918908,
-    "seen": 1793210528.0601108,
-    "ast_hash": "06baaa933232f76cfe883614d590a1fb",
+    "mtime": 1793292883.6885378,
+    "seen": 1793293321.9908528,
+    "ast_hash": "4f450c57238156f27d69d122d9b64ef1",
     "semantic_hash": ""
   },
   "test/fixtures/off_0078000000047.json": {

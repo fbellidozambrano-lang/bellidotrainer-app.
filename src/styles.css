@@ -759,3 +759,40 @@ body.velado #root{opacity:0}
 .item-t span.q{display:inline-flex;margin-top:0;font-size:11px;color:var(--mute2);white-space:nowrap;overflow:visible}
 .item-t span.q-oficial{color:var(--ok)}.item-t span.q-ref{color:var(--info)}.item-t span.q-etiq{color:#f0b44c}.item-t span.q-colab{color:#ff9e4d}.item-t span.q-pers{color:var(--gold)}
 .imp .item-t strong,.fuente-i .item-t strong,.nres-i .item-t strong{white-space:normal;overflow:visible;text-overflow:clip}
+
+/* ---------- buscador de alimentos ---------- */
+.hoja .velo{background:rgba(0,0,0,.38)} /* una hoja sobre otra no oscurece la pantalla entera */
+.buscar-n{margin:0 0 2px}
+.buscar-n .in{padding-right:96px}
+.buscar-d{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px}
+.buscar-d .ico-b{width:36px;height:36px}
+.buscar-n > svg{pointer-events:none}
+.gira{width:18px;height:18px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--gold);animation:gira .7s linear infinite;margin:0 6px}
+@keyframes gira{to{transform:rotate(360deg)}}
+.nres-sec{margin:14px 0 6px}
+.nres-n{font-size:12.5px;color:var(--mute);margin:6px 0 4px}
+.nres{transition:opacity .15s}.nres.cargando{opacity:.55}
+.sug-n{margin-top:4px}.sug-n .chip{height:34px}
+.hoja:has(.buscar-n){min-height:min(80dvh,720px)}
+.nres-f.on{background:var(--s1);border-radius:14px;margin:4px -10px;padding:0 10px;border:1px solid var(--line2)}
+.nres-f.on .nres-i{border-bottom:1px solid var(--line)}
+.nres-ok{flex:none;width:28px;height:28px;border-radius:50%;background:#0d2416;color:var(--ok);display:grid;place-items:center}
+.rapido{padding:12px 0 14px;animation:aparece .15s ease}
+.rap-g{display:flex;align-items:center;justify-content:center;gap:12px}
+.rap-g .ico-b{width:46px;height:46px;border:1px solid var(--line2);border-radius:14px;background:var(--s2)}
+.rap-g label{position:relative;display:block}
+.rap-g .in{width:132px;height:52px;text-align:center;font-size:26px;font-family:var(--cond);font-weight:800;padding-right:26px}
+.rap-g label span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--mute);font-size:15px}
+.rap-c{justify-content:center;margin:10px 0 2px}.rap-c .chip{height:32px}
+.rap-t{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0 12px}
+.rap-t div{background:var(--s2);border-radius:12px;padding:9px 4px;text-align:center}
+.rap-t b{display:block;font-family:var(--cond);font-weight:800;font-size:22px;line-height:1}.rap-t span{font-size:11px;color:var(--mute)}
+.rapido .fila-btn .btn{flex:1}
+.volver-n{display:inline-flex;align-items:center;gap:4px;color:var(--gold);font-weight:600;font-size:15px;padding:4px 0 10px}
+.ficha-tit{font-family:var(--cond);font-weight:700;font-size:24px;line-height:1.08;margin-bottom:4px}
+.ficha-dentro{animation:aparece .15s ease}
+.esq{display:grid;gap:10px;padding:8px 0}
+.esq i,.esq b{display:block;height:16px;border-radius:8px;background:linear-gradient(90deg,var(--s2),var(--s3),var(--s2));background-size:200% 100%;animation:brilla 1.1s linear infinite}
+.esq b{height:64px;border-radius:12px}
+.lista-esq i{height:54px;border-radius:12px}
+@keyframes brilla{from{background-position:200% 0}to{background-position:-200% 0}}

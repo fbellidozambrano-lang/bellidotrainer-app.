@@ -31,7 +31,16 @@ export function estadoUSDA({ amount, code, fuente }) {
   return 'imputado'; // B*, C*, P*, F*, R*, J*, O, T…: estimado a partir de otro alimento, receta o fórmula
 }
 
-const PORCION_ES = [[/\bcups?\b/gi, 'taza'], [/\btbsp\b|\btablespoons?\b/gi, 'cucharada'], [/\btsp\b|\bteaspoons?\b/gi, 'cucharadita'], [/\bfl oz\b/gi, 'onza líquida'], [/\boz\b/gi, 'onza'],
+const PORCION_ES = [[/\bnlea serving\b/gi, 'porción NLEA'], [/\bto\b/gi, 'a'], [/\bafter cooking\b/gi, 'después de cocinar'], [/\bbone and skin removed\b/gi, 'sin hueso ni piel'], [/\blinear inch(es)?\b/gi, 'pulgada lineal'], [/\bcubic inch(es)?\b/gi, 'pulgada cúbica'],
+  [/\s*\bsize\b/gi, ''], [/\byields?\b/gi, 'rinde'], [/\bcooked\b/gi, 'cocido'], [/\braw\b/gi, 'crudo'], [/\bwithout\b/gi, 'sin'], [/\bwith\b/gi, 'con'], [/\binch(es)?\b/gi, 'pulgada'],
+  [/\brefuse\b/gi, 'desecho'], [/\bcan\b/gi, 'lata'], [/\bnfs\b/gi, 'sin especificar'], [/\bminiature\b/gi, 'miniatura'], [/\bsingle\b/gi, 'individual'], [/\bjar\b/gi, 'frasco'], [/\bbag\b/gi, 'bolsa'],
+  [/\bdiameter\b/gi, 'de diámetro'], [/\bfillets?\b/gi, 'filete'], [/\bthin\b/gi, 'delgado'], [/\bthick\b/gi, 'grueso'], [/\bbottle\b/gi, 'botella'], [/\bbars?\b/gi, 'barra'], [/\bboneless\b/gi, 'sin hueso'],
+  [/\bexcluding\b/gi, 'sin contar'], [/\bremoved\b/gi, 'retirado'], [/\bbite\b/gi, 'bocado'], [/\bskin\b/gi, 'piel'], [/\bbone\b/gi, 'hueso'], [/\bchicken\b/gi, 'pollo'], [/\bmeat\b/gi, 'carne'], [/\bper\b/gi, 'por'],
+  [/\bpackets?\b/gi, 'sobre'], [/\bsticks?\b/gi, 'barra'], [/\bdry\b/gi, 'seco'], [/\bchops?\b/gi, 'chuleta'], [/\blong\b/gi, 'de largo'], [/\bcookies?\b/gi, 'galleta'], [/\blegs?\b/gi, 'pierna'],
+  [/\bpatty\b/gi, 'hamburguesa'], [/\bbread\b/gi, 'pan'], [/\bpotato\b/gi, 'papa'], [/\bshredded\b/gi, 'rallado'], [/\bscoops?\b/gi, 'medida'], [/\bmashed\b/gi, 'en puré'], [/\bfish\b/gi, 'pescado'],
+  [/\bpeeled\b/gi, 'pelado'], [/\bbananas?\b/gi, 'cambur'], [/\bsteaks?\b/gi, 'bistec'], [/\broast\b/gi, 'asado'], [/\bdrink\b/gi, 'bebida'], [/\bany\b/gi, 'cualquier'], [/\beaten\b/gi, 'comido'],
+  [/\bapprox\.?/gi, 'aprox.'], [/\bvery\b/gi, 'muy'], [/\bweighing\b/gi, 'de'], [/\band\b/gi, 'y'], [/\bor\b/gi, 'o'], [/\bnot\b/gi, 'no'], [/\bfrom\b/gi, 'de'], [/\bslices?\b/gi, 'rebanada'],
+  [/\bcups?\b/gi, 'taza'], [/\btbsp\b|\btablespoons?\b/gi, 'cucharada'], [/\btsp\b|\bteaspoons?\b/gi, 'cucharadita'], [/\bfl oz\b/gi, 'onza líquida'], [/\boz\b/gi, 'onza'],
   [/\bslices?\b/gi, 'rebanada'], [/\bpieces?\b/gi, 'pieza'], [/\bmedium\b/gi, 'mediano'], [/\blarge\b/gi, 'grande'], [/\bsmall\b/gi, 'pequeño'], [/\bextra large\b/gi, 'extra grande'],
   [/\bchopped\b/gi, 'picado'], [/\bsliced\b/gi, 'rebanado'], [/\bdiced\b/gi, 'en cubos'], [/\bwhole\b/gi, 'entero'], [/\bserving\b/gi, 'porción'], [/\bpackage\b/gi, 'paquete'],
   [/\bcontainer\b/gi, 'envase'], [/\bfruit\b/gi, 'fruta'], [/\bbreast\b/gi, 'pechuga'], [/\bthigh\b/gi, 'muslo'], [/\bdrumstick\b/gi, 'muslito'], [/\bwing\b/gi, 'ala'], [/\begg\b/gi, 'huevo'],
