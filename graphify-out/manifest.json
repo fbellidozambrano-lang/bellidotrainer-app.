@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "src/data/store.js": {
-    "mtime": 1793206194.3543427,
-    "seen": 1793210528.059583,
-    "ast_hash": "01472a286119f1c25bbceec3241df877",
+    "mtime": 1793293705.153298,
+    "seen": 1793294826.6274772,
+    "ast_hash": "4722e45db36ea8b84bd8c6fa0e9aa9c6",
     "semantic_hash": ""
   },
   "src/lib/analogias.js": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793210508.3795872,
-    "seen": 1793210528.060444,
-    "ast_hash": "2c528584ece35cab365128e60dd04e2d",
+    "mtime": 1793294645.8741007,
+    "seen": 1793294826.629713,
+    "ast_hash": "c1e9f441f27f19740d8a7b8b26c65166",
     "semantic_hash": ""
   },
   "index.html": {
@@ -624,9 +624,9 @@
     "semantic_hash": ""
   },
   "src/atleta/Alimentacion.jsx": {
-    "mtime": 1793207643.9908748,
-    "seen": 1793210528.059109,
-    "ast_hash": "d4437bf8711aeef5cb017ca92520f905",
+    "mtime": 1793294389.8897443,
+    "seen": 1793294826.6261892,
+    "ast_hash": "0c5ae46c6a27046877960dc1875abb3f",
     "semantic_hash": ""
   },
   "src/coach/Alimentacion.jsx": {
@@ -744,9 +744,9 @@
     "semantic_hash": ""
   },
   "src/shared/nutri/Diario.jsx": {
-    "mtime": 1793210363.8443108,
-    "seen": 1793210528.060031,
-    "ast_hash": "eb4200ea9507a1fa8d982090ff8bf639",
+    "mtime": 1793293758.7457798,
+    "seen": 1793294826.6286817,
+    "ast_hash": "94303d896801f0375d8d2f7f9426264b",
     "semantic_hash": ""
   },
   "src/shared/nutri/FichaAlimento.jsx": {
@@ -762,9 +762,9 @@
     "semantic_hash": ""
   },
   "test/e2e_alimentacion.py": {
-    "mtime": 1793292883.6885378,
-    "seen": 1793293321.9908528,
-    "ast_hash": "4f450c57238156f27d69d122d9b64ef1",
+    "mtime": 1793294509.6187809,
+    "seen": 1793294826.6290035,
+    "ast_hash": "1b40625299338ea76f3f767525b67890",
     "semantic_hash": ""
   },
   "test/fixtures/off_0078000000047.json": {
@@ -798,9 +798,9 @@
     "semantic_hash": ""
   },
   "test/nutricion.test.mjs": {
-    "mtime": 1793209831.2871196,
-    "seen": 1793210528.0602582,
-    "ast_hash": "92156ed35297825323d34f88e9ed8aeb",
+    "mtime": 1793294444.7271328,
+    "seen": 1793294826.6294012,
+    "ast_hash": "59bd2612833fb155448df18974e15f3c",
     "semantic_hash": ""
   },
   "test/plan_pdf.py": {

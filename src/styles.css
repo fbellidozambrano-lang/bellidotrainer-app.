@@ -796,3 +796,15 @@ body.velado #root{opacity:0}
 .esq b{height:64px;border-radius:12px}
 .lista-esq i{height:54px;border-radius:12px}
 @keyframes brilla{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* ---------- comidas y días guardados ---------- */
+.comida-acc{display:flex;gap:8px;margin-top:8px}.comida-acc .comida-add{flex:1;margin-top:0}.comida-acc .fant{flex:none}
+.dia-g{margin-top:12px;padding:14px;border-radius:var(--r-card);border:1px dashed var(--line2);display:grid;gap:10px}
+.dia-g b{display:block;font-weight:700}.dia-g span{font-size:13.5px;color:var(--mute)}.dia-g .btn{flex:1}
+.rep{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.rep-t{flex:1;text-align:left;padding:12px 0;min-width:0}
+.rep-t strong{display:block;font-weight:600;font-size:16px}
+.rep-t span{display:block;font-family:var(--cond);font-size:14px;color:var(--gold);margin-top:2px}
+.rep-t small{display:block;font-size:12.5px;color:var(--mute);margin-top:2px}
+.guard-res{margin-top:12px;padding:12px;border-radius:12px;background:var(--s1);border:1px solid var(--line);display:grid;gap:3px}
+.guard-res span{font-family:var(--cond);color:var(--gold);font-size:15px}.guard-res small{color:var(--mute);font-size:13px}

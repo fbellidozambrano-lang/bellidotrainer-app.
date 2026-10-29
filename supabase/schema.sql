@@ -561,6 +561,18 @@ create table if not exists public.nutri_registros (
   creado       timestamptz not null default now()
 );
 create index if not exists nutri_registros_dia on public.nutri_registros (asesorado_id, fecha);
+-- comidas y días que el asesorado guarda para repetirlos otro día (copia de sus registros, sin fecha)
+create table if not exists public.nutri_guardados (
+  id           uuid primary key,
+  coach_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  asesorado_id uuid not null references public.asesorados(id) on delete cascade,
+  tipo         text not null check (tipo in ('comida','dia')),
+  nombre       text not null check (length(nombre) between 1 and 80),
+  comida       smallint check (comida is null or comida between 0 and 9),
+  items        jsonb not null default '[]'::jsonb check (jsonb_typeof(items) = 'array' and jsonb_array_length(items) between 1 and 60),
+  creado       timestamptz not null default now()
+);
+create index if not exists nutri_guardados_ases on public.nutri_guardados (asesorado_id);
 
 drop trigger if exists nutri_alimentos_tocar on public.nutri_alimentos;
 create trigger nutri_alimentos_tocar before update on public.nutri_alimentos for each row execute function public.tocar_actualizado();
@@ -774,13 +786,14 @@ alter table public.nutri_admin enable row level security;
 alter table public.nutri_planes enable row level security;
 alter table public.nutri_recetas enable row level security;
 alter table public.nutri_registros enable row level security;
+alter table public.nutri_guardados enable row level security;
 -- la referencia se lee, nunca se escribe directo (solo por las funciones de importación y de guardado)
 revoke insert, update, delete, truncate on public.nutri_fuentes, public.nutri_nutrientes, public.nutri_nutriente_fuente, public.nutri_importaciones,
   public.nutri_importacion_partes, public.nutri_alimentos, public.nutri_valores, public.nutri_porciones, public.nutri_historial, public.nutri_admin from anon, authenticated;
-revoke all on public.nutri_admin, public.nutri_importaciones, public.nutri_importacion_partes, public.nutri_historial, public.nutri_planes, public.nutri_recetas, public.nutri_registros from anon;
+revoke all on public.nutri_admin, public.nutri_importaciones, public.nutri_importacion_partes, public.nutri_historial, public.nutri_planes, public.nutri_recetas, public.nutri_registros, public.nutri_guardados from anon;
 grant select on public.nutri_fuentes, public.nutri_nutrientes, public.nutri_nutriente_fuente, public.nutri_alimentos, public.nutri_valores, public.nutri_porciones to anon, authenticated;
 grant select on public.nutri_importaciones, public.nutri_importacion_partes, public.nutri_historial to authenticated;
-grant select, insert, update, delete on public.nutri_planes, public.nutri_recetas, public.nutri_registros to authenticated;
+grant select, insert, update, delete on public.nutri_planes, public.nutri_recetas, public.nutri_registros, public.nutri_guardados to authenticated;
 
 drop policy if exists nutri_leer_fuentes on public.nutri_fuentes;
 create policy nutri_leer_fuentes on public.nutri_fuentes for select using (true);
@@ -808,6 +821,9 @@ create policy coach_nutri_recetas on public.nutri_recetas for all to authenticat
   with check (coach_id = auth.uid() and (asesorado_id is null or exists (select 1 from public.asesorados a where a.id = asesorado_id and a.coach_id = auth.uid())));
 drop policy if exists coach_nutri_registros on public.nutri_registros;
 create policy coach_nutri_registros on public.nutri_registros for all to authenticated using (coach_id = auth.uid())
+  with check (coach_id = auth.uid() and exists (select 1 from public.asesorados a where a.id = asesorado_id and a.coach_id = auth.uid()));
+drop policy if exists coach_nutri_guardados on public.nutri_guardados;
+create policy coach_nutri_guardados on public.nutri_guardados for all to authenticated using (coach_id = auth.uid())
   with check (coach_id = auth.uid() and exists (select 1 from public.asesorados a where a.id = asesorado_id and a.coach_id = auth.uid()));
 
 -- ---------- funciones ----------
@@ -1148,6 +1164,7 @@ begin
     'recetas', coalesce((select jsonb_agg(to_jsonb(rr) - 'coach_id' order by rr.nombre) from public.nutri_recetas rr where rr.asesorado_id = a.id), '[]'::jsonb),
     'registros', coalesce((select jsonb_agg(to_jsonb(g) - 'coach_id' order by g.fecha, g.comida, g.creado) from public.nutri_registros g
                            where g.asesorado_id = a.id and g.fecha between p_desde and p_hasta), '[]'::jsonb),
+    'guardados', coalesce((select jsonb_agg(to_jsonb(gg) - 'coach_id' order by gg.creado desc) from public.nutri_guardados gg where gg.asesorado_id = a.id), '[]'::jsonb),
     'fichas', public.nutri_fichas(ids, p_token))
   into r;
   return r;
@@ -1185,6 +1202,39 @@ begin
   return found;
 end $$;
 
+-- guardar una comida o un día para repetirlo: se guarda lo que comió (con sus nutrientes ya calculados), sin fecha
+create or replace function public.atleta_nutri_guardado_guardar(p_token text, p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare a public.asesorados; v_id uuid := (p->>'id')::uuid; it jsonb;
+begin
+  if p_token is null or length(p_token) < 16 then raise exception 'enlace no valido'; end if;
+  select * into a from public.asesorados where token = p_token and not archivado;
+  if not found then raise exception 'enlace no valido'; end if;
+  if v_id is null then raise exception 'falta el id'; end if;
+  if exists (select 1 from public.nutri_guardados where id = v_id and asesorado_id <> a.id) then raise exception 'guardado ajeno'; end if;
+  if not exists (select 1 from public.nutri_guardados where id = v_id) and (select count(*) from public.nutri_guardados where asesorado_id = a.id) >= 60 then raise exception 'ya tienes 60 guardados: borra alguno'; end if;
+  if jsonb_typeof(p->'items') <> 'array' or jsonb_array_length(p->'items') = 0 then raise exception 'nada que guardar'; end if;
+  for it in select * from jsonb_array_elements(p->'items') loop
+    if coalesce(it->>'tipo', '') not in ('alimento','receta','plan') then raise exception 'tipo no valido'; end if;
+    if jsonb_typeof(coalesce(it->'nutrientes', '{}'::jsonb)) <> 'object'
+       or exists (select 1 from jsonb_each(coalesce(it->'nutrientes', '{}'::jsonb)) e where jsonb_typeof(e.value) <> 'number' or (e.value::text)::double precision < 0) then raise exception 'nutrientes no validos'; end if;
+  end loop;
+  insert into public.nutri_guardados (id, coach_id, asesorado_id, tipo, nombre, comida, items)
+  values (v_id, a.coach_id, a.id, p->>'tipo', left(btrim(coalesce(p->>'nombre', '')), 80), (p->>'comida')::smallint, p->'items')
+  on conflict (id) do update set nombre = excluded.nombre, comida = excluded.comida, items = excluded.items;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function public.atleta_nutri_guardado_borrar(p_token text, p_id uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare a public.asesorados;
+begin
+  select * into a from public.asesorados where token = p_token and not archivado and length(p_token) >= 16;
+  if not found then raise exception 'enlace no valido'; end if;
+  delete from public.nutri_guardados where id = p_id and asesorado_id = a.id;
+  return found;
+end $$;
+
 revoke all on function public.nutri_coach(text) from public;
 revoke all on function public.nutri_importacion_iniciar(jsonb) from public;
 revoke all on function public.nutri_importar_lote(uuid, int, jsonb, boolean) from public;
@@ -1192,7 +1242,7 @@ revoke all on function public.nutri_importacion_cerrar(uuid, text) from public;
 grant execute on function public.nutri_importacion_iniciar(jsonb), public.nutri_importar_lote(uuid, int, jsonb, boolean), public.nutri_importacion_cerrar(uuid, text) to authenticated;
 grant execute on function public.nutri_norm(text), public.nutri_palabras(text), public.nutri_otro_genero(text), public.nutri_claves(text), public.nutri_parecido(text, text), public.nutri_buscar(text, jsonb, text, int), public.nutri_fichas(uuid[], text), public.nutri_ficha(uuid, text),
   public.nutri_estado(), public.nutri_resumen(uuid, text), public.nutri_guardar_alimento(jsonb, text), public.atleta_nutri_cargar(text, date, date), public.atleta_nutri_guardar(text, jsonb),
-  public.atleta_nutri_borrar(text, uuid), public.nutri_es_admin() to anon, authenticated;
+  public.atleta_nutri_borrar(text, uuid), public.atleta_nutri_guardado_guardar(text, jsonb), public.atleta_nutri_guardado_borrar(text, uuid), public.nutri_es_admin() to anon, authenticated;
 
 -- que la API de Supabase vea al instante las columnas y funciones nuevas
 notify pgrst, 'reload schema';

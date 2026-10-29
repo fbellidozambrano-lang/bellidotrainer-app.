@@ -1,7 +1,7 @@
 // Diario de alimentación de un día: contador de calorías, macros, agua, sal y micronutrientes,
 // y las comidas con lo que se fue agregando. Lo usan el asesorado (para registrar) y el coach (para ver).
 import React, { useMemo, useState } from 'react';
-import { Hoja, Ico, Interruptor, useAviso } from '../../ui/kit.jsx';
+import { Confirmar, Hoja, Ico, Interruptor, useAviso } from '../../ui/kit.jsx';
 import { POR_CODIGO } from '../../lib/nutricion/catalogo.js';
 import { nutrientesDe, receta as calcReceta, salAnadida, totalesDia, sumar } from '../../lib/nutricion/calculo.js';
 import { colorProteina } from '../../lib/nutricion/plan.js';
@@ -21,6 +21,74 @@ export function registroDe({ fecha, comida, tipo, nombre, partes, fichas, extra 
   if (sinFicha.length) ['kcal', 'proteina', 'carbohidratos', 'grasa'].forEach((k) => { if (!desconocidos.includes(k)) desconocidos.push(k); });
   return { id: uuid(), fecha, comida, tipo, nombre, gramos: partes.reduce((t, p) => t + (Number(p.gramos) || 0), 0), alimento_id: partes.length === 1 ? partes[0].alimento_id : null,
     nutrientes: s.nutrientes, desconocidos, detalle: { partes: partes.map((p) => ({ alimento_id: p.alimento_id, nombre: p.nombre, gramos: p.gramos, fuente: fichas[p.alimento_id]?.fuente || null, calidad: fichas[p.alimento_id]?.calidad || null })), sin_ficha: sinFicha, ...extra } };
+}
+
+// ---------- comidas y días guardados ----------
+// un registro sin fecha ni id: lo que se guarda para repetirlo
+const CAMPOS_ITEM = ['comida', 'tipo', 'nombre', 'alimento_id', 'receta_id', 'gramos', 'cantidad', 'nutrientes', 'desconocidos', 'detalle'];
+export const aItem = (r) => Object.fromEntries(CAMPOS_ITEM.filter((k) => r[k] !== undefined).map((k) => [k, r[k]]));
+export const esComida = (r) => r.tipo !== 'agua' && r.tipo !== 'sal';
+// items → registros nuevos de otra fecha (y otra comida, si se elige)
+export const replicar = (items, fecha, comida = null, nComidas = 9) => items.map((it) => ({ ...it, id: uuid(), fecha, comida: comida ?? Math.min(Number(it.comida) || 0, nComidas - 1), detalle: { ...(it.detalle || {}), repetido: true } }));
+const resumenItems = (items) => { const s = sumar(items).nutrientes; return `${n0(s.kcal)} kcal · P ${n1(s.proteina)} · C ${n1(s.carbohidratos)} · G ${n1(s.grasa)}`; };
+const nombresItems = (items, n = 3) => { const ns = items.map((x) => String(x.nombre).replace(/ · 1 porción de grasa$/, '').split(',')[0]); return ns.slice(0, n).join(' + ') + (ns.length > n ? ` y ${ns.length - n} más` : ''); };
+
+// guardar la comida o el día con un nombre
+function GuardarComo({ tipo, items, nombreIni, onGuardar, onCerrar }) {
+  const [nombre, setNombre] = useState(nombreIni); const [ocupado, setOcupado] = useState(false);
+  return (
+    <Hoja titulo={tipo === 'dia' ? 'Guardar este día' : 'Guardar esta comida'} onCerrar={onCerrar}
+      acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={ocupado || !nombre.trim()} onClick={async () => { setOcupado(true); try { await onGuardar(nombre.trim()); onCerrar(); } catch { setOcupado(false); } }}>{ocupado ? 'Guardando…' : 'Guardar'}</button></>}>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>{tipo === 'dia' ? 'Queda guardado todo lo que comiste hoy, comida por comida, para repetirlo otro día con un toque.' : 'Queda guardada con sus cantidades para agregarla igual otro día, en esta u otra comida.'}</p>
+      <label className="campo"><span>Nombre</span><input className="in" autoFocus maxLength={80} value={nombre} onChange={(e) => setNombre(e.target.value)} onFocus={(e) => e.target.select()} aria-label="Nombre del guardado" /></label>
+      <div className="guard-res"><b>{items.length} {items.length === 1 ? 'alimento' : 'alimentos'}</b><span>{resumenItems(items)}</span><small>{nombresItems(items, 6)}</small></div>
+    </Hoja>
+  );
+}
+
+// una tarjeta para repetir: guardado o un día anterior
+function Repetible({ titulo, sub, items, onUsar, onBorrar }) {
+  return (
+    <div className="rep">
+      <button className="rep-t" onClick={onUsar}>
+        <strong>{titulo}</strong><span>{sub ? `${sub} · ` : ''}{resumenItems(items)}</span><small>{nombresItems(items)}</small>
+      </button>
+      {onBorrar ? <button className="ico-b" onClick={onBorrar} aria-label={`Borrar ${titulo}`}><Ico n="basura" s={16} /></button> : <Ico n="duplicar" s={18} className="chev" />}
+    </div>
+  );
+}
+
+// "Guardadas" dentro de Agregar: comidas guardadas y esta misma comida en días anteriores
+function AgregarGuardada({ idx, fecha, datos, onUsar, onBorrarGuardado }) {
+  const guardadas = (datos.guardados || []).filter((g) => g.tipo === 'comida');
+  const dias = [...new Set((datos.registros || []).filter((r) => r.fecha < fecha && esComida(r) && Number(r.comida) === idx).map((r) => r.fecha))].sort().reverse().slice(0, 6);
+  if (!guardadas.length && !dias.length) return <div className="vacio"><b>Nada guardado todavía</b>Cuando armes una comida que repites, toca <b>Guardar</b> debajo de ella y aparece aquí. También salen las de días anteriores.</div>;
+  return (
+    <div>
+      {guardadas.length > 0 && <><p className="etq nres-sec" style={{ marginTop: 0 }}>Tus comidas guardadas</p>
+        {guardadas.map((g) => <Repetible key={g.id} titulo={g.nombre} items={g.items} onUsar={() => onUsar(g.items, g.nombre)} onBorrar={() => onBorrarGuardado(g)} />)}</>}
+      {dias.length > 0 && <><p className="etq nres-sec">Esta comida otros días</p>
+        {dias.map((f) => { const items = datos.registros.filter((r) => r.fecha === f && esComida(r) && Number(r.comida) === idx).map(aItem);
+          return <Repetible key={f} titulo={nombreDia(f)} sub={fCorta(f)} items={items} onUsar={() => onUsar(items, `${nombreDia(f).toLowerCase()}`)} />; })}</>}
+    </div>
+  );
+}
+
+// repetir un día entero: días guardados y días anteriores
+function RepetirDia({ fecha, datos, nComidas, onUsar, onBorrarGuardado, onCerrar }) {
+  const guardados = (datos.guardados || []).filter((g) => g.tipo === 'dia');
+  const dias = [...new Set((datos.registros || []).filter((r) => r.fecha !== fecha && esComida(r)).map((r) => r.fecha))].sort().reverse().slice(0, 6);
+  return (
+    <Hoja titulo="Repetir un día" onCerrar={onCerrar}>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Se agrega todo a {nombreDia(fecha).toLowerCase()}, cada alimento en su comida. Lo que ya anotaste se queda.</p>
+      {!guardados.length && !dias.length && <div className="vacio"><b>Nada para repetir todavía</b>Anota un día completo y toca <b>Guardar este día</b>.</div>}
+      {guardados.length > 0 && <><p className="etq nres-sec" style={{ marginTop: 0 }}>Días guardados</p>
+        {guardados.map((g) => <Repetible key={g.id} titulo={g.nombre} items={g.items} onUsar={() => onUsar(g.items, g.nombre)} onBorrar={() => onBorrarGuardado(g)} />)}</>}
+      {dias.length > 0 && <><p className="etq nres-sec">Días anteriores</p>
+        {dias.map((f) => { const items = datos.registros.filter((r) => r.fecha === f && esComida(r)).map(aItem);
+          return <Repetible key={f} titulo={nombreDia(f)} sub={`${fCorta(f)} · ${new Set(items.map((x) => x.comida)).size} de ${nComidas} comidas`} items={items} onUsar={() => onUsar(items, nombreDia(f).toLowerCase())} />; })}</>}
+    </Hoja>
+  );
 }
 
 function AgregarPlan({ comida, plan, semana1Ini, onAgregar }) {
@@ -69,7 +137,7 @@ function AgregarReceta({ recetas, fichas, onAgregar }) {
   );
 }
 
-export function Agregar({ comida, idx, fecha, datos, nutri, token, onGuardar, onCerrar }) {
+export function Agregar({ comida, idx, fecha, datos, nutri, token, onGuardar, onGuardarVarios, onBorrarGuardado, onCerrar }) {
   const avisar = useAviso();
   const pc = datos.plan?.comidas?.[idx] || datos.plan?.comidas?.find((c) => c.nombre === comida);
   const [tab, setTab] = useState(pc ? 'plan' : datos.recetas?.length ? 'recetas' : 'buscar');
@@ -82,8 +150,11 @@ export function Agregar({ comida, idx, fecha, datos, nutri, token, onGuardar, on
       <div className="seg" style={{ marginBottom: 12 }}>
         {datos.plan && <button className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>Mi plan</button>}
         <button className={tab === 'recetas' ? 'on' : ''} onClick={() => setTab('recetas')}>Recetas</button>
+        {onGuardarVarios && <button className={tab === 'guardadas' ? 'on' : ''} onClick={() => setTab('guardadas')}>Guardadas</button>}
         <button onClick={() => setTab('buscar')}>Buscar</button>
       </div>
+      {tab === 'guardadas' && <AgregarGuardada idx={idx} fecha={fecha} datos={datos} onBorrarGuardado={onBorrarGuardado}
+        onUsar={async (items, nombre) => { await onGuardarVarios(replicar(items, fecha, idx)); avisar(`${nombre} agregada a ${comida}`); onCerrar(); }} />}
       {tab === 'plan' && <AgregarPlan comida={pc} plan={datos.plan} semana1Ini={semana1} onAgregar={({ tipo, nombre, partes, extra }) => guardar(registroDe({ fecha, comida: idx, tipo, nombre, partes, fichas: datos.fichas, extra }))} />}
       {tab === 'recetas' && <AgregarReceta recetas={datos.recetas || []} fichas={datos.fichas} onAgregar={({ receta: r, calc, porciones }) => {
         const nutr = {}; Object.entries(calc.porPorcion).forEach(([k, v]) => { nutr[k] = v * porciones; });
@@ -107,9 +178,11 @@ function Micros({ objetivos, tot }) {
   );
 }
 
-export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectura, onGuardar, onBorrar, pendientes = 0 }) {
+export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectura, onGuardar, onBorrar, onGuardarVarios, onGuardarGuardado, onBorrarGuardado, pendientes = 0 }) {
   const avisar = useAviso();
   const [agregar, setAgregar] = useState(null); const [ver, setVer] = useState(null); const [sal, setSal] = useState(false); const [salG, setSalG] = useState('1');
+  const [guardarComo, setGuardarComo] = useState(null); const [repetir, setRepetir] = useState(false); const [borrarG, setBorrarG] = useState(null);
+  const puedeGuardar = !soloLectura && !!onGuardarGuardado;
   const obj = datos.objetivos || {}; const comidas = nombresComidas(obj);
   const regs = useMemo(() => (datos.registros || []).filter((r) => r.fecha === fecha), [datos.registros, fecha]);
   const tot = useMemo(() => totalesDia(regs), [regs]);
@@ -162,11 +235,23 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
             {rs.map((r) => <div key={r.id} className={`reg ${r._pendiente ? 'pend' : ''}`}>
               <button className="reg-t" onClick={() => setVer(r)}><strong>{r.nombre}</strong><span>{r.tipo === 'receta' ? `${String(r.cantidad).replace('.', ',')} porc. · ` : r.gramos ? `${n0(r.gramos)} g · ` : ''}{n0(r.nutrientes?.kcal)} kcal · P {n1(r.nutrientes?.proteina)} · C {n1(r.nutrientes?.carbohidratos)} · G {n1(r.nutrientes?.grasa)}{(r.desconocidos || []).includes('kcal') ? ' · sin dato de kcal' : ''}{r._pendiente ? ' · sin enviar' : ''}</span></button>
               {!soloLectura && <button className="ico-b" onClick={() => onBorrar(r.id)} aria-label={`Quitar ${r.nombre}`}><Ico n="cerrar" s={16} /></button>}</div>)}
-            {!soloLectura && <button className="btn chico full comida-add" onClick={() => setAgregar({ c, i })}><Ico n="mas" s={16} />Agregar</button>}
+            {!soloLectura && <div className="comida-acc"><button className="btn chico comida-add" onClick={() => setAgregar({ c, i })}><Ico n="mas" s={16} />Agregar</button>
+              {puedeGuardar && rs.length > 0 && <button className="btn chico fant" onClick={() => setGuardarComo({ tipo: 'comida', comida: i, items: rs.map(aItem), nombre: `${c}: ${nombresItems(rs, 2)}`.slice(0, 80) })}><Ico n="bajar" s={16} />Guardar</button>}</div>}
           </section>);
       })}
-      {pendientes > 0 && <p className="aviso"><Ico n="nube" s={20} /><span>{pendientes} {pendientes === 1 ? 'registro' : 'registros'} esperando señal. <b>Se envían solos.</b></span></p>}
-      {agregar && <Agregar comida={agregar.c} idx={agregar.i} fecha={fecha} datos={datos} nutri={nutri} token={token} onCerrar={() => setAgregar(null)} onGuardar={async (r) => { await onGuardar(r); }} />}
+      {puedeGuardar && <section className="dia-g">
+        <div><b>Repetir o guardar el día</b><span>Para no anotar todo otra vez cuando comes igual.</span></div>
+        <div className="fila-btn"><button className="btn chico" onClick={() => setRepetir(true)}><Ico n="duplicar" s={16} />Repetir un día</button>
+          <button className="btn chico" disabled={!regs.some(esComida)} onClick={() => setGuardarComo({ tipo: 'dia', comida: null, items: regs.filter(esComida).map(aItem), nombre: `Día ${fCorta(fecha)}` })}><Ico n="bajar" s={16} />Guardar este día</button></div>
+      </section>}
+            {pendientes > 0 && <p className="aviso"><Ico n="nube" s={20} /><span>{pendientes} {pendientes === 1 ? 'registro' : 'registros'} esperando señal. <b>Se envían solos.</b></span></p>}
+      {agregar && <Agregar comida={agregar.c} idx={agregar.i} fecha={fecha} datos={datos} nutri={nutri} token={token} onCerrar={() => setAgregar(null)} onGuardar={async (r) => { await onGuardar(r); }}
+        onGuardarVarios={puedeGuardar ? onGuardarVarios : null} onBorrarGuardado={setBorrarG} />}
+      {guardarComo && <GuardarComo tipo={guardarComo.tipo} items={guardarComo.items} nombreIni={guardarComo.nombre} onCerrar={() => setGuardarComo(null)}
+        onGuardar={async (nombre) => { await onGuardarGuardado({ id: uuid(), tipo: guardarComo.tipo, comida: guardarComo.comida, nombre, items: guardarComo.items }); avisar(guardarComo.tipo === 'dia' ? 'Día guardado: lo encuentras en "Repetir un día"' : 'Comida guardada: la encuentras en Agregar → Guardadas'); }} />}
+      {repetir && <RepetirDia fecha={fecha} datos={datos} nComidas={comidas.length} onCerrar={() => setRepetir(false)} onBorrarGuardado={setBorrarG}
+        onUsar={async (items, nombre) => { await onGuardarVarios(replicar(items, fecha, null, comidas.length)); setRepetir(false); avisar(`${items.length} ${items.length === 1 ? 'alimento agregado' : 'alimentos agregados'} (${nombre})`); }} />}
+      {borrarG && <Confirmar titulo={`¿Borrar “${borrarG.nombre}”?`} texto="Solo se borra el guardado. Lo que ya anotaste con él se queda." si="Borrar" peligro onNo={() => setBorrarG(null)} onSi={async () => { const g = borrarG; setBorrarG(null); await onBorrarGuardado(g.id); avisar('Guardado borrado'); }} />}
       {sal && <Hoja titulo="Sal añadida" onCerrar={() => setSal(false)} acciones={<><button className="btn" onClick={() => setSal(false)}>Cancelar</button><button className="btn oro" disabled={!(Number(salG.replace(',', '.')) > 0)} onClick={async () => { const g = Number(salG.replace(',', '.')); await onGuardar({ id: uuid(), fecha, comida: 0, tipo: 'sal', nombre: `Sal añadida ${String(g).replace('.', ',')} g`, gramos: g, ...salAnadida(g), detalle: {} }); setSal(false); avisar('Sal anotada'); }}>Anotar</button></>}>
         <p className="muted" style={{ marginBottom: 10 }}>La sal que le echas a la comida, aparte de la que ya traen los alimentos. 1 cucharadita rasa ≈ 5 g.</p>
         <div className="chips" style={{ marginBottom: 10 }}>{['0.5', '1', '2', '3', '5'].map((v) => <button key={v} className={`chip ${salG === v ? 'on' : ''}`} onClick={() => setSalG(v)}>{v.replace('.', ',')} g</button>)}</div>

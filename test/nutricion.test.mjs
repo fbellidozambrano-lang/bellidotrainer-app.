@@ -239,6 +239,17 @@ await t('nube: plan, recetas y diario del asesorado', async () => {
   await assert.rejects(st.nutri.atletaGuardar(a.token, { id: crypto.randomUUID(), fecha: '2001-01-01', tipo: 'alimento', nombre: 'viejo', nutrientes: {} }), /fecha/);
   await assert.rejects(st.nutri.atletaGuardar(a.token, { id: crypto.randomUUID(), fecha: hoy, tipo: 'alimento', nombre: 'x', nutrientes: { kcal: -3 } }), /nutrientes/);
   assert.equal(await st.nutri.atletaBorrar(b.token, id), false); assert.equal(await st.nutri.atletaBorrar(a.token, id), true);
+  // comidas y días guardados para repetir
+  const item = { comida: 0, tipo: 'plan', nombre: 'Pechuga', alimento_id: pollo, gramos: 90, nutrientes: { kcal: 101, proteina: 20.3 }, desconocidos: [], detalle: {} };
+  const g = { id: crypto.randomUUID(), tipo: 'comida', comida: 0, nombre: 'Desayuno de siempre', items: [item, { ...item, nombre: 'Arepa', alimento_id: null, nutrientes: { kcal: 300 } }] };
+  await st.nutri.atletaGuardadoGuardar(a.token, g);
+  const d2 = await st.nutri.atletaCargar(a.token, hoy, hoy); assert.equal(d2.guardados.length, 1); assert.equal(d2.guardados[0].items.length, 2); assert.equal(d2.guardados[0].nombre, 'Desayuno de siempre');
+  assert.equal((await st.nutri.guardados(a.id)).length, 1, 'el coach los ve');
+  await assert.rejects(st.nutri.atletaGuardadoGuardar(b.token, { ...g, nombre: 'robo' }), /ajeno/);
+  await assert.rejects(st.nutri.atletaGuardadoGuardar(a.token, { ...g, id: crypto.randomUUID(), items: [{ ...item, tipo: 'agua' }] }), /tipo/);
+  await assert.rejects(st.nutri.atletaGuardadoGuardar(a.token, { ...g, id: crypto.randomUUID(), items: [{ ...item, nutrientes: { kcal: -1 } }] }), /nutrientes/);
+  assert.equal((await st.nutri.atletaCargar(b.token, hoy, hoy)).guardados.length, 0, 'otro asesorado no los ve');
+  assert.equal(await st.nutri.atletaGuardadoBorrar(b.token, g.id), false); assert.equal(await st.nutri.atletaGuardadoBorrar(a.token, g.id), true);
 });
 
 await t('servidor externo: OFF por código y texto, USDA sin clave y con clave (respuestas reales simuladas)', async () => {

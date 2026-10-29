@@ -12,6 +12,7 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp/claude-0/shots-ali'
 os.makedirs(OUT, exist_ok=True)
 PDF = os.path.join(OUT, 'plan_prueba.pdf'); armar(PDF)
 errs = []
+hoy = datetime.date.today()
 U = lambda: str(uuid.uuid4())
 def shot(pg, n, full=False): pg.wait_for_timeout(450); pg.screenshot(path=f'{OUT}/{n}.png', full_page=full)
 
@@ -161,6 +162,37 @@ with sync_playwright() as pw:
     p.locator('.reg-t').first.click(); p.wait_for_timeout(400); shot(p, '14_detalle_registro')
     t = p.locator('.hoja').last.inner_text(); assert 'Calculado con' in t and 'USDA' in t, t
     p.keyboard.press('Escape')
+    p.wait_for_timeout(300)
+
+    # ---------- guardar comida y día, y repetirlos otro día ----------
+    p.locator('.comida-n').nth(0).get_by_role('button', name='Guardar').click(); p.wait_for_timeout(300)
+    assert p.get_by_label('Nombre del guardado').input_value().startswith('Desayuno: ')
+    p.get_by_label('Nombre del guardado').fill('Desayuno de semana'); shot(p, '16_guardar_comida')
+    p.locator('.hoja-acc .btn.oro', has_text='Guardar').click(); p.wait_for_timeout(600)
+    p.get_by_role('button', name='Guardar este día').click(); p.wait_for_timeout(300)
+    p.locator('.hoja-acc .btn.oro', has_text='Guardar').click(); p.wait_for_timeout(600)
+    g = [x for x in local(p).get('nutri_guardados', []) if x['asesorado_id'] == a['id']]
+    assert sorted(x['tipo'] for x in g) == ['comida', 'dia'] and next(x for x in g if x['tipo'] == 'dia')['items'].__len__() == 5, g
+    # ayer: repetir el día guardado
+    p.get_by_role('button', name='Día anterior').click(); p.wait_for_timeout(500)
+    assert p.locator('.reg').count() == 0
+    p.get_by_role('button', name='Repetir un día').click(); p.wait_for_timeout(400)
+    t = p.locator('.hoja').inner_text(); assert 'Días guardados' in t and 'Días anteriores' in t, t
+    shot(p, '17_repetir_dia')
+    p.locator('.rep-t').first.click(); p.wait_for_timeout(1000)
+    assert p.locator('.reg').count() == 5, p.locator('.reg').count()
+    # y la comida guardada en la cena
+    p.locator('.comida-n').nth(3).get_by_role('button', name='Agregar').click(); p.wait_for_timeout(300)
+    p.locator('.hoja .seg button', has_text='Guardadas').click(); p.wait_for_timeout(300)
+    t = p.locator('.hoja').inner_text(); assert 'Desayuno de semana' in t and 'Esta comida otros días' not in t, t
+    shot(p, '18_guardadas')
+    p.locator('.rep-t', has_text='Desayuno de semana').click(); p.wait_for_timeout(1000)
+    assert p.locator('.comida-n').nth(3).locator('.reg').count() == 3
+    ayer = (hoy - datetime.timedelta(days=1)).isoformat()
+    rs = [x for x in local(p)['nutri_registros'] if x['fecha'] == ayer]
+    assert len(rs) == 8 and all(x['detalle'].get('repetido') for x in rs), len(rs)
+    shot(p, '19_ayer_repetido', True)
+    p.get_by_role('button', name='Día siguiente').click(); p.wait_for_timeout(400)
 
     # ---------- coach ve el registro ----------
     c.locator('.tab-dia', has_text='Registro').click(); c.wait_for_timeout(300); c.reload(); c.wait_for_timeout(1200)

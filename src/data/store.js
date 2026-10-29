@@ -155,6 +155,9 @@ export function crearStoreNube(cfg, clienteFalso) {
       atletaCargar: (token, desde, hasta) => run(sb.rpc('atleta_nutri_cargar', { p_token: token, p_desde: desde, p_hasta: hasta })),
       atletaGuardar: (token, r) => run(sb.rpc('atleta_nutri_guardar', { p_token: token, p_registro: r })),
       atletaBorrar: (token, id) => run(sb.rpc('atleta_nutri_borrar', { p_token: token, p_id: id })),
+      atletaGuardadoGuardar: (token, g) => run(sb.rpc('atleta_nutri_guardado_guardar', { p_token: token, p: g })),
+      atletaGuardadoBorrar: (token, id) => run(sb.rpc('atleta_nutri_guardado_borrar', { p_token: token, p_id: id })),
+      guardados: (asesoradoId) => run(sb.from('nutri_guardados').select('*').eq('asesorado_id', asesoradoId).order('creado', { ascending: false })),
     },
   };
 }
@@ -259,9 +262,21 @@ export function crearStoreLocal() {
         async atletaCargar(token, desde, hasta) {
           const a = deToken(token); const d = leer(); const p = (d.nutri_planes || []).find((x) => x.asesorado_id === a.id); const recetas = (d.nutri_recetas || []).filter((r) => r.asesorado_id === a.id);
           const ids = [...idsPlan(p?.plan), ...recetas.flatMap((r) => (r.ingredientes || []).map((i) => i.alimento_id))];
-          return { objetivos: p?.objetivos || {}, plan: p?.plan || null, recetas, registros: (d.nutri_registros || []).filter((r) => r.asesorado_id === a.id && r.fecha >= desde && r.fecha <= hasta), fichas: await base.fichas([...new Set(ids)]) };
+          return { objetivos: p?.objetivos || {}, plan: p?.plan || null, recetas, registros: (d.nutri_registros || []).filter((r) => r.asesorado_id === a.id && r.fecha >= desde && r.fecha <= hasta),
+            guardados: (d.nutri_guardados || []).filter((g) => g.asesorado_id === a.id).sort((x, y) => String(y.creado).localeCompare(String(x.creado))), fichas: await base.fichas([...new Set(ids)]) };
         },
         async atletaGuardar(token, r) { const a = deToken(token); validarRegistro(r); return mut((d) => { d.nutri_registros = d.nutri_registros || []; const ex = d.nutri_registros.find((x) => x.id === r.id); if (ex && ex.asesorado_id !== a.id) throw new Error('registro ajeno'); upsert(d.nutri_registros, { creado: ahora(), ...r, asesorado_id: a.id, origen: 'asesorado' }); return { ok: true, id: r.id }; }); },
+        async atletaGuardadoGuardar(token, g) {
+          const a = deToken(token);
+          if (!g?.id || !['comida', 'dia'].includes(g.tipo) || !String(g.nombre || '').trim()) throw new Error('guardado no valido');
+          if (!Array.isArray(g.items) || !g.items.length || g.items.length > 60) throw new Error('nada que guardar');
+          if (g.items.some((it) => !['alimento', 'receta', 'plan'].includes(it.tipo) || Object.values(it.nutrientes || {}).some((v) => typeof v !== 'number' || v < 0))) throw new Error('nutrientes no validos');
+          return mut((d) => { d.nutri_guardados = d.nutri_guardados || []; const ex = d.nutri_guardados.find((x) => x.id === g.id); if (ex && ex.asesorado_id !== a.id) throw new Error('guardado ajeno');
+            if (!ex && d.nutri_guardados.filter((x) => x.asesorado_id === a.id).length >= 60) throw new Error('ya tienes 60 guardados: borra alguno');
+            upsert(d.nutri_guardados, { creado: ahora(), ...g, nombre: String(g.nombre).trim().slice(0, 80), asesorado_id: a.id }); return { ok: true, id: g.id }; });
+        },
+        async atletaGuardadoBorrar(token, id) { const a = deToken(token); return mut((d) => { const n = (d.nutri_guardados || []).length; d.nutri_guardados = (d.nutri_guardados || []).filter((x) => !(x.id === id && x.asesorado_id === a.id)); return d.nutri_guardados.length < n; }); },
+        async guardados(asesoradoId) { return (leer().nutri_guardados || []).filter((g) => g.asesorado_id === asesoradoId).sort((x, y) => String(y.creado).localeCompare(String(x.creado))); },
         async atletaBorrar(token, id) { const a = deToken(token); return mut((d) => { const n = (d.nutri_registros || []).length; d.nutri_registros = (d.nutri_registros || []).filter((x) => !(x.id === id && x.asesorado_id === a.id)); return d.nutri_registros.length < n; }); },
       };
     })(),

@@ -39,6 +39,27 @@ export default function Alimentacion({ store, token, vista }) {
       setDatos((d) => ({ ...d, registros: d.registros.map((x) => (x.id === reg.id ? { ...x, _pendiente: true } : x)) }));
     }
   }
+  // varios a la vez (repetir una comida o un día): se ven al instante y se envían uno tras otro; sin señal quedan en la cola
+  async function guardarVarios(lista) {
+    if (vista === 'coach') { avisar('Vista previa: no se guarda'); return; }
+    setDatos((d) => ({ ...d, registros: [...(d?.registros || []), ...lista] }));
+    const fallidos = [];
+    for (const reg of lista) { try { await store.nutri.atletaGuardar(token, reg); } catch { fallidos.push(reg); } }
+    if (fallidos.length) {
+      const c = [...(leer(kCola) || []), ...fallidos.map((reg) => ({ op: 'guardar', id: reg.id, reg }))]; poner(kCola, c); setCola(c);
+      const ids = new Set(fallidos.map((r) => r.id)); setDatos((d) => ({ ...d, registros: d.registros.map((x) => (ids.has(x.id) ? { ...x, _pendiente: true } : x)) }));
+    }
+  }
+  async function guardarGuardado(g) {
+    if (vista === 'coach') { avisar('Vista previa: no se guarda'); throw new Error('vista previa'); }
+    try { await store.nutri.atletaGuardadoGuardar(token, g); } catch (e) { avisar(/fetch|network|red|señal/i.test(e.message) ? 'Sin señal: inténtalo cuando vuelva la conexión' : e.message, 'error'); throw e; }
+    setDatos((d) => { const n = { ...d, guardados: [{ ...g, creado: new Date().toISOString() }, ...(d.guardados || []).filter((x) => x.id !== g.id)] }; poner(kCache, n); return n; });
+  }
+  async function borrarGuardado(id) {
+    if (vista === 'coach') { avisar('Vista previa: no se guarda'); return; }
+    try { await store.nutri.atletaGuardadoBorrar(token, id); setDatos((d) => ({ ...d, guardados: (d.guardados || []).filter((x) => x.id !== id) })); }
+    catch (e) { avisar(e.message, 'error'); }
+  }
   async function borrar(id) {
     if (vista === 'coach') { avisar('Vista previa: no se guarda'); return; }
     setDatos((d) => ({ ...d, registros: d.registros.filter((x) => x.id !== id) }));
@@ -53,7 +74,7 @@ export default function Alimentacion({ store, token, vista }) {
       {!datos && estado === 'error' && <div className="vacio" style={{ marginTop: 20 }}><b>Sin conexión</b>Conéctate un momento para cargar tu plan de alimentación.<button className="btn oro" style={{ marginTop: 12 }} onClick={() => cargar(fecha)}>Reintentar</button></div>}
       {datos && <>
         {!datos.plan && !Object.keys(datos.objetivos || {}).length && <p className="aviso"><span>Tu coach todavía no carga tus objetivos. Igual puedes anotar lo que comes y él lo ve.</span></p>}
-        <Diario datos={datos} fecha={fecha} setFecha={setFecha} nutri={store.nutri} token={token} onGuardar={guardar} onBorrar={borrar} pendientes={cola.length} />
+        <Diario datos={datos} fecha={fecha} setFecha={setFecha} nutri={store.nutri} token={token} onGuardar={guardar} onBorrar={borrar} onGuardarVarios={guardarVarios} onGuardarGuardado={guardarGuardado} onBorrarGuardado={borrarGuardado} pendientes={cola.length} />
         {estado === 'sinred' && <p className="pill" style={{ marginTop: 10 }}>Sin conexión · mostrando lo último guardado</p>}
       </>}
     </div>
