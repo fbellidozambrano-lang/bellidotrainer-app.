@@ -29,7 +29,9 @@ with sync_playwright() as pw:
     c.goto(BASE + '/'); c.evaluate("d => { localStorage.clear(); localStorage.setItem('bt:v9:local', JSON.stringify(d)); }", DATA)
 
     # ---------- coach: preparar sesión con carga, reps y su % ----------
-    c.goto(f"{BASE}/#/a/{a['id']}/preparar"); c.reload(); c.wait_for_timeout(900)
+    c.goto(f"{BASE}/?r=1#/a/{a['id']}/preparar"); c.wait_for_timeout(900)  # carga completa con los datos ya puestos
+    try: c.locator('article.prep').first.locator('.prep-pct').wait_for(timeout=8000)
+    except Exception: shot(c, '00_fallo', True); print('FALLO prep:', c.locator('body').inner_text()[:1500]); print(errs); raise
     t = c.locator('article.prep').first.locator('.prep-pct').inner_text(); print('coach:', t.replace('\n', ' '))
     assert '% de su 1RM' in t and '+5,3 %' in t and '76 kg × 8' in t, t
     c.locator('article.prep').first.get_by_role('button', name='Escala de intensidad (1–100 % del 1RM)').click(); c.wait_for_timeout(200)
