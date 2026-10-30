@@ -7,7 +7,7 @@ import { haceCuanto, primerNombre, semanasSeguidas, sesionesSemana, tokenNuevo, 
 import { enlaceAtleta } from './CoachApp.jsx';
 import SeccionComposicion from './Controles.jsx';
 import { programaCasa } from '../data/casa.js';
-import { resumenEj } from '../lib/util.js';
+import { resumenEj, textoSugerencia } from '../lib/util.js';
 import { analizar } from '../lib/periodizacion.js';
 
 const hora = (t) => new Date(t).toLocaleTimeString('es-VE', { hour: 'numeric', minute: '2-digit' });
@@ -153,7 +153,7 @@ export default function Hub({ a, programas, sesiones, acc, store, controles = []
           {ps.length > 1 && <p className="etq" style={{ marginBottom: 6 }}>{p.nombre}</p>}
           {programaCasa(p).dias.map((dc) => <div key={dc.id} className="tarj" style={{ marginBottom: 8 }}>
             <strong style={{ fontWeight: 600 }}>{dc.base}</strong> <span className="etq">· ~{dc.minutos} min</span>
-            {dc.ejercicios.map((e) => <p key={e.id} style={{ fontSize: 14.5, padding: '5px 0', borderTop: '1px solid var(--line)', marginTop: 6 }}>{e.ejercicio} <span className="muted">· {resumenEj(e)} · {e.pesoSugerido}</span></p>)}
+            {dc.ejercicios.map((e) => <p key={e.id} style={{ fontSize: 14.5, padding: '5px 0', borderTop: '1px solid var(--line)', marginTop: 6 }}>{e.ejercicio} <span className="muted">· {resumenEj(e)}{e.pesoSugerido || e.repsSugeridas ? ` · ${textoSugerencia(e)}` : ''}</span></p>)}
           </div>)}
         </div>)}
       </Hoja>}

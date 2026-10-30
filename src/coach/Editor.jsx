@@ -4,7 +4,7 @@ import { GRUPOS } from '../data/constants.js';
 import { grupoDeEjercicio } from '../data/hevy.js';
 import { SelectorBib, asegurarEnBib, Sugerencia } from './Biblioteca.jsx';
 import { ejDesdeBib } from '../data/biblioteca.js';
-import { colorGrupo, copiaEj, esTiempo, fmt, nDias, normEj, primerNombre, resumenEj, textoCarga, uuid, clonarDias, ytId } from '../lib/util.js';
+import { colorGrupo, copiaEj, esTiempo, fmt, nDias, normEj, primerNombre, resumenEj, textoCarga, textoSugerencia, uuid, clonarDias, ytId } from '../lib/util.js';
 import { esUnilateral } from '../lib/series.js';
 import { mismoEj } from '../lib/nombres.js';
 import { sesionesCon, renombrarEnSesiones, renombrarEnProgramas } from '../lib/renombrar.js';
@@ -43,7 +43,8 @@ export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, 
             <Campo l="Reps máx."><input className="in num" style={{ fontSize: 20 }} inputMode="numeric" value={e.repMax} onChange={(x) => f('repMax', x.target.value)} /></Campo></>}
       </div>
       <Interruptor on={esUnilateral(e)} onChange={(v) => f('unilateral', v)} label="Un lado a la vez" ayuda={esUnilateral(e) ? 'Registra la derecha y la izquierda por separado.' : 'Actívalo en ejercicios unilaterales (búlgara, remo a una mano…).'} />
-      <Campo l="Carga sugerida"><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder="22,5 kg · banda verde · máquina 3" /></Campo>
+      <div className="dos dos-sug"><Campo l="Carga sugerida"><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder="22,5 kg · banda verde" /></Campo>
+        {!T && <Campo l="Reps sugeridas"><input className="in num" inputMode="numeric" value={e.repsSugeridas || ''} onChange={(x) => f('repsSugeridas', x.target.value)} placeholder={`${e.repMin}–${e.repMax}`} /></Campo>}</div>
       <Campo l="RPE objetivo"><div className="chips">{[6, 7, 8, 9, 10].map((v) => <button key={v} className={`chip ${Number(e.rpe) === v ? 'on' : ''}`} style={{ minWidth: 48 }} onClick={() => f('rpe', v)}>{v}</button>)}</div></Campo>
       <Campo l="Descanso entre series"><div className="chips">{[45, 60, 90, 120, 150, 180].map((v) => <button key={v} className={`chip ${Number(e.descanso) === v ? 'on' : ''}`} onClick={() => f('descanso', v)}>{v < 120 ? `${v} s` : v === 150 ? '2:30' : `${v / 60} min`}</button>)}</div></Campo>
       <Campo l="Nota para el asesorado"><textarea className="in" rows={2} value={e.nota} onChange={(x) => f('nota', x.target.value)} placeholder="Tempo 3-1-1, pausa arriba, sube 2,5 kg si llegas a 12…" /></Campo>
@@ -157,7 +158,7 @@ export default function Editor({ a, p: inicial, datos, acc }) {
             {selec && <span className={`ej-sel ${selec[e.id] ? 'on' : ''}`}>{selec[e.id] && <Ico n="check" s={16} w={3} />}</span>}
             <span className="ej-barra" style={{ background: colorGrupo(e.grupo) }} />
             <div className="ej-t"><strong>{e.ejercicio}</strong><span>{e.grupo} · {resumenEj(e)}{esUnilateral(e) ? ' por lado' : ''} · RPE {fmt(e.rpe, 1)} · {e.descanso} s{e.video ? ' · video' : ''}</span>
-              {e.pesoSugerido && <span className="carga">{textoCarga(e.pesoSugerido)}</span>}{e.nota && <em>{e.nota}</em>}</div>
+              {(e.pesoSugerido || e.repsSugeridas) && <span className="carga">{textoSugerencia(e)}</span>}{e.nota && <em>{e.nota}</em>}</div>
             {!selec && <Ico n="chev" className="chev" s={18} />}
           </button>))}</div>}
 

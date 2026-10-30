@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Ico, ir, Hoja, Campo, Confirmar, Placa, Semana, useAviso } from '../ui/kit.jsx';
-import { colorGrupo, fmt, nDias, totalEjercicios, resumenEj, textoCarga, uuid, clonarDias, copiaEj, primerNombre } from '../lib/util.js';
+import { colorGrupo, fmt, nDias, totalEjercicios, resumenEj, textoCarga, textoSugerencia, uuid, clonarDias, copiaEj, primerNombre } from '../lib/util.js';
 import { plantillasDesdeProgramas, plantillasBase, ejDesdeBib, corregirNombre } from '../data/biblioteca.js';
 import { SelectorBib, asegurarEnBib, AvisoOrtografia } from './Biblioteca.jsx';
 import { HojaEjercicio } from './Editor.jsx';
@@ -130,7 +130,7 @@ export function EditorPlantilla({ t: inicial, datos, acc }) {
           dia.ejercicios.map((e, i) => <button key={e.id} className="ej" onClick={() => setHoja({ t: 'ej', e, i })}>
             <span className="ej-barra" style={{ background: colorGrupo(e.grupo) }} />
             <div className="ej-t"><strong>{e.ejercicio}</strong><span>{e.grupo} · {resumenEj(e)} · RPE {fmt(e.rpe, 1)} · {e.descanso} s{e.video ? ' · video' : ''}</span>
-              {e.pesoSugerido && <span className="carga">{textoCarga(e.pesoSugerido)}</span>}{e.nota && <em>{e.nota}</em>}</div>
+              {(e.pesoSugerido || e.repsSugeridas) && <span className="carga">{textoSugerencia(e)}</span>}{e.nota && <em>{e.nota}</em>}</div>
             <Ico n="chev" className="chev" s={18} /></button>)}
       </>}
 

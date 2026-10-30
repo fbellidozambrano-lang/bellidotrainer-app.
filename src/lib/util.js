@@ -40,6 +40,12 @@ export function ytId(v) { if (!v) return null; const m = String(v).match(/(?:you
 export const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 export const primerNombre = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 export function textoCarga(v) { const s = String(v ?? '').trim(); return /^\d+([.,]\d+)?$/.test(s) ? `${s} kg` : s; }
+// "80 kg × 8 reps", "banda verde × 12 reps", "8 reps"
+export function textoSugerencia(e) {
+  const c = String(e?.pesoSugerido || '').trim(); const r = String(e?.repsSugeridas || '').trim();
+  const reps = r ? `${r} ${/rep/i.test(r) ? '' : 'reps'}`.trim() : '';
+  return c && reps ? `${textoCarga(c)} × ${reps}` : c ? textoCarga(c) : reps;
+}
 export function cargaNumero(t) { const s = String(t || '').toLowerCase().replace(',', '.'); const m = s.match(/[0-9]+(?:\.[0-9]+)?/); if (!m) return 0; let v = parseFloat(m[0]); if (/lb/.test(s)) v = Math.round(v * 0.45359237 * 10) / 10; return v > 0 && v < 1000 ? v : 0; }
 
 export function normEj(e = {}) {
@@ -49,7 +55,7 @@ export function normEj(e = {}) {
     id: e.id || uuid(), ejercicio: String(e.ejercicio || '').trim(), grupo: e.grupo || 'Core', tipo,
     series: n(e.series, 3, 1, 12), repMin: n(e.repMin, 8, 1, 100), repMax: Math.max(n(e.repMin, 8, 1, 100), n(e.repMax, 12, 1, 100)),
     segundos: n(e.segundos, 40, 5, 3600), descanso: e.descanso === '' || e.descanso == null ? 90 : Math.max(0, Math.round(nSeg(e.descanso))),
-    rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), nota: String(e.nota || ''), video: String(e.video || ''),
+    rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), repsSugeridas: String(e.repsSugeridas ?? '').trim().slice(0, 12), nota: String(e.nota || ''), video: String(e.video || ''),
     ...(e.bibId ? { bibId: e.bibId } : {}), ...(typeof e.unilateral === 'boolean' ? { unilateral: e.unilateral } : {}),
   };
 }
@@ -59,29 +65,33 @@ export const resumenEj = (e) => `${e.series} × ${esTiempo(e) ? `${e.segundos} s
 // ---------- historial ----------
 // El mismo ejercicio escrito distinto o corregido ("Extencion de cuadriceps" → "Extensión de cuádriceps")
 // sigue siendo el mismo para el historial.
+// una serie y sus sub-series del mismo ejercicio (drop set, rest-pause, pirámide) como cargas sueltas;
+// la de una superserie es otro ejercicio y no cuenta para este
+export const cargasDe = (x) => [{ peso: nSeg(x.peso), reps: nSeg(x.reps) }, ...(x.subs || []).filter((s) => s.ejercicio == null).map((s) => ({ peso: nSeg(s.peso), reps: nSeg(s.reps) }))];
+export const volSerie = (x) => nSeg(x.peso) * nSeg(x.reps) + (x.subs || []).reduce((t, s) => t + nSeg(s.peso) * nSeg(s.reps), 0);
 export const seriesDe = (s, ej) => (s.series || []).filter((x) => mismoEj(x.ejercicio, ej)).sort((a, b) => (a.serie || 0) - (b.serie || 0));
 const notaDe = (s, ej) => { const n = s.notas || {}; if (n[ej]) return n[ej]; const k = Object.keys(n).find((x) => mismoEj(x, ej)); return k ? n[k] : ''; };
 export function seriesPrevias(sesiones, ej, antesDe) {
   const s = sesiones.filter((x) => (!antesDe || x.fecha <= antesDe) && (x.series || []).some((y) => mismoEj(y.ejercicio, ej)))
     .sort((a, b) => (a.fecha === b.fecha ? String(b.creado || '').localeCompare(String(a.creado || '')) : a.fecha < b.fecha ? 1 : -1))[0];
   if (!s) return null;
-  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null, ...(x.lado ? { lado: x.lado } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}) })), nota: notaDe(s, ej) };
+  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null, ...(x.lado ? { lado: x.lado } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}), ...(x.subs?.length ? { subs: x.subs } : {}) })), nota: notaDe(s, ej) };
 }
 export function records(sesiones, ej) {
   let maxPeso = 0, maxE1 = 0, maxVol = 0, maxSeg = 0;
-  sesiones.forEach((s) => { const r = seriesDe(s, ej); let vol = 0; r.forEach((x) => { const p = nSeg(x.peso), n = nSeg(x.reps); maxPeso = Math.max(maxPeso, p); maxE1 = Math.max(maxE1, e1rm(p, n)); maxSeg = Math.max(maxSeg, nSeg(x.seg)); vol += p * n; }); maxVol = Math.max(maxVol, vol); });
+  sesiones.forEach((s) => { const r = seriesDe(s, ej); let vol = 0; r.forEach((x) => { cargasDe(x).forEach(({ peso: p, reps: n }) => { maxPeso = Math.max(maxPeso, p); maxE1 = Math.max(maxE1, e1rm(p, n)); vol += p * n; }); maxSeg = Math.max(maxSeg, nSeg(x.seg)); }); maxVol = Math.max(maxVol, vol); });
   return { maxPeso, maxE1, maxVol, maxSeg };
 }
 // la serie con el mejor 1RM estimado (peso × reps)
 export function mejorSerie(sesiones, ej) {
   let m = null;
-  sesiones.forEach((s) => seriesDe(s, ej).forEach((x) => { const p = nSeg(x.peso), r = nSeg(x.reps), e = e1rm(p, r); if (e > 0 && (!m || e > m.e1)) m = { peso: p, reps: Math.round(r), rpe: nSeg(x.rpe) || null, fecha: s.fecha, e1: e }; }));
+  sesiones.forEach((s) => seriesDe(s, ej).forEach((x) => cargasDe(x).forEach(({ peso: p, reps: r }) => { const e = e1rm(p, r); if (e > 0 && (!m || e > m.e1)) m = { peso: p, reps: Math.round(r), rpe: nSeg(x.rpe) || null, fecha: s.fecha, e1: e }; })));
   return m;
 }
 // repeticiones que se aguantan a un % del 1RM (Epley al revés)
 export const repsAlPct = (pct) => (pct >= 100 ? 1 : Math.max(1, Math.round(30 * (100 / pct - 1))));
 export const PCTS = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50];
-export const volumen = (s) => (s.series || []).reduce((t, x) => t + nSeg(x.peso) * nSeg(x.reps), 0);
+export const volumen = (s) => (s.series || []).reduce((t, x) => t + volSerie(x), 0);
 export function semanasSeguidas(sesiones) {
   const semanas = new Set(sesiones.map((s) => lunesDe(s.fecha)));
   let n = 0; let l = lunesDe(hoy());

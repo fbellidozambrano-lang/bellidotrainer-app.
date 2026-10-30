@@ -36,5 +36,6 @@
   "34": "normalizarBusqueda",
   "35": "manifest.json",
   "36": "ref_node_assert",
-  "37": "buscar.js"
+  "37": "nutriLocal.js",
+  "38": "sincodigo.test.mjs"
 }

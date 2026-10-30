@@ -45,14 +45,14 @@ function EditarSesion({ s, historial = [], onGuardar, onCerrar }) {
   const [fecha, setFecha] = useState(s.fecha); const [min, setMin] = useState(s.minutos ?? '');
   const [grupos, setGrupos] = useState(() => { const ejs = [...new Set((s.series || []).map((x) => x.ejercicio))];
     return ejs.map((e) => { const ss = seriesDe(s, e); return { ejercicio: e, grupo: ss[0]?.grupo || '', tiempo: ss.some((x) => nSeg(x.seg) > 0), nota: (s.notas || {})[e] || '',
-      filas: ss.map((x) => ({ peso: x.peso ? String(x.peso).replace('.', ',') : '', reps: x.reps ? String(x.reps) : '', seg: x.seg ? String(x.seg) : '', rpe: x.rpe ? String(x.rpe).replace('.', ',') : '', lado: x.lado || '', tecnica: x.tecnica || '' })) }; }); });
+      filas: ss.map((x) => ({ peso: x.peso ? String(x.peso).replace('.', ',') : '', reps: x.reps ? String(x.reps) : '', seg: x.seg ? String(x.seg) : '', rpe: x.rpe ? String(x.rpe).replace('.', ',') : '', lado: x.lado || '', tecnica: x.tecnica || '', subs: x.subs || null })) }; }); });
   const [ocupado, setOcupado] = useState(false);
   const otras = historial.filter((x) => x.id !== s.id);
   const cambiar = (gi, fi, k, v) => setGrupos((g) => g.map((x, i) => (i !== gi ? x : { ...x, filas: x.filas.map((f, j) => (j === fi ? { ...f, [k]: v } : f)) })));
   // la derecha y la izquierda de una misma serie comparten número
   const series = []; grupos.forEach((g) => { let n = 0; let ult = null; g.filas.forEach((f) => { const p = nSeg(f.peso), r = Math.round(nSeg(f.reps)), sg = Math.round(nSeg(f.seg)); if (!(p || r || sg)) return;
     const mismaSerie = f.lado === 'I' && ult === 'D'; ult = f.lado || null;
-    const o = { ejercicio: g.ejercicio, grupo: g.grupo, serie: mismaSerie ? n : ++n, peso: p, reps: g.tiempo ? 0 : r, rpe: nSeg(f.rpe) || 8 }; if (g.tiempo) o.seg = sg; if (f.lado) o.lado = f.lado; if (f.tecnica) o.tecnica = f.tecnica; series.push(o); }); });
+    const o = { ejercicio: g.ejercicio, grupo: g.grupo, serie: mismaSerie ? n : ++n, peso: p, reps: g.tiempo ? 0 : r, rpe: nSeg(f.rpe) || 8 }; if (g.tiempo) o.seg = sg; if (f.lado) o.lado = f.lado; if (f.tecnica) o.tecnica = f.tecnica; if (f.tecnica && f.subs?.length) o.subs = f.subs; series.push(o); }); });
   async function guardar() {
     setOcupado(true); const notas = {}; grupos.forEach((g) => { if (g.nota.trim()) notas[g.ejercicio] = g.nota.trim(); });
     try { await onGuardar({ ...s, fecha, minutos: min === '' ? null : Math.max(1, parseInt(min, 10) || 0), series, notas }); onCerrar(); } catch {} setOcupado(false);

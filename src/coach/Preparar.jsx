@@ -1,33 +1,37 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Ico, ir, useAviso } from '../ui/kit.jsx';
-import { colorGrupo, esTiempo, fmt, fCorta, nDias, primerNombre, records, seriesPrevias, nSeg, cargaNumero, haceCuanto, mejorSerie } from '../lib/util.js';
+import { colorGrupo, esTiempo, fmt, fCorta, nDias, primerNombre, records, seriesPrevias, haceCuanto, mejorSerie } from '../lib/util.js';
 import { ordenarProgramas } from '../shared/Programas.jsx';
 import { mismoNombre } from '../lib/nombres.js';
+import { ajusteSugerido, textoPct } from '../lib/progreso.js';
 
 const r05 = (v) => Math.round(v * 2) / 2;
 // repeticiones posibles a un % del 1RM (Epley al revés)
 export const repsAl = (pct) => (pct >= 100 ? 1 : Math.max(1, Math.round(30 * (100 / pct - 1))));
 
+// reps para ese % dejando en reserva las que pide el RPE (RPE 8 = 2 en reserva)
+export const repsObjetivo = (pct, rpe) => Math.max(1, repsAl(pct) - Math.max(0, Math.round(10 - (Number(String(rpe).replace(',', '.')) || 8))));
+
 // Escala de intensidad sobre el 1RM estimado
-function Escala({ e1, onUsar }) {
+function Escala({ e1, rpe, onUsar }) {
   const [pct, setPct] = useState(75);
   const kg = r05((e1 * pct) / 100);
   return (
     <div className="escala">
       <div className="escala-top"><b className="num">{pct}%</b><span>= <b className="num">{fmt(kg, 1)} kg</b> · ≈ {repsAl(pct)} {repsAl(pct) === 1 ? 'rep' : 'reps'} máx.</span>
-        <button className="btn chico oro" onClick={() => onUsar(kg)}>Usar</button></div>
+        <button className="btn chico oro" onClick={() => onUsar(kg, repsObjetivo(pct, rpe))}>Usar</button></div>
       <input type="range" min={1} max={100} value={pct} onChange={(e) => setPct(Number(e.target.value))} aria-label="Porcentaje del 1RM" />
       <div className="escala-t">{[95, 90, 85, 80, 75, 70, 65, 60, 55, 50].map((p) => <button key={p} className={p === pct ? 'on' : ''} onClick={() => setPct(p)}><b>{p}%</b><span className="num">{fmt(r05((e1 * p) / 100), 1)}</span><i>{repsAl(p)}r</i></button>)}</div>
     </div>
   );
 }
 
-function TarjetaPreparar({ e, historial, cambiar }) {
+function TarjetaPreparar({ e, historial, cambiar, nomA }) {
   const T = esTiempo(e); const prev = seriesPrevias(historial, e.ejercicio); const rec = records(historial, e.ejercicio); const mejor = T ? null : mejorSerie(historial, e.ejercicio);
   const [escala, setEscala] = useState(false);
   const f = (k, v) => cambiar({ ...e, [k]: v });
   const n = (k, v) => cambiar({ ...e, [k]: v === '' ? '' : Math.max(0, parseInt(v, 10) || 0) });
-  const cargaHoy = cargaNumero(e.pesoSugerido);
+  const aj = ajusteSugerido(e, historial);
   return (
     <article className="prep" style={{ borderLeft: `4px solid ${colorGrupo(e.grupo)}` }}>
       <h3>{e.ejercicio}<small>{e.grupo}</small></h3>
@@ -49,11 +53,18 @@ function TarjetaPreparar({ e, historial, cambiar }) {
         <label><span>Descanso s</span><input className="in num" inputMode="numeric" value={e.descanso} onChange={(x) => n('descanso', x.target.value)} /></label>
         <label><span>RPE</span><input className="in num" inputMode="decimal" value={e.rpe} onChange={(x) => f('rpe', x.target.value)} /></label>
       </div>
-      <label className="prep-carga"><span>Carga sugerida</span><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder={rec.maxPeso ? `Ej: ${fmt(rec.maxPeso, 1)} kg` : '22,5 kg · banda verde'} />
-        {rec.maxE1 > 0 && cargaHoy > 0 && <em>{Math.round((cargaHoy / rec.maxE1) * 100)}% de su 1RM</em>}</label>
+      <div className="prep-sug">
+        <label className="prep-carga"><span>Carga sugerida</span><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder={rec.maxPeso ? `Ej: ${fmt(rec.maxPeso, 1)} kg` : '22,5 kg · banda verde'} /></label>
+        {!T && <label className="prep-carga"><span>Reps sugeridas</span><input className="in num" inputMode="numeric" value={e.repsSugeridas || ''} onChange={(x) => f('repsSugeridas', x.target.value)} placeholder={`${e.repMin}–${e.repMax}`} /></label>}
+      </div>
+      {aj.carga > 0 && (aj.pct1RM != null || aj.cambioPct != null) && <p className="prep-pct">
+        {aj.pct1RM != null && <span><b>{Math.round(aj.pct1RM)} %</b> de su 1RM</span>}
+        {aj.cambioPct != null && <span className={aj.cambioPct > 0.5 ? 'sube' : aj.cambioPct < -0.5 ? 'baja' : ''}><b>{Math.abs(aj.cambioPct) < 0.5 ? 'igual' : textoPct(aj.cambioPct, 1)}</b> vs. su última ({fmt(aj.top.peso, 1)} kg × {aj.top.reps})</span>}
+        {aj.exigencia != null && <span><b>{Math.round(aj.exigencia)} %</b> de su mejor marca con esas reps</span>}
+        <small>{nomA} lo ve así al entrenar.</small></p>}
       {!T && rec.maxE1 > 0 && <>
         <button className="btn chico fant" onClick={() => setEscala(!escala)}><Ico n={escala ? 'arriba' : 'abajo'} s={16} />Escala de intensidad (1–100 % del 1RM)</button>
-        {escala && <Escala e1={rec.maxE1} onUsar={(kg) => f('pesoSugerido', `${String(kg).replace('.', ',')} kg`)} />}
+        {escala && <Escala e1={rec.maxE1} rpe={e.rpe} onUsar={(kg, reps) => cambiar({ ...e, pesoSugerido: `${String(kg).replace('.', ',')} kg`, repsSugeridas: String(reps) })} />}
       </>}
     </article>
   );
@@ -97,7 +108,7 @@ export default function Preparar({ a, programas, sesiones, acc, store }) {
         {ps.length > 1 && <div className="chips scroll-x" style={{ marginBottom: 10 }}>{ps.map((x) => <button key={x.id} className={`chip ${x.id === pid ? 'on' : ''}`} onClick={() => { guardarYa(); setPid(x.id); setDid(x.dias[0]?.id); }}>{x.nombre}</button>)}</div>}
         <nav className="tabs-dias" aria-label="Días">{p.dias.map((d) => { const u = sesiones.filter((s) => s.programaId === p.id && mismoNombre(s.dia, d.nombre)).map((s) => s.fecha).sort().pop();
           return <button key={d.id} className={`tab-dia ${d.id === dia?.id ? 'on' : ''}`} onClick={() => setDid(d.id)}>{d.nombre}{u ? <span style={{ opacity: .55 }}> · {haceCuanto(u)}</span> : null}{d.id === sug.d && p.id === sug.p ? <span className="toca">toca</span> : null}</button>; })}</nav>
-        {dia && (dia.ejercicios.length ? dia.ejercicios.map((e) => <TarjetaPreparar key={e.id} e={e} historial={sesiones} cambiar={cambiarEj} />) : <div className="vacio">Este día no tiene ejercicios.</div>)}
+        {dia && (dia.ejercicios.length ? dia.ejercicios.map((e) => <TarjetaPreparar key={e.id} e={e} historial={sesiones} cambiar={cambiarEj} nomA={nom} />) : <div className="vacio">Este día no tiene ejercicios.</div>)}
       </>}
       <div className="flotante"><button className="btn oro xl full" disabled={ocupado} onClick={darCodigo}><Ico n={a.sinCodigo ? 'check' : 'llave'} s={20} />{ocupado ? 'Guardando…' : a.sinCodigo ? 'Guardar sesión' : 'Guardar y dar código'}</button></div>
     </div>
