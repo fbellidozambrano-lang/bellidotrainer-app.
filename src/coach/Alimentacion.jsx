@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Campo, Confirmar, Hoja, Ico, Interruptor, ir, useAviso } from '../ui/kit.jsx';
 import { POR_CODIGO, MICROS_META } from '../lib/nutricion/catalogo.js';
+import { DIAS_SEMANA, PRESETS_DIA, diasRepetidos } from '../lib/nutricion/objetivos.js';
 import { receta as calcReceta } from '../lib/nutricion/calculo.js';
 import { leerPlan, objetivosDePlan } from '../lib/nutricion/plan.js';
 import { vincularPlan, idsCandidatos, totalOpcion } from '../lib/nutricion/vincular.js';
@@ -28,7 +29,15 @@ function Objetivos({ ini, plan, onGuardar }) {
     ...o, kcal: num(o.kcal), proteina: num(o.proteina), carbohidratos: num(o.carbohidratos), grasa: num(o.grasa), agua_ml: num(o.agua_ml), sal_g: num(o.sal_g),
     comidas: comidas.map((n, i) => { const c = Array.isArray(o.comidas) ? o.comidas[i] || {} : {}; return conMacros ? { nombre: c.nombre || n, kcal: num(c.kcal), proteina: num(c.proteina), carbohidratos: num(c.carbohidratos), grasa: num(c.grasa) } : { nombre: c.nombre || n }; }),
     micros: micros.filter((m) => num(m.meta) > 0).map((m) => ({ ...m, meta: num(m.meta) })),
+    dias_tipo: (o.dias_tipo || []).filter((t) => String(t.nombre || '').trim()).map((t) => ({ id: t.id, nombre: String(t.nombre).trim().slice(0, 40), dias: t.dias || [],
+      kcal: num(t.kcal), proteina: num(t.proteina), carbohidratos: num(t.carbohidratos), grasa: num(t.grasa), agua_ml: num(t.agua_ml) })),
   });
+  const tipos = o.dias_tipo || [];
+  const setT = (i, k, v) => setO((x) => ({ ...x, dias_tipo: (x.dias_tipo || []).map((t, j) => (j === i ? { ...t, [k]: v } : t)) }));
+  const nuevoTipo = (nombre) => setO((x) => { const ts = x.dias_tipo || []; const usados = new Set(ts.flatMap((t) => t.dias || []));
+    const dias = /entreno/i.test(nombre) ? [1, 2, 3, 4, 5].filter((d) => !usados.has(d)) : /descanso|fin de semana/i.test(nombre) ? [6, 0].filter((d) => !usados.has(d)) : [];
+    return { ...x, dias_tipo: [...ts, { id: uuid(), nombre, dias, kcal: x.kcal ?? '', proteina: x.proteina ?? '', carbohidratos: x.carbohidratos ?? '', grasa: x.grasa ?? '', agua_ml: '' }] }; });
+  const repetidos = diasRepetidos(tipos);
   return (
     <div>
       <div className="dos"><Campo l="Calorías (kcal)"><input className="in num" inputMode="numeric" value={txt(o.kcal)} onChange={(e) => f('kcal', e.target.value)} /></Campo>
@@ -54,6 +63,20 @@ function Objetivos({ ini, plan, onGuardar }) {
           <input className="in num" inputMode="decimal" value={txt(m.meta)} onChange={(e) => setO((x) => ({ ...x, micros: micros.map((y, j) => (j === i ? { ...y, meta: e.target.value } : y)) }))} aria-label={`Meta de ${n?.nombre}`} /><small>{n?.unidad}</small>
           <button className="ico-b" onClick={() => setO((x) => ({ ...x, micros: micros.filter((_, j) => j !== i) }))} aria-label={`Quitar ${n?.nombre}`}><Ico n="cerrar" s={16} /></button></div>); })}
       <div className="chips" style={{ margin: '6px 0 14px' }}>{MICROS_META.filter((c) => !micros.some((m) => m.codigo === c)).map((c) => <button key={c} className="chip" onClick={() => setO((x) => ({ ...x, micros: [...micros, { codigo: c, meta: '', tipo: ['sodio', 'azucares_totales', 'grasa_saturada', 'colesterol'].includes(c) ? 'max' : 'min' }] }))}>+ {POR_CODIGO.get(c)?.nombre}</button>)}</div>
+      <p className="etq" style={{ margin: '6px 0 4px' }}>Objetivos distintos por día (opcional)</p>
+      <p className="ayuda" style={{ marginTop: 0 }}>Por ejemplo más carbohidrato los días de entreno y menos los de descanso. Los días sin tipo usan los objetivos de arriba; el asesorado puede cambiar el tipo de un día si entrenó otro día.</p>
+      {tipos.map((t, i) => { const kc = (num(t.proteina) || 0) * 4 + (num(t.carbohidratos) || 0) * 4 + (num(t.grasa) || 0) * 9; return (
+        <div key={t.id} className="tipo-d">
+          <div className="tipo-d-cab"><input className="in" value={t.nombre} onChange={(e) => setT(i, 'nombre', e.target.value)} aria-label={`Nombre del tipo de día ${i + 1}`} />
+            <button className="ico-b" onClick={() => setO((x) => ({ ...x, dias_tipo: x.dias_tipo.filter((_, j) => j !== i) }))} aria-label={`Quitar ${t.nombre}`}><Ico n="basura" s={16} /></button></div>
+          <div className="chips dias-s">{DIAS_SEMANA.map(([d, l, n]) => { const on = (t.dias || []).includes(d); return <button key={d} title={n} className={`chip ${on ? 'on' : ''} ${on && repetidos.includes(d) ? 'rep' : ''}`} onClick={() => setT(i, 'dias', on ? t.dias.filter((x) => x !== d) : [...(t.dias || []), d])} aria-pressed={on} aria-label={`${n} en ${t.nombre}`}>{l}</button>; })}</div>
+          <div className="tipo-d-n">{[['kcal', 'kcal'], ['proteina', 'P (g)'], ['carbohidratos', 'C (g)'], ['grasa', 'G (g)'], ['agua_ml', 'Agua ml']].map(([k, l]) => <label key={k}><span>{l}</span>
+            <input className="in num" inputMode="decimal" value={txt(t[k])} placeholder={k === 'agua_ml' ? txt(o.agua_ml) || '—' : txt(o[k]) || '—'} onChange={(e) => setT(i, k, e.target.value)} aria-label={`${l} de ${t.nombre}`} /></label>)}</div>
+          {kc > 0 && num(t.kcal) && Math.abs(kc - num(t.kcal)) > num(t.kcal) * 0.05 && <p className="ayuda alerta" style={{ margin: '4px 0 0' }}>Los macros suman {n0(kc)} kcal: {n0(kc - num(t.kcal))} de diferencia.</p>}
+        </div>); })}
+      {repetidos.length > 0 && <p className="aviso rojo"><span>{DIAS_SEMANA.filter(([d]) => repetidos.includes(d)).map(([, , n]) => n).join(', ')} {repetidos.length === 1 ? 'está' : 'están'} en dos tipos de día: se usa el primero.</span></p>}
+      <div className="chips" style={{ margin: '4px 0 14px' }}>{PRESETS_DIA.filter((n) => !tipos.some((t) => t.nombre === n)).map((n) => <button key={n} className="chip" onClick={() => nuevoTipo(n)}>+ {n}</button>)}
+        <button className="chip" onClick={() => nuevoTipo(`Tipo ${tipos.length + 1}`)}>+ Otro</button></div>
       {plan?.semana1 && <p className="ayuda">Semana 1 del plan: {n0(plan.semana1.kcal)} kcal · C {n0(plan.semana1.carbohidratos)} g. El asesorado ve esos números los primeros 7 días desde el {fCorta(plan.emitido)}.</p>}
       <button className="btn oro full" style={{ marginTop: 8 }} onClick={() => onGuardar(limpiar())}>Guardar objetivos</button>
     </div>
@@ -68,14 +91,18 @@ function VistaPlan({ plan, fichas, onCambiarVinculo }) {
     return <div key={`${tipo}${i}`} className="pv-o">
       <div className="pv-t"><strong>{o.nombre}</strong><span>{o.cantidad || `${o.gramos} g`}{o.no_semana1 ? ' · no en sem. 1' : ''}</span></div>
       {(o.items || []).map((it, k) => <button key={k} className={`pv-v ${it.vinculo === 'sin_ficha' ? 'sin' : lejos ? 'lejos' : ''}`} onClick={() => onCambiarVinculo(it)}>
-        <Ico n={it.vinculo === 'sin_ficha' ? 'ojo' : 'enlace'} s={14} />{it.alimento_nombre || 'Sin ficha: toca para elegir'}{it.vinculo === 'coach' ? ' · elegido por ti' : ''}{it.diferencia > 20 ? ` · ${it.diferencia} % distinto al plan` : ''}</button>)}
+        <Ico n={it.vinculo === 'sin_ficha' ? 'ojo' : 'enlace'} s={14} />{it.alimento_nombre || 'Sin ficha: toca para elegir'}{it.gramos_de ? ` · ${String(it.gramos).replace('.', ',')} g (${it.gramos_de})` : ''}{it.vinculo === 'coach' ? ' · elegido por ti' : ''}{it.diferencia > 20 ? ` · ${it.diferencia} % distinto al plan` : ''}</button>)}
       {t.completo && <small className="pv-c">Ficha: {n0(t.kcal)} kcal · P {n1(t.proteina)} · C {n1(t.carbohidratos)} · G {n1(t.grasa)}{o.proteina != null ? ` — plan: P ${txt(o.proteina)}${o.grasa != null ? ` · G ${txt(o.grasa)}` : ''}${o.carbohidratos != null ? ` · C ${txt(o.carbohidratos)}` : ''}` : ''}</small>}
     </div>; };
   return (
     <div>
       {plan.comidas.map((c, i) => <details key={i} className="pv" open={i === 0}><summary>{c.nombre}<small>{c.kcal ? `${n0(c.kcal)} kcal · P ${c.proteina} · C ${c.carbohidratos_meta} · G ${c.grasa}` : ''}</small></summary>
         {c.proteinas.length > 0 && <p className="pl-t">Proteínas</p>}{c.proteinas.map((o, k) => fila(o, k, 'p'))}
-        {c.frutas.length > 0 && <p className="pl-t">Frutas (½ porción)</p>}{c.frutas.map((o, k) => fila(o, k, 'f'))}
+        {(c.opciones_fijas || []).length > 0 && <p className="pl-t">{c.opciones_fijas.some((o) => o.fija) ? 'Receta fija' : 'Opciones ya medidas'}</p>}
+        {(c.opciones_fijas || []).map((o, k) => <div key={`x${k}`} className="pv-o"><div className="pv-t"><strong>{o.nombre}</strong><span>{o.kcal ? `${n0(o.kcal)} kcal · P ${o.proteina} · C ${o.carbohidratos} · G ${o.grasa}` : ''}</span></div>
+          <small className="pv-c">{(o.items || []).map((x) => x.texto || [x.nombre, x.cantidad].filter(Boolean).join(' ')).join(' · ')}</small>
+          <small className="pv-c">El asesorado la anota con los valores que declara el plan.</small></div>)}
+        {c.frutas.length > 0 && <p className="pl-t">Frutas ({c.frutas[0].media ? '½ porción' : '1 porción'})</p>}{c.frutas.map((o, k) => fila(o, k, 'f'))}
         {c.carbohidratos.length > 0 && <p className="pl-t">Carbohidratos</p>}{c.carbohidratos.map((o, k) => fila(o, k, 'c'))}
       </details>)}
       {plan.grasas?.length > 0 && <details className="pv"><summary>Grasas (1 porción)<small>{plan.grasas.length} opciones</small></summary>{plan.grasas.map((o, k) => fila(o, k, 'g'))}</details>}
@@ -111,7 +138,7 @@ function PlanPDF({ a, nutri, actual, objetivos, onGuardar }) {
   return (
     <div>
       <input ref={ref} type="file" accept="application/pdf" hidden onChange={leer} />
-      {!plan && <div className="vacio"><b>Sube el PDF del plan de selección flexible</b>La app lee las calorías, los macros por comida, las opciones de proteína y carbohidrato con sus cantidades, las frutas y las equivalencias de grasa. Cada alimento se une a su ficha real de USDA para calcular con datos verificados.
+      {!plan && <div className="vacio"><b>Sube el PDF del plan de alimentación</b>La app lee las calorías, los macros por comida, las opciones de proteína y carbohidrato con sus cantidades, las frutas, las opciones y recetas fijas y las equivalencias de grasa. Sirve aunque el diseño del PDF cambie, mientras tenga ese contenido. Cada alimento se une a su ficha real de USDA para calcular con datos verificados.
         <button className="btn oro" style={{ marginTop: 12 }} disabled={leyendo} onClick={() => ref.current.click()}><Ico n="subir" s={18} />{leyendo ? 'Leyendo…' : 'Subir plan (PDF)'}</button></div>}
       {err && <p className="aviso rojo"><span>{err}</span></p>}
       {plan && <>
@@ -121,6 +148,7 @@ function PlanPDF({ a, nutri, actual, objetivos, onGuardar }) {
           <p>{n0(plan.objetivos?.kcal)} kcal · P {plan.objetivos?.proteina} · C {plan.objetivos?.carbohidratos} · G {plan.objetivos?.grasa} · {plan.comidas.length} comidas{plan.agua ? ` · agua ${txt(plan.agua.min_ml / 1000)}–${txt(plan.agua.max_ml / 1000)}\u00a0L` : ''}</p>
           {plan.semana1 && <p className="ayuda" style={{ margin: '4px 0 0' }}>Semana 1: {n0(plan.semana1.kcal)} kcal · C {plan.semana1.carbohidratos} g</p>}
           {plan.nombre && primerNombre(plan.nombre).toLowerCase() !== primerNombre(a.nombre).toLowerCase() && <p className="aviso rojo"><span>Este plan dice <b>{plan.nombre}</b>, pero estás en la ficha de <b>{a.nombre}</b>. Revisa que sea el correcto.</span></p>}
+          {(plan.avisos || []).length > 0 && <div className="aviso"><span><b>Revisa:</b> {plan.avisos.join(' · ')}</span></div>}
           {sinFicha.length > 0 && <p className="aviso rojo"><span><b>Sin ficha nutricional:</b> {sinFicha.join(', ')}. Toca cada uno para elegir su alimento.</span></p>}
           {nuevo && <p className="ayuda" style={{ margin: '6px 0 0' }}>{nuevo.resumen.vinculados} alimentos unidos a su ficha. Los vínculos en ámbar difieren más de 20 % de los macros que dice el plan: tócalos si quieres otro.</p>}
         </div>

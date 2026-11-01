@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/coach/Ajustes.jsx": {
-    "mtime": 1793395328.7654932,
-    "seen": 1793395378.4668827,
-    "ast_hash": "94d20151fc4afccd71f370b20d46fc93",
+    "mtime": 1793496549.9331217,
+    "seen": 1793496566.9029994,
+    "ast_hash": "3da7258d9548db1aa726b85b8a1eca0e",
     "semantic_hash": ""
   },
   "src/coach/Biblioteca.jsx": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "src/data/store.js": {
-    "mtime": 1793293705.153298,
-    "seen": 1793294826.6274772,
-    "ast_hash": "4722e45db36ea8b84bd8c6fa0e9aa9c6",
+    "mtime": 1793495848.4128351,
+    "seen": 1793496566.9035063,
+    "ast_hash": "e9a33cf70af2960b4a999d83a60e1c79",
     "semantic_hash": ""
   },
   "src/lib/analogias.js": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793395328.7594705,
-    "seen": 1793395378.46945,
-    "ast_hash": "3d3411741819c6ebca40f1574d898eda",
+    "mtime": 1793496549.9282537,
+    "seen": 1793496566.904764,
+    "ast_hash": "60f7e3dce1aa409333775e0ff77c40d6",
     "semantic_hash": ""
   },
   "index.html": {
@@ -630,9 +630,9 @@
     "semantic_hash": ""
   },
   "src/coach/Alimentacion.jsx": {
-    "mtime": 1793209758.3603504,
-    "seen": 1793210528.059115,
-    "ast_hash": "084643e7b52b81ad8b57d640d63f81f8",
+    "mtime": 1793495837.8333545,
+    "seen": 1793496566.9030018,
+    "ast_hash": "224aad6764062e984b953865be54d888",
     "semantic_hash": ""
   },
   "src/coach/BaseAlimentos.jsx": {
@@ -702,9 +702,9 @@
     "semantic_hash": ""
   },
   "src/lib/nutricion/plan.js": {
-    "mtime": 1793205804.9952068,
-    "seen": 1793210528.059713,
-    "ast_hash": "4e3497838d95fe87350db55e1eaf6c7b",
+    "mtime": 1793496023.626186,
+    "seen": 1793496566.9037807,
+    "ast_hash": "49bdb1888690de0637419542cbc193b2",
     "semantic_hash": ""
   },
   "src/lib/nutricion/texto.js": {
@@ -726,15 +726,15 @@
     "semantic_hash": ""
   },
   "src/lib/nutricion/vincular.js": {
-    "mtime": 1793207304.5640857,
-    "seen": 1793210528.0597188,
-    "ast_hash": "380ea384e125d7d59e298f29d324bab7",
+    "mtime": 1793408377.7562103,
+    "seen": 1793496566.9038517,
+    "ast_hash": "fe376db707398f0e808845e6bd67827b",
     "semantic_hash": ""
   },
   "src/lib/nutricion/vinculos.js": {
-    "mtime": 1793207304.5635624,
-    "seen": 1793210528.0597205,
-    "ast_hash": "19d248c113c698bab6436894a9971c3a",
+    "mtime": 1793408169.3329961,
+    "seen": 1793496566.9038537,
+    "ast_hash": "8be8cac928c42790c9fd68d624a67483",
     "semantic_hash": ""
   },
   "src/shared/nutri/Buscador.jsx": {
@@ -744,9 +744,9 @@
     "semantic_hash": ""
   },
   "src/shared/nutri/Diario.jsx": {
-    "mtime": 1793293758.7457798,
-    "seen": 1793294826.6286817,
-    "ast_hash": "94303d896801f0375d8d2f7f9426264b",
+    "mtime": 1793495827.8649144,
+    "seen": 1793496566.904212,
+    "ast_hash": "7cacd3099c52eef0c2cdba1ba7e292b4",
     "semantic_hash": ""
   },
   "src/shared/nutri/FichaAlimento.jsx": {
@@ -762,9 +762,9 @@
     "semantic_hash": ""
   },
   "test/e2e_alimentacion.py": {
-    "mtime": 1793294509.6187809,
-    "seen": 1793294826.6290035,
-    "ast_hash": "1b40625299338ea76f3f767525b67890",
+    "mtime": 1793496208.2273,
+    "seen": 1793496566.9043608,
+    "ast_hash": "3b19f7f0263aa47ed7b18011159319c6",
     "semantic_hash": ""
   },
   "test/fixtures/off_0078000000047.json": {
@@ -798,21 +798,21 @@
     "semantic_hash": ""
   },
   "test/nutricion.test.mjs": {
-    "mtime": 1793294444.7271328,
-    "seen": 1793294826.6294012,
-    "ast_hash": "59bd2612833fb155448df18974e15f3c",
+    "mtime": 1793495999.9081292,
+    "seen": 1793496566.9046128,
+    "ast_hash": "84d96d1a22da8aa68bc3ea2c595fcf2d",
     "semantic_hash": ""
   },
   "test/plan_pdf.py": {
-    "mtime": 1793208426.598857,
-    "seen": 1793210528.060283,
-    "ast_hash": "89082a04e2b402c701f2df2076379979",
+    "mtime": 1793496071.2607272,
+    "seen": 1793496566.9046338,
+    "ast_hash": "72c35f834d4d970b85fde8ed4996af1f",
     "semantic_hash": ""
   },
   "docs/NUTRICION.md": {
-    "mtime": 1793210484.5348098,
-    "seen": 1793210528.060446,
-    "ast_hash": "2fd6ec70cd2801b935c416d51bbf2b04",
+    "mtime": 1793496549.9274673,
+    "seen": 1793496566.9047654,
+    "ast_hash": "3e9551d52c39972be1bb1130a2c004e0",
     "semantic_hash": ""
   },
   "src/lib/progreso.js": {
@@ -822,15 +822,33 @@
     "semantic_hash": ""
   },
   "test/e2e_cargas.py": {
-    "mtime": 1793393833.8912528,
-    "seen": 1793395378.4687936,
-    "ast_hash": "f815aca7cf2f2d19720b2e5fec265327",
+    "mtime": 1793395536.9440408,
+    "seen": 1793496566.9043622,
+    "ast_hash": "819822635a7a8d180dfd8b6949412b16",
     "semantic_hash": ""
   },
   "test/progreso.test.mjs": {
     "mtime": 1793392819.7264857,
     "seen": 1793395378.4692478,
     "ast_hash": "ec39775cd943a183d751ab872e56e51a",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/objetivos.js": {
+    "mtime": 1793408450.625348,
+    "seen": 1793496566.9037538,
+    "ast_hash": "13943f83128fb7c538b2f0292c46aaaa",
+    "semantic_hash": ""
+  },
+  "test/fixtures/plan_formato2.json": {
+    "mtime": 1793495901.7119617,
+    "seen": 1793496566.9044855,
+    "ast_hash": "5ec2ed4d9ec071b42cef16c3c8970d15",
+    "semantic_hash": ""
+  },
+  "test/fixtures/plan_variantes.json": {
+    "mtime": 1793495901.7145953,
+    "seen": 1793496566.9045088,
+    "ast_hash": "680e6117557f1e69bd2cd18a832ced19",
     "semantic_hash": ""
   }
 }

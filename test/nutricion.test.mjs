@@ -313,4 +313,65 @@ await t('otras preparaciones: el mismo corte, con las mismas reglas en el teléf
     assert.ok(Math.abs(js - sql) < 1e-9, `${b}: ${js} vs ${sql}`); assert.equal(js >= MISMO_ALIMENTO, mismo, b);
   }
 });
+await t('lector de planes: otro diseño con el mismo contenido (formato 2, filas partidas, opciones y receta fija)', async () => {
+  const { leerPlan, itemsDeCantidad } = await import('../src/lib/nutricion/plan.js');
+  const leer = (f) => leerPlan(JSON.parse(fs.readFileSync(new URL(`./fixtures/${f}.json`, import.meta.url))).lineas);
+  const p = leer('plan_formato2');
+  assert.equal(p.nombre, 'Asesorado Ejemplo'); assert.equal(p.emitido, '2026-10-18'); assert.deepEqual(p.avisos, []);
+  assert.deepEqual(p.objetivos, { kcal: 2350, proteina: 180, carbohidratos: 240, grasa: 75, comidas: 4 });
+  assert.deepEqual(p.agua, { min_ml: 3000, max_ml: 3500 });
+  assert.deepEqual(p.comidas.map((c) => [c.nombre, c.kcal, c.proteina, c.carbohidratos_meta, c.grasa, c.porciones_grasa]),
+    [['Desayuno', 500, 40, 45, 18, 3], ['Almuerzo', 660, 50, 65, 22, 3], ['Merienda', 510, 40, 60, 12, 1], ['Cena', 685, 50, 70, 23, 3]]);
+  const alm = p.comidas[1];
+  const grasa = alm.proteinas.find((o) => /res con grasa/.test(o.nombre)); // nombre partido en dos líneas alrededor de la fila
+  assert.equal(grasa.nombre, 'Carne de res con grasa (punta trasera, molida regular)'); assert.equal(grasa.items[0].gramos, 215); assert.equal(grasa.resta_otra, 2); assert.equal(grasa.color, 'roja');
+  const pan = alm.carbohidratos.find((o) => o.nombre === 'Pan blanco de sándwich'); assert.equal(pan.items[0].gramos, 135); assert.match(pan.nota, /Digestión rápida: ideal post-entreno/);
+  const yog = p.comidas[2].proteinas.find((o) => /Yogur/.test(o.nombre)); assert.deepEqual(yog.items, [{ nombre: 'Yogur griego natural', gramos: 250 }, { nombre: 'whey', gramos: 10 }]);
+  assert.equal(p.comidas[2].frutas.length, 12); assert.ok(p.comidas[2].frutas.every((f) => f.media));
+  assert.equal(p.grasas.length, 9); assert.ok(p.grasas.find((g) => /Yema/.test(g.nombre)).items[0].gramos === 17);
+  assert.match(p.vegetales_libres, /^Lechuga, Repollo, Tomate/);
+  const v = leer('plan_variantes');
+  const are = v.comidas[0].carbohidratos[0]; // "55 g de harina (1 arepa" / "Arepa de harina integral  40 g  4 g" / "mediana)"
+  assert.equal(are.nombre, 'Arepa de harina integral'); assert.equal(are.cantidad, '55 g de harina (1 arepa mediana)'); assert.equal(are.items[0].gramos, 55);
+  assert.equal(v.comidas[0].proteinas.find((o) => /Huevos enteros/.test(o.nombre)).items[0].gramos, 200);
+  const op = v.comidas[1].opciones_fijas; assert.deepEqual(op.map((o) => [o.nombre, o.kcal, o.proteina]), [['Batido de whey', 308, 28], ['Helado proteico ninja creami', 337, 30], ['Cheesecake fit en vaso', 334, 31]]);
+  assert.deepEqual(op[0].items[0], { nombre: 'whey protein', gramos: 30, texto: '30 g de whey protein (1 medida)' });
+  assert.ok(v.comidas[1].frutas.length >= 8 && v.comidas[1].frutas.every((f) => !f.media), 'aquí 1 fruta = 1 porción');
+  const rf = v.comidas[2].opciones_fijas[0]; assert.equal(rf.fija, true); assert.equal(rf.kcal, 370);
+  assert.deepEqual(rf.items.slice(0, 3).map((x) => [x.nombre, x.gramos]), [['Avena en hojuelas', 60], ['Huevos enteros', 100], ['Clara de huevo', 33]]);
+  // cantidades escritas de muchas formas
+  assert.deepEqual(itemsDeCantidad('Pan integral', '3 rebanadas y media'), [{ nombre: 'Pan integral', unidades: 3.5, unidad: 'rebanada' }]);
+  assert.equal(itemsDeCantidad('Whey', '1 medida y media (45 g)')[0].gramos, 45);
+  assert.equal(itemsDeCantidad('Cambur', '2 unidades medianas (200 g)')[0].gramos, 200);
+  assert.deepEqual(itemsDeCantidad('Arepa de plátano', '130 g de plátano verde para la masa'), [{ nombre: 'plátano verde', gramos: 130 }]);
+  assert.throws(() => leerPlan(['Informe antropométrico', 'Peso 70 kg']), /no parece un plan/);
+});
+
+await t('rebanadas y unidades del plan pasan a gramos con la porción de la ficha (USDA)', async () => {
+  const { gramosPorUnidad } = await import('../src/lib/nutricion/vincular.js');
+  const f = { porciones: [{ d: '1 taza', g: 240 }, { d: '1 rebanada', g: 32 }] };
+  assert.deepEqual(gramosPorUnidad(f, 'rebanada'), { gramos: 32, porcion: '1 rebanada' });
+  assert.equal(gramosPorUnidad({ porciones: [{ d: '2 rebanadas', g: 50 }] }, 'rebanada').gramos, 25);
+  assert.equal(gramosPorUnidad({ porciones: [] }, 'rebanada'), null);
+});
+
+await t('objetivos distintos por día: tipo por día de la semana, elegido a mano y comidas escaladas', async () => {
+  const { objetivosDelDia, tipoDelDia, diasRepetidos } = await import('../src/lib/nutricion/objetivos.js');
+  const obj = { kcal: 2000, proteina: 150, carbohidratos: 200, grasa: 67, agua_ml: 2500, comidas: [{ nombre: 'Desayuno', kcal: 500, proteina: 40, carbohidratos: 50, grasa: 17 }],
+    dias_tipo: [{ id: 'e', nombre: 'Día de entreno', dias: [1, 3, 5], kcal: 2200, proteina: 150, carbohidratos: 250, grasa: 67, agua_ml: 3000 }, { id: 'd', nombre: 'Día de descanso', dias: [0, 6], kcal: 1800, proteina: 150, carbohidratos: 150, grasa: 67 }] };
+  const lunes = '2026-11-02', martes = '2026-11-03', domingo = '2026-11-01';
+  const l = objetivosDelDia(obj, lunes); assert.equal(l.tipo.nombre, 'Día de entreno'); assert.equal(l.kcal, 2200); assert.equal(l.carbohidratos, 250); assert.equal(l.agua_ml, 3000);
+  assert.equal(l.comidas[0].carbohidratos, 63, 'cada comida se ajusta en la misma proporción (50 × 250/200)'); assert.equal(l.comidas[0].proteina, 40);
+  const m = objetivosDelDia(obj, martes); assert.equal(m.tipo, null); assert.equal(m.kcal, 2000); assert.equal(m.agua_ml, 2500);
+  assert.equal(objetivosDelDia(obj, domingo).kcal, 1800);
+  // el asesorado entrenó el martes: lo elige y ese día usa los objetivos de entreno
+  const reg = [{ fecha: martes, tipo: 'dia', detalle: { perfil: 'e' } }];
+  const m2 = objetivosDelDia(obj, martes, { registros: reg }); assert.equal(m2.kcal, 2200); assert.equal(m2.elegido, true);
+  assert.equal(objetivosDelDia(obj, lunes, { registros: [{ fecha: lunes, tipo: 'dia', detalle: { perfil: 'base' } }] }).kcal, 2000, 'puede volver a los de siempre');
+  assert.equal(tipoDelDia({}, lunes).tipo, null); assert.deepEqual(objetivosDelDia({ kcal: 1900 }, lunes).kcal, 1900);
+  assert.deepEqual(diasRepetidos([{ id: 'a', dias: [1, 2] }, { id: 'b', dias: [2, 3] }]), [2]);
+  // semana 1 del plan sigue mandando en los días sin tipo
+  const s1 = objetivosDelDia({ ...obj, dias_tipo: [], semana1: { kcal: 1700, carbohidratos: 150 } }, martes, { plan: { emitido: martes, comidas: [{ semana1: { kcal: 420, carbohidratos: 35 } }] } });
+  assert.equal(s1.kcal, 1700); assert.equal(s1.comidas[0].kcal, 420);
+});
 console.log(`\n${ok} pruebas OK`);

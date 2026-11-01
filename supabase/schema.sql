@@ -548,7 +548,7 @@ create table if not exists public.nutri_registros (
   asesorado_id uuid not null references public.asesorados(id) on delete cascade,
   fecha        date not null,
   comida       smallint not null default 0 check (comida between 0 and 9),
-  tipo         text not null check (tipo in ('alimento','receta','plan','agua','sal')),
+  tipo         text not null,
   nombre       text not null,
   alimento_id  uuid, receta_id uuid,
   gramos       double precision check (gramos is null or (gramos >= 0 and gramos <= 5000)),
@@ -561,6 +561,9 @@ create table if not exists public.nutri_registros (
   creado       timestamptz not null default now()
 );
 create index if not exists nutri_registros_dia on public.nutri_registros (asesorado_id, fecha);
+-- tipos de registro ('dia' = el tipo de día que eligió el asesorado: entreno, descanso…); se rehace para bases ya creadas
+alter table public.nutri_registros drop constraint if exists nutri_registros_tipo_check;
+alter table public.nutri_registros add constraint nutri_registros_tipo_check check (tipo in ('alimento','receta','plan','agua','sal','dia'));
 -- comidas y días que el asesorado guarda para repetirlos otro día (copia de sus registros, sin fecha)
 create table if not exists public.nutri_guardados (
   id           uuid primary key,

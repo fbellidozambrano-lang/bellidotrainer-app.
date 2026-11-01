@@ -5,8 +5,8 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-def armar(salida):
-    lineas = json.load(open(os.path.join(os.path.dirname(__file__), 'fixtures', 'plan_seleccion_flexible.json')))['lineas']
+def armar(salida, fixture='plan_seleccion_flexible'):
+    lineas = json.load(open(os.path.join(os.path.dirname(__file__), 'fixtures', f'{fixture}.json')))['lineas']
     pdfmetrics.registerFont(TTFont('DV', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
     W, H, T = 1600, 900, 8
     c = canvas.Canvas(salida, pagesize=(W, H)); y = H - 30
@@ -20,4 +20,4 @@ def armar(salida):
     c.save()
 
 if __name__ == '__main__':
-    armar(sys.argv[1])
+    armar(sys.argv[1], *(sys.argv[2:3]))

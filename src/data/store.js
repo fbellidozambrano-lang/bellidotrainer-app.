@@ -245,7 +245,7 @@ export function crearStoreLocal() {
       const validarRegistro = (r) => {
         const f = String(r.fecha || ''); const hoyL = new Date(); const d = (x) => Math.round((Date.parse(x + 'T12:00:00') - Date.parse(hoyL.toISOString().slice(0, 10) + 'T12:00:00')) / 864e5);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || d(f) > 1 || d(f) < -60) throw new Error('fecha no valida');
-        if (!['alimento', 'receta', 'plan', 'agua', 'sal'].includes(r.tipo)) throw new Error('tipo no valido');
+        if (!['alimento', 'receta', 'plan', 'agua', 'sal', 'dia'].includes(r.tipo)) throw new Error('tipo no valido');
         if (Object.values(r.nutrientes || {}).some((v) => typeof v !== 'number' || v < 0)) throw new Error('nutrientes no validos');
       };
       return {

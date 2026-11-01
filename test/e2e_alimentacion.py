@@ -199,5 +199,49 @@ with sync_playwright() as pw:
     c.locator('.tab-dia', has_text='Registro').click(); c.wait_for_timeout(500)
     assert c.locator('.reg').count() == 5, c.locator('.reg').count()
     shot(c, '15_coach_registro', True)
+
+    # ---------- objetivos distintos por día ----------
+    c.locator('.tab-dia', has_text='Objetivos').click(); c.wait_for_timeout(400)
+    c.locator('.chip', has_text='+ Día de entreno').click(); c.locator('.chip', has_text='+ Día de descanso').click(); c.wait_for_timeout(200)
+    assert c.locator('.tipo-d').count() == 2
+    c.get_by_label('kcal de Día de entreno').fill('2400'); c.get_by_label('C (g) de Día de entreno').fill('350')
+    c.get_by_label('kcal de Día de descanso').fill('1800'); c.get_by_label('C (g) de Día de descanso').fill('200')
+    c.locator('.tipo-d').first.scroll_into_view_if_needed(); shot(c, '20_tipos_de_dia')
+    c.get_by_role('button', name='Guardar objetivos').click(); c.wait_for_timeout(700)
+    o = next(x for x in local(c)['nutri_planes'] if x['asesorado_id'] == a['id'])['objetivos']
+    assert [(t['nombre'], t['dias'], t['kcal']) for t in o['dias_tipo']] == [('Día de entreno', [1, 2, 3, 4, 5], 2400), ('Día de descanso', [6, 0], 1800)], o['dias_tipo']
+    p.reload(); p.wait_for_timeout(1200)
+    if p.get_by_role('alertdialog').count(): p.get_by_role('button', name='Entendido').click()
+    if not p.locator('.tipo-dia').count(): p.locator('.losa', has_text='alimentación').click(); p.wait_for_timeout(1200)
+    esperado = 'Día de descanso' if hoy.weekday() >= 5 else 'Día de entreno'; otro = 'Día de entreno' if esperado == 'Día de descanso' else 'Día de descanso'
+    assert esperado in p.locator('.tipo-dia').inner_text(), p.locator('.tipo-dia').inner_text()
+    kc = lambda: p.locator('.anillo').get_attribute('aria-label')
+    assert ('2.400' if esperado == 'Día de entreno' else '1.800') in kc(), kc()
+    p.locator('.tipo-dia').click(); p.wait_for_timeout(300); shot(p, '21_elegir_tipo')
+    p.locator('.hoja .tipo', has_text=otro).click(); p.wait_for_timeout(800)
+    assert otro in p.locator('.tipo-dia').inner_text() and 'elegido' in p.locator('.tipo-dia').inner_text()
+    assert ('2.400' if otro == 'Día de entreno' else '1.800') in kc(), kc()
+    shot(p, '22_tipo_elegido')
+
+    # ---------- otro diseño de plan: formato 2 y opciones o receta fijas ----------
+    for fx, nombre_pdf in (('plan_formato2', 'formato2.pdf'), ('plan_variantes', 'variantes.pdf')):
+        ruta = os.path.join(OUT, nombre_pdf); armar(ruta, fx)
+        c.locator('.tab-dia', has_text='Plan').click(); c.wait_for_timeout(300)
+        if c.get_by_role('button', name='Descartar').count(): c.get_by_role('button', name='Descartar').click(); c.wait_for_timeout(300)
+        with c.expect_file_chooser() as fc: c.get_by_role('button', name='Reemplazar con otro PDF').click()
+        fc.value.set_files(ruta); c.locator('.pv-res', has_text='Leído de').wait_for(timeout=30000); c.wait_for_timeout(600)
+        res = c.locator('.pv-res').inner_text(); print(fx, '→', res.replace('\n', ' | ')[:240])
+        assert 'Sin ficha' not in res, res
+        if fx == 'plan_formato2': assert '2.350 kcal' in res and 'P 180' in res and '4 comidas' in res, res; shot(c, '23_formato2', True)
+    for k in range(1, c.locator('details.pv').count()): c.locator('details.pv').nth(k).evaluate('d => d.open = true')
+    c.wait_for_timeout(200); assert 'Batido de whey' in c.inner_text('body') and 'Receta fija' in c.inner_text('body')
+    c.locator('details.pv', has_text='Batido').scroll_into_view_if_needed(); shot(c, '24_opciones_fijas')
+    c.get_by_role('button', name='Guardar plan').click(); c.wait_for_timeout(900)
+    p.reload(); p.wait_for_timeout(1200)
+    p.locator('.comida-n').nth(1).get_by_role('button', name='Agregar').click(); p.wait_for_timeout(400)
+    shot(p, '25_agregar_opcion', True)
+    p.locator('.pl-fija', has_text='Batido de whey').click(); p.wait_for_timeout(600)
+    r = [x for x in local(p)['nutri_registros'] if x['nombre'] == 'Batido de whey'][0]
+    assert r['nutrientes'] == {'kcal': 308, 'proteina': 28, 'carbohidratos': 33, 'grasa': 7} and r['detalle']['valores_de'] == 'plan', r
     br.close()
 print('\n'.join(errs) or 'SIN ERRORES')

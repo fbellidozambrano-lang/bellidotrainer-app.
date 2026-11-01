@@ -6,6 +6,7 @@ import { POR_CODIGO } from '../../lib/nutricion/catalogo.js';
 import { nutrientesDe, receta as calcReceta, salAnadida, totalesDia, sumar } from '../../lib/nutricion/calculo.js';
 import { colorProteina } from '../../lib/nutricion/plan.js';
 import { uuid, fCorta, hoy, aFecha, fechaLocal, diasEntre } from '../../lib/util.js';
+import { objetivosDelDia, tipoDelDia, DIAS_SEMANA } from '../../lib/nutricion/objetivos.js';
 import Buscador from './Buscador.jsx';
 import { Anillo, BarraMeta, NOMBRE_FUENTE, nombresComidas, nombresDatos, n0, n1, nCant } from './comunes.jsx';
 
@@ -23,11 +24,18 @@ export function registroDe({ fecha, comida, tipo, nombre, partes, fichas, extra 
     nutrientes: s.nutrientes, desconocidos, detalle: { partes: partes.map((p) => ({ alimento_id: p.alimento_id, nombre: p.nombre, gramos: p.gramos, fuente: fichas[p.alimento_id]?.fuente || null, calidad: fichas[p.alimento_id]?.calidad || null })), sin_ficha: sinFicha, ...extra } };
 }
 
+// opción o receta fija del plan: se anota con los valores que declara el plan (no hay ficha por ingrediente)
+export function registroFijo({ fecha, comida, nombre, opcion, factor = 1 }) {
+  const nutrientes = {}; ['kcal', 'proteina', 'carbohidratos', 'grasa'].forEach((k) => { const v = opcion[k === 'carbohidratos' ? 'carbohidratos' : k]; if (v != null && Number.isFinite(Number(v))) nutrientes[k] = Number(v) * factor; });
+  return { id: uuid(), fecha, comida, tipo: 'plan', nombre, nutrientes, desconocidos: ['kcal', 'proteina', 'carbohidratos', 'grasa'].filter((k) => nutrientes[k] == null),
+    detalle: { bloque: 'fija', valores_de: 'plan', items: (opcion.items || []).map((x) => x.texto || [x.nombre, x.cantidad].filter(Boolean).join(' ')), mitad: factor !== 1 } };
+}
+
 // ---------- comidas y días guardados ----------
 // un registro sin fecha ni id: lo que se guarda para repetirlo
 const CAMPOS_ITEM = ['comida', 'tipo', 'nombre', 'alimento_id', 'receta_id', 'gramos', 'cantidad', 'nutrientes', 'desconocidos', 'detalle'];
 export const aItem = (r) => Object.fromEntries(CAMPOS_ITEM.filter((k) => r[k] !== undefined).map((k) => [k, r[k]]));
-export const esComida = (r) => r.tipo !== 'agua' && r.tipo !== 'sal';
+export const esComida = (r) => r.tipo !== 'agua' && r.tipo !== 'sal' && r.tipo !== 'dia';
 // items → registros nuevos de otra fecha (y otra comida, si se elige)
 export const replicar = (items, fecha, comida = null, nComidas = 9) => items.map((it) => ({ ...it, id: uuid(), fecha, comida: comida ?? Math.min(Number(it.comida) || 0, nComidas - 1), detalle: { ...(it.detalle || {}), repetido: true } }));
 const resumenItems = (items) => { const s = sumar(items).nutrientes; return `${n0(s.kcal)} kcal · P ${n1(s.proteina)} · C ${n1(s.carbohidratos)} · G ${n1(s.grasa)}`; };
@@ -107,8 +115,13 @@ function AgregarPlan({ comida, plan, semana1Ini, onAgregar }) {
           <button key={i} className="pl-o" disabled={no} onClick={() => onAgregar({ tipo: 'plan', nombre: `${o.nombre}${mitad ? ' (½)' : ''}`, partes: partes(o.items), extra: { bloque: 'proteina', porciones_quedan: o.porciones_quedan, resta_otra: o.resta_otra || 0, plan: { proteina: o.proteina, grasa: o.grasa }, mitad } })}>
             <i className={`sem ${o.color || colorProteina(o.grasa) || ''}`} /><div><strong>{o.nombre}</strong><span>{o.cantidad}{mitad ? ' · la mitad' : ''}{no ? ' · no en la semana 1' : ''}</span></div>
             <em>{o.porciones_quedan != null ? `${o.porciones_quedan}${o.resta_otra ? '*' : ''} porc.` : ''}</em></button>); })}</>}
-      {comida.frutas?.length > 0 && <><p className="pl-t">2 · Frutas <small>cada una es ½ porción</small></p>
-        {comida.frutas.map((o, i) => <button key={i} className="pl-o" onClick={() => onAgregar({ tipo: 'plan', nombre: `${o.nombre} (½ porción)`, partes: partes(o.items), extra: { bloque: 'carbohidrato', media: true } })}>
+      {comida.opciones_fijas?.length > 0 && <><p className="pl-t">{comida.opciones_fijas.some((o) => o.fija) ? 'Tu receta de esta comida' : 'Elige una opción'} <small>ya medida, con la grasa incluida</small></p>
+        {comida.opciones_fijas.map((o, i) => (
+          <button key={`f${i}`} className="pl-o pl-fija" onClick={() => onAgregar({ tipo: 'plan', nombre: `${o.nombre}${mitad ? ' (½)' : ''}`, fija: o, factor: k })}>
+            <i className="sem fija" /><div><strong>{o.nombre}</strong><span>{o.kcal ? `${n0(o.kcal * k)} kcal · P ${n0(o.proteina * k)} · C ${n0(o.carbohidratos * k)} · G ${n0(o.grasa * k)}` : ''}</span>
+              <small>{(o.items || []).map((x) => x.texto || [x.nombre, x.cantidad].filter(Boolean).join(' ')).join(' · ')}</small></div></button>))}</>}
+      {comida.frutas?.length > 0 && <><p className="pl-t">{comida.opciones_fijas?.length ? 'Frutas para las opciones' : '2 · Frutas'} <small>{comida.frutas[0].media ? 'cada una es ½ porción' : 'cada una es 1 porción'}</small></p>
+        {comida.frutas.map((o, i) => <button key={i} className="pl-o" onClick={() => onAgregar({ tipo: 'plan', nombre: `${o.nombre}${o.media ? ' (½ porción)' : ''}`, partes: partes(o.items), extra: { bloque: 'carbohidrato', media: !!o.media } })}>
           <i className="sem fruta" /><div><strong>{o.nombre}</strong><span>{o.gramos} g · {o.medida}</span></div></button>)}</>}
       {comida.carbohidratos?.length > 0 && <><p className="pl-t">{comida.frutas?.length ? 'Otros carbohidratos' : '2 · Elige tu carbohidrato'}</p>
         {comida.carbohidratos.map((o, i) => { const no = s1 && (o.no_semana1 || !o.semana1); const its = s1 && o.semana1 ? o.semana1.items : o.items; const cant = s1 && o.semana1 ? o.semana1.cantidad : o.cantidad; return (
@@ -155,7 +168,7 @@ export function Agregar({ comida, idx, fecha, datos, nutri, token, onGuardar, on
       </div>
       {tab === 'guardadas' && <AgregarGuardada idx={idx} fecha={fecha} datos={datos} onBorrarGuardado={onBorrarGuardado}
         onUsar={async (items, nombre) => { await onGuardarVarios(replicar(items, fecha, idx)); avisar(`${nombre} agregada a ${comida}`); onCerrar(); }} />}
-      {tab === 'plan' && <AgregarPlan comida={pc} plan={datos.plan} semana1Ini={semana1} onAgregar={({ tipo, nombre, partes, extra }) => guardar(registroDe({ fecha, comida: idx, tipo, nombre, partes, fichas: datos.fichas, extra }))} />}
+      {tab === 'plan' && <AgregarPlan comida={pc} plan={datos.plan} semana1Ini={semana1} onAgregar={({ tipo, nombre, partes, extra, fija, factor = 1 }) => guardar(fija ? registroFijo({ fecha, comida: idx, nombre, opcion: fija, factor }) : registroDe({ fecha, comida: idx, tipo, nombre, partes, fichas: datos.fichas, extra }))} />}
       {tab === 'recetas' && <AgregarReceta recetas={datos.recetas || []} fichas={datos.fichas} onAgregar={({ receta: r, calc, porciones }) => {
         const nutr = {}; Object.entries(calc.porPorcion).forEach(([k, v]) => { nutr[k] = v * porciones; });
         return guardar({ id: uuid(), fecha, comida: idx, tipo: 'receta', nombre: r.nombre, receta_id: r.id, cantidad: porciones, gramos: calc.gramosPorPorcion * porciones, nutrientes: nutr,
@@ -183,11 +196,21 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
   const [agregar, setAgregar] = useState(null); const [ver, setVer] = useState(null); const [sal, setSal] = useState(false); const [salG, setSalG] = useState('1');
   const [guardarComo, setGuardarComo] = useState(null); const [repetir, setRepetir] = useState(false); const [borrarG, setBorrarG] = useState(null);
   const puedeGuardar = !soloLectura && !!onGuardarGuardado;
-  const obj = datos.objetivos || {}; const comidas = nombresComidas(obj);
+  const [elegirTipo, setElegirTipo] = useState(false);
   const regs = useMemo(() => (datos.registros || []).filter((r) => r.fecha === fecha), [datos.registros, fecha]);
-  const tot = useMemo(() => totalesDia(regs), [regs]);
-  const semana1 = obj.semana1 && datos.plan?.emitido && diasEntre(datos.plan.emitido, fecha) >= 0 && diasEntre(datos.plan.emitido, fecha) < 7 ? obj.semana1 : null;
-  const meta = (k) => (semana1?.[k] ?? obj[k]) || null;
+  // metas de ESTE día: base, semana 1 del plan o el tipo de día (entreno, descanso…)
+  const obj = useMemo(() => objetivosDelDia(datos.objetivos || {}, fecha, { plan: datos.plan, registros: regs }), [datos.objetivos, datos.plan, fecha, regs]);
+  const comidas = nombresComidas(obj);
+  const tot = useMemo(() => totalesDia(regs.filter((r) => r.tipo !== 'dia')), [regs]);
+  const semana1 = obj.semana1Activa;
+  const meta = (k) => obj[k] || null;
+  async function ponerTipo(id) {
+    setElegirTipo(false); if (obj.registroTipo) await onBorrar(obj.registroTipo.id);
+    const t = obj.tipos.find((x) => x.id === id); const porSemana = tipoDelDia({ dias_tipo: obj.tipos }, fecha, []).tipo;
+    if ((porSemana?.id || 'base') === id) { avisar(`${nombreDia(fecha)}: ${t ? t.nombre : 'objetivos de siempre'}`); return; } // vuelve a lo de su día de la semana
+    await onGuardar({ id: uuid(), fecha, comida: 0, tipo: 'dia', nombre: t ? t.nombre : 'Objetivos de siempre', nutrientes: {}, desconocidos: [], detalle: { perfil: id } });
+    avisar(`${nombreDia(fecha)}: ${t ? t.nombre.toLowerCase() : 'objetivos de siempre'}`);
+  }
   const faltan = (k) => tot.faltan[k] || 0;
   const salExtra = regs.filter((r) => r.tipo === 'sal').reduce((t, r) => t + (Number(r.gramos) || 0), 0);
   const agua = (ml) => onGuardar({ id: uuid(), fecha, comida: 0, tipo: 'agua', nombre: 'Agua', ml, nutrientes: {}, desconocidos: [], detalle: {} });
@@ -199,6 +222,8 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
         <button className="ico-b" onClick={() => setFecha(moverDia(fecha, 1))} disabled={diasEntre(fecha, hoy()) <= 0} aria-label="Día siguiente"><Ico n="chev" /></button>
       </div>
       {semana1 && <p className="pill oro" style={{ margin: '0 auto 10px', display: 'table' }}>Semana 1 · {n0(semana1.kcal)} kcal</p>}
+      {obj.tipos.length > 0 && <button className={`tipo-dia ${obj.tipo ? 'on' : ''}`} disabled={soloLectura} onClick={() => setElegirTipo(true)}>
+        <span>{obj.tipo ? obj.tipo.nombre : 'Objetivos de siempre'}{obj.elegido ? ' · elegido' : ''}</span><b className="num">{n0(obj.kcal)} kcal</b>{!soloLectura && <Ico n="abajo" s={16} />}</button>}
       <section className="cont">
         <Anillo valor={tot.nutrientes.kcal || 0} meta={meta('kcal')} />
         <div className="cont-m">
@@ -221,10 +246,8 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
       </div>
       <Micros objetivos={obj} tot={tot} />
       {comidas.map((c, i) => {
-        const rs = regs.filter((r) => r.tipo !== 'agua' && r.tipo !== 'sal' && Number(r.comida) === i); const s = sumar(rs);
-        const mc0 = Array.isArray(obj.comidas) ? obj.comidas[i] : null; const s1c = semana1 ? datos.plan?.comidas?.[i]?.semana1 : null;
-        // en la semana 1 del plan, cada comida usa sus calorías y carbohidratos de esa semana
-        const mc = mc0 && s1c && typeof s1c === 'object' ? { ...mc0, kcal: s1c.kcal ?? mc0.kcal, carbohidratos: s1c.carbohidratos ?? mc0.carbohidratos } : mc0;
+        const rs = regs.filter((r) => esComida(r) && Number(r.comida) === i); const s = sumar(rs);
+        const mc = Array.isArray(obj.comidas) ? obj.comidas[i] : null; // ya viene ajustada a la semana 1 o al tipo de día
         const porc = rs.find((r) => r.detalle?.bloque === 'proteina' && r.detalle.porciones_quedan != null)?.detalle.porciones_quedan;
         const usadas = rs.reduce((t, r) => t + (r.detalle?.bloque === 'grasa' ? Number(r.detalle.porciones || 1) : 0), 0);
         return (
@@ -251,6 +274,13 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
         onGuardar={async (nombre) => { await onGuardarGuardado({ id: uuid(), tipo: guardarComo.tipo, comida: guardarComo.comida, nombre, items: guardarComo.items }); avisar(guardarComo.tipo === 'dia' ? 'Día guardado: lo encuentras en "Repetir un día"' : 'Comida guardada: la encuentras en Agregar → Guardadas'); }} />}
       {repetir && <RepetirDia fecha={fecha} datos={datos} nComidas={comidas.length} onCerrar={() => setRepetir(false)} onBorrarGuardado={setBorrarG}
         onUsar={async (items, nombre) => { await onGuardarVarios(replicar(items, fecha, null, comidas.length)); setRepetir(false); avisar(`${items.length} ${items.length === 1 ? 'alimento agregado' : 'alimentos agregados'} (${nombre})`); }} />}
+      {elegirTipo && <Hoja titulo={`¿Qué día es ${nombreDia(fecha).toLowerCase()}?`} onCerrar={() => setElegirTipo(false)}>
+        <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>Tu coach puso objetivos distintos según el día. Si hoy entrenaste o descansaste fuera de lo previsto, cámbialo aquí y tus metas se ajustan.</p>
+        <div className="tipos">{[{ id: 'base', nombre: 'Objetivos de siempre', kcal: datos.objetivos?.kcal, dias: [] }, ...obj.tipos].map((t) => { const actual = (obj.tipo?.id || 'base') === t.id;
+          const dias = DIAS_SEMANA.filter(([d]) => (t.dias || []).includes(d)).map(([, , n]) => n.slice(0, 3).toLowerCase()).join(', ');
+          return <button key={t.id} className={`tipo ${actual ? 'on' : ''}`} onClick={() => ponerTipo(t.id)}><b>{actual ? <Ico n="check" s={18} /> : ''}</b><div><strong>{t.nombre}</strong>
+            <span>{t.kcal ? `${n0(t.kcal)} kcal` : ''}{t.proteina ? ` · P ${n0(t.proteina)}` : ''}{t.carbohidratos ? ` · C ${n0(t.carbohidratos)}` : ''}{t.grasa ? ` · G ${n0(t.grasa)}` : ''}{dias ? ` · ${dias}` : ''}</span></div></button>; })}</div>
+      </Hoja>}
       {borrarG && <Confirmar titulo={`¿Borrar “${borrarG.nombre}”?`} texto="Solo se borra el guardado. Lo que ya anotaste con él se queda." si="Borrar" peligro onNo={() => setBorrarG(null)} onSi={async () => { const g = borrarG; setBorrarG(null); await onBorrarGuardado(g.id); avisar('Guardado borrado'); }} />}
       {sal && <Hoja titulo="Sal añadida" onCerrar={() => setSal(false)} acciones={<><button className="btn" onClick={() => setSal(false)}>Cancelar</button><button className="btn oro" disabled={!(Number(salG.replace(',', '.')) > 0)} onClick={async () => { const g = Number(salG.replace(',', '.')); await onGuardar({ id: uuid(), fecha, comida: 0, tipo: 'sal', nombre: `Sal añadida ${String(g).replace('.', ',')} g`, gramos: g, ...salAnadida(g), detalle: {} }); setSal(false); avisar('Sal anotada'); }}>Anotar</button></>}>
         <p className="muted" style={{ marginBottom: 10 }}>La sal que le echas a la comida, aparte de la que ya traen los alimentos. 1 cucharadita rasa ≈ 5 g.</p>
@@ -261,6 +291,7 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
         <p className="muted" style={{ marginTop: -6 }}>{comidas[ver.comida] || ''} · {fCorta(ver.fecha)}{ver.gramos ? ` · ${n0(ver.gramos)} g` : ''}</p>
         <div className="ficha-tot"><div><b className="num">{n0(ver.nutrientes?.kcal)}</b><span>kcal</span></div><div><b className="num">{n1(ver.nutrientes?.proteina)}</b><span>proteína</span></div><div><b className="num">{n1(ver.nutrientes?.carbohidratos)}</b><span>carbos</span></div><div><b className="num">{n1(ver.nutrientes?.grasa)}</b><span>grasa</span></div></div>
         {(ver.detalle?.partes || []).length > 0 && <><p className="etq" style={{ margin: '12px 0 4px' }}>Calculado con</p>{ver.detalle.partes.map((p, i) => <p key={i} className="ayuda" style={{ margin: '2px 0' }}>{p.nombre} · {n0(p.gramos)} g{p.fuente ? ` · ${NOMBRE_FUENTE[p.fuente] || p.fuente}` : ''}</p>)}</>}
+        {ver.detalle?.valores_de === 'plan' && <p className="ayuda" style={{ marginTop: 8 }}>Valores que declara tu plan para esta opción ya medida{(ver.detalle.items || []).length ? `: ${ver.detalle.items.join(' · ')}` : ''}.</p>}
         {ver.detalle?.plan && <p className="ayuda" style={{ marginTop: 8 }}>El plan dice: {Object.entries(ver.detalle.plan).map(([k, v]) => `${k} ${String(v).replace('.', ',')} g`).join(' · ')}. La app calcula con la ficha real del alimento, por eso puede variar un poco.</p>}
         {(ver.desconocidos || []).length > 0 && <p className="ayuda">Sin dato en la ficha: {nombresDatos(ver.desconocidos)}.</p>}
         {(ver.detalle?.sin_ficha || []).length > 0 && <p className="aviso rojo"><span>Sin ficha nutricional: {ver.detalle.sin_ficha.join(', ')}. Tu coach lo puede vincular.</span></p>}
