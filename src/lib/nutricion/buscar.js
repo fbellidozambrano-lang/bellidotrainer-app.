@@ -11,7 +11,7 @@ export function palabras(q) {
 // "cruda" encuentra "crudo" y "cocida" encuentra "cocido": las fichas están escritas en masculino
 export const otroGenero = (w) => (w.length >= 4 && /a$/.test(w) ? `${w.slice(0, -1)}o` : w.length >= 4 && /o$/.test(w) ? `${w.slice(0, -1)}a` : w);
 export const contiene = (texto, w) => texto.includes(w) || texto.includes(otroGenero(w));
-const PRIORIDAD = { oficial_analitico: 6, personalizado: 5, referencia: 4, etiqueta: 2, colaborativo: 0 };
+const PRIORIDAD = { oficial_analitico: 6, personalizado: 5, referencia: 4, equivalente: 4, etiqueta: 2, colaborativo: 0 };
 export function puntuar(a, qRaw) {
   const q = normalizarBusqueda(qRaw); const cod = String(qRaw || '').replace(/\D/g, '');
   const n = normalizarBusqueda(a.nombre); const o = normalizarBusqueda(a.nombre_original); const sin = (a.sinonimos || []).map(normalizarBusqueda);

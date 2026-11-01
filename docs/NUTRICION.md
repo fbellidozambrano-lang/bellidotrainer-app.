@@ -30,6 +30,7 @@ Sin señal, lo que anota queda en el teléfono y se envía solo al volver la con
 | USDA FoodData Central · FNDDS (Survey) | Integrada | 2024-10-31 | 5.431 | CC0 1.0 |
 | USDA FoodData Central · Branded Foods | Consulta en línea por `/api/alimentos` (necesita `FDC_API_KEY`) | — | — | CC0 1.0 |
 | Open Food Facts | Consulta en línea por `/api/alimentos`; se guarda solo el producto que el usuario elige | — | — | ODbL 1.0 (base) · DbCL 1.0 (contenido) |
+| Catálogo de alimentos de Venezuela (1.000 registros) | Integrado: 313 con equivalente USDA, 48 como sinónimo, 639 pendientes | 1.0 | 313 | Valores CC0 (USDA) |
 | CIQUAL (ANSES), BEDCA, BLS | Preparadas en el catálogo de fuentes, **sin importar** | — | — | Por verificar antes de importar |
 
 Archivos oficiales usados (descargados de <https://fdc.nal.usda.gov/download-datasets/>), con su SHA-256 en `public/datos/nutricion/manifest.json`:
@@ -37,6 +38,33 @@ Archivos oficiales usados (descargados de <https://fdc.nal.usda.gov/download-dat
 - `FoodData_Central_foundation_food_json_2026-04-30.zip`: 395 registros recibidos, 363 válidos, 32 rechazados (registros vacíos), 8.125 valores.
 - `FoodData_Central_sr_legacy_food_json_2018-04.zip`: 7.793 recibidos, 7.793 válidos, 322.058 valores.
 - `FoodData_Central_survey_food_json_2024-10-31.zip`: 5.432 recibidos, 5.431 válidos, 1 rechazado (fdcId 2705383, "Milk, human": sin nutrientes del catálogo), 222.671 valores.
+
+## Catálogo de alimentos de Venezuela
+
+`scripts/nutricion/catalogo_ve/catalogo_1000_alimentos_venezuela.md` trae 1.000 registros (VE-0001 … VE-1000: 100 alimentos base × 10 preparaciones) **sin ningún valor nutricional** (el propio catálogo lo dice). Su orden de fuentes es: 1) Tabla de Composición de Alimentos de Venezuela (INN) cuando haya un archivo verificable; 2) USDA FoodData Central para alimentos genéricos comparables, documentando el alimento de referencia y las diferencias; 3) etiqueta; 4) Open Food Facts; 5) receta calculada.
+
+La app aplica el paso 2 con una tabla revisada a mano (`scripts/nutricion/catalogo_ve/equivalencias.mjs`): para cada registro, o el fdcId de USDA que es el mismo alimento (o la misma especie o corte) en la misma preparación, con su diferencia escrita, o el motivo por el que queda pendiente.
+
+| Resultado | Registros |
+|---|---|
+| Importado con equivalente USDA (calidad *Equivalente genérico*) | 313 |
+| Nombre redundante: queda como sinónimo de otro registro (p. ej. "Arroz blanco, sin sal añadida" = "grano cocido en agua") | 48 |
+| Pendiente · sin equivalente en USDA (yuca hervida, ocumo blanco cocido, ají dulce, queso de mano, queso guayanés, sardina fresca…) | 245 |
+| Pendiente · depende de la receta (cachapa, hallaca, pabellón, quesillo, frituras, jugos con azúcar…) | 144 |
+| Pendiente · combinación que no corresponde (huevo "sin piel", arroz "masa hidratada", pabellón "con relleno de pollo"…) | 134 |
+| Pendiente · variante de porción (falta el peso; la composición por 100 g es la de la receta) | 60 |
+| Pendiente · nombre ambiguo (remojado, "sin sal añadida" de un cereal, batidos…) | 36 |
+| Pendiente · producto comercial (falta la etiqueta exacta) | 20 |
+
+Cada ficha importada copia los valores del alimento de USDA citado y marca **cada valor** como *estimado* (`imputado`), con el método "Equivalente: USDA SR Legacy 173735" y una nota con cómo lo obtuvo USDA. La ficha dice "Sin análisis propio", cuál es el alimento de referencia y en qué difiere (por ejemplo, la batata de USDA es de pulpa anaranjada). Ids estables: `uuid('ve:VE-0203')`; el VE-xxxx se puede buscar. Los pendientes se ven en **Base de alimentos → Ver pendientes**, agrupados por motivo; **Completar** abre un alimento personalizado con el nombre puesto, para cargarlo desde una fuente verificable.
+
+Regenerar después de editar la tabla o el catálogo (los lotes salen en `public/datos/nutricion/catalogo_ve/1.0/` junto con `pendientes.json`):
+
+```bash
+node scripts/nutricion/importar-catalogo-ve.mjs
+```
+
+Cuando se consiga la tabla venezolana, sus valores reemplazan a los equivalentes (se importan como fuente propia y la ficha venezolana queda como la de mejor procedencia).
 
 ## Modelo de datos (supabase/schema.sql)
 
@@ -90,5 +118,5 @@ node scripts/nutricion/sql-catalogo.mjs
 
 ## Pruebas
 
-- `node test/nutricion.test.mjs`: importación de registros reales de USDA (procedencia, ceros, crudo/cocido, duplicados, versiones, reintentos), búsqueda, motor de cálculo, Open Food Facts, servidor externo, permisos, diario y el lector de planes (con `test/fixtures/plan_seleccion_flexible.json`, `plan_formato2.json` y `plan_variantes.json`: fragmentos de planes reales con el nombre cambiado y sin datos corporales), y los objetivos por tipo de día.
+- `node test/nutricion.test.mjs`: importación de registros reales de USDA (procedencia, ceros, crudo/cocido, duplicados, versiones, reintentos), búsqueda, motor de cálculo, Open Food Facts, servidor externo, permisos, diario y el lector de planes (con `test/fixtures/plan_seleccion_flexible.json`, `plan_formato2.json` y `plan_variantes.json`: fragmentos de planes reales con el nombre cambiado y sin datos corporales), los objetivos por tipo de día y el catálogo de Venezuela (los 1.000 registros contabilizados, cada valor igual al de USDA que cita y marcado como estimado, importación en nube y local).
 - `python3 test/e2e_alimentacion.py`: recorrido completo en tamaño iPhone (modo local) contra `npx vite preview`. Arma el PDF de prueba con `test/plan_pdf.py`.

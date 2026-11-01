@@ -70,6 +70,7 @@ export function categoriaDe(catOriginal, desc, esWweia = false) {
 export const CALIDADES = {
   oficial_analitico: { n: 'Fuente oficial · datos analíticos', d: 'USDA Foundation Foods: análisis de laboratorio de muestras identificadas, con su variabilidad.', prioridad: 5 },
   referencia: { n: 'Composición de referencia', d: 'USDA SR Legacy (2018, ya no se actualiza) o FNDDS: datos de referencia compilados y calculados por USDA.', prioridad: 4 },
+  equivalente: { n: 'Equivalente genérico (USDA)', d: 'Alimento de Venezuela sin análisis propio: sus valores son los de un alimento comparable de USDA, que se indica junto con sus diferencias. Son estimaciones, no un análisis de este alimento.', prioridad: 3.5 },
   etiqueta: { n: 'Etiqueta comercial', d: 'Valores declarados por el fabricante en la etiqueta. No es un análisis de laboratorio.', prioridad: 2 },
   colaborativo: { n: 'Colaborativo sin verificar', d: 'Open Food Facts: datos de etiquetas cargados por la comunidad. Pueden tener errores.', prioridad: 1 },
   personalizado: { n: 'Personalizado por el coach', d: 'Escrito a mano por el coach. No viene de una fuente oficial.', prioridad: 3 },

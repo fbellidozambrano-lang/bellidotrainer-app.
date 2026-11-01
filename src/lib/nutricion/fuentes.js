@@ -47,6 +47,12 @@ export const FUENTES = {
     url: 'https://blsdb.de/download', licencia: 'Por verificar antes de importar', licencia_url: 'https://blsdb.de/download',
     nota: 'Convenciones europeas de carbohidratos y energía.',
   },
+  catalogo_ve: {
+    nombre: 'Catálogo de alimentos de Venezuela · equivalentes USDA', organizacion: 'Catálogo de 1.000 alimentos venezolanos (v1.0) con valores tomados de USDA FoodData Central', evidencia: 'referencia', estado: 'integrada',
+    url: 'https://fdc.nal.usda.gov/', licencia: 'Valores: CC0 1.0 (USDA, dominio público)', licencia_url: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    atribucion: 'Valores de U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.',
+    nota: 'Nombres y preparaciones de Venezuela sin análisis propio. Cada ficha copia los valores de un alimento genérico comparable de USDA (dice cuál y en qué difiere) y los marca como estimados. Lo que no tiene equivalente queda pendiente hasta tener la Tabla de Composición de Alimentos de Venezuela, una receta calculada o una etiqueta.',
+  },
   coach: {
     nombre: 'Alimento personalizado', organizacion: 'El coach', evidencia: 'personalizado', estado: 'integrada', licencia: 'Datos propios del coach', nota: 'Escrito a mano. No está verificado por ninguna fuente oficial.',
   },

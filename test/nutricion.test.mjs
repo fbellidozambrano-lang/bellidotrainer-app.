@@ -374,4 +374,59 @@ await t('objetivos distintos por día: tipo por día de la semana, elegido a man
   const s1 = objetivosDelDia({ ...obj, dias_tipo: [], semana1: { kcal: 1700, carbohidratos: 150 } }, martes, { plan: { emitido: martes, comidas: [{ semana1: { kcal: 420, carbohidratos: 35 } }] } });
   assert.equal(s1.kcal, 1700); assert.equal(s1.comidas[0].kcal, 420);
 });
+
+// ---------- catálogo de Venezuela (scripts/nutricion/importar-catalogo-ve.mjs) ----------
+const DATOS = new URL('../public/datos/nutricion/', import.meta.url);
+const leerGz = (ruta) => JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL(ruta, DATOS))));
+const lotesDe = (ruta) => fs.readdirSync(new URL(ruta, DATOS)).filter((f) => f.endsWith('.json.gz')).sort().map((f) => leerGz(`${ruta}/${f}`));
+const MAN = JSON.parse(fs.readFileSync(new URL('manifest.json', DATOS)));
+const CVE = MAN.conjuntos.find((c) => c.fuente === 'catalogo_ve');
+const VE = lotesDe(CVE.ruta).flatMap((l) => l.alimentos.map((a) => ({ ...a, metodos: l.metodos })));
+const PEND = JSON.parse(fs.readFileSync(new URL(CVE.pendientes, DATOS)));
+
+await t('catálogo VE: los 1000 registros quedan importados, como sinónimo o pendientes con motivo; ids estables', async () => {
+  const tambien = VE.flatMap((a) => a.ids.tambien || []);
+  const todos = [...VE.map((a) => a.id_externo), ...tambien, ...PEND.pendientes.map((p) => p.id)];
+  assert.equal(todos.length, 1000); assert.equal(new Set(todos).size, 1000, 'cada VE-xxxx aparece una sola vez');
+  assert.equal(CVE.estadisticas.validos, VE.length); assert.equal(CVE.estadisticas.pendientes, PEND.pendientes.length); assert.equal(CVE.estadisticas.duplicados, tambien.length);
+  VE.forEach((a) => { assert.equal(a.id, uuidDe(`ve:${a.id_externo}`)); assert.equal(a.calidad, 'equivalente'); assert.equal(a.fuente, 'catalogo_ve'); assert.ok(a.sinonimos.includes(a.id_externo)); });
+  PEND.pendientes.forEach((p) => assert.ok(PEND.motivos[p.motivo], `${p.id} sin motivo`));
+  // los nombres redundantes quedan como sinónimo del registro que sí se importa
+  const arroz = VE.find((a) => a.id_externo === 'VE-0022'); assert.equal(arroz.nombre, 'Arroz blanco, grano cocido en agua');
+  assert.ok(arroz.sinonimos.includes('Arroz blanco, sin sal añadida') && arroz.ids.tambien.includes('VE-0030'));
+  // lo que no tiene equivalente o depende de una receta no se importa con valores inventados
+  const p = Object.fromEntries(PEND.pendientes.map((x) => [x.id, x]));
+  assert.equal(p['VE-0801'], undefined, 'la arepa sola sí tiene equivalente'); assert.equal(p['VE-0811'].motivo, 'C', 'cachapa: receta');
+  assert.equal(p['VE-0122'].motivo, 'S', 'yuca hervida: sin equivalente'); assert.equal(p['VE-0590'].motivo, 'I', 'huevo sin piel: no corresponde');
+  assert.match(p['VE-0809'].detalle, /VE-0801/, 'la porción remite a la composición de la receta');
+});
+
+await t('catálogo VE: cada valor es el del alimento de USDA que cita, marcado como estimado (nada en cero inventado)', async () => {
+  const usda = new Map();
+  for (const c of MAN.conjuntos.filter((x) => x.fuente.startsWith('usda_'))) lotesDe(c.ruta).forEach((l) => l.alimentos.forEach((a) => usda.set(a.id_externo, a)));
+  for (const a of VE) {
+    const r = usda.get(a.ids.usda); assert.ok(r, `${a.id_externo}: no existe USDA ${a.ids.usda}`);
+    assert.equal(a.ids.usda_nombre, r.nombre_original); assert.equal(a.ref_url, r.ref_url);
+    assert.deepEqual(a.valores.map((v) => [v[0], v[1]]), r.valores.map((v) => [v[0], v[1]]), `${a.id_externo}: mismos nutrientes y cantidades que USDA ${a.ids.usda}`);
+    assert.ok(a.valores.every((v) => v[2] === 'imputado' && a.metodos[v[3]] === `Equivalente: USDA ${{ usda_foundation: 'Foundation', usda_sr_legacy: 'SR Legacy', usda_fndds: 'FNDDS' }[a.ids.usda_fuente]} ${a.ids.usda}`));
+  }
+  const caraota = VE.find((a) => a.id_externo === 'VE-0203'); assert.equal(caraota.ids.usda, '173735'); assert.equal(caraota.preparacion, 'hervido'); assert.ok(caraota.preparacion_detalle.includes('sin_sal'));
+  const batata = VE.find((a) => a.id_externo === 'VE-0111'); assert.match(batata.ids.diferencia, /pulpa anaranjada/, 'la diferencia con el alimento de referencia queda escrita');
+});
+
+for (const modo of ['nube', 'local']) {
+  await t(`${modo}: importar el catálogo VE; ficha con su equivalencia y búsqueda en español`, async () => {
+    let nutri; if (modo === 'nube') nutri = (await montar()).st.nutri; else { localStorage._ = {}; nutri = crearStoreLocal().nutri; }
+    const archivos = Object.fromEntries(fs.readdirSync(new URL(CVE.ruta, DATOS)).filter((f) => f.endsWith('.json.gz')).map((f) => [String(Number(f.match(/\d+/)[0])), fs.readFileSync(new URL(`${CVE.ruta}/${f}`, DATOS))]));
+    const r = await importarConjunto({ nutri, conjunto: CVE, fetcher: servir(archivos), pausa: 1 });
+    assert.ok(!r.error, r.error); assert.equal(r.insertados, VE.length); assert.equal(r.rechazados, 0);
+    const f = await nutri.ficha(uuidDe('ve:VE-0203'));
+    assert.equal(f.calidad, 'equivalente'); assert.equal(f.ids.usda, '173735'); assert.equal(f.nombre, 'Caraota negra, hervido sin sal');
+    const prot = f.valores.find((v) => v.codigo === 'proteina'); assert.equal(prot.estado, 'imputado'); assert.match(prot.metodo, /USDA SR Legacy 173735/); assert.match(prot.nota, /^En USDA: .*muestras/, "la nota guarda cómo lo obtuvo USDA");
+    const b = await nutri.buscar('caraota negra hervida'); assert.deepEqual(new Set(b.slice(0, 2).map((x) => x.id)), new Set([uuidDe('ve:VE-0203'), uuidDe('ve:VE-0204')]), 'las dos caraotas hervidas (sin y con sal) primero');
+    const b3 = await nutri.buscar('caraota negra hervida sin sal'); assert.equal(b3[0].id, uuidDe('ve:VE-0203'));
+    const b2 = await nutri.buscar('VE-0461'); assert.equal(b2[0].id, uuidDe('ve:VE-0461'), 'se busca por su identificador del catálogo');
+    const r2 = await importarConjunto({ nutri, conjunto: CVE, fetcher: servir(archivos), forzar: true, pausa: 1 }); assert.equal(r2.omitidos, VE.length, 'repetir no duplica');
+  });
+}
 console.log(`\n${ok} pruebas OK`);

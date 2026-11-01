@@ -11,7 +11,7 @@ import { principalesPor100 } from '../lib/nutricion/calculo.js';
 import { FUENTES } from '../lib/nutricion/fuentes.js';
 import { uuid } from '../lib/util.js';
 
-const PRIORIDAD_CAL = { oficial_analitico: 5, referencia: 4, personalizado: 3, etiqueta: 2, colaborativo: 1 };
+const PRIORIDAD_CAL = { oficial_analitico: 5, referencia: 4, personalizado: 3, equivalente: 3.5, etiqueta: 2, colaborativo: 1 };
 const memoria = () => { const m = new Map(); return { get: async (k) => m.get(k), put: async (k, v) => { m.set(k, v); }, del: async (k) => { m.delete(k); }, todos: async () => [...m.values()], claves: async () => [...m.keys()] }; };
 function idb(nombre) {
   if (typeof indexedDB === 'undefined') return memoria();

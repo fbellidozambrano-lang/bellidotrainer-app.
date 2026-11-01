@@ -14,6 +14,16 @@ export async function leerManifiesto(fetcher = fetch, base = RUTA_DATOS) {
   return m;
 }
 
+// registros de un catálogo que quedaron sin valores (por qué y qué falta): catalogo_ve/<versión>/pendientes.json
+export async function leerPendientes(conjunto, fetcher = fetch, base = RUTA_DATOS) {
+  if (!conjunto?.pendientes) return null;
+  const r = await fetcher(`${base}/${conjunto.pendientes}`, { cache: 'no-cache' });
+  if (!r.ok) throw new Error('No encontré la lista de pendientes del catálogo.');
+  const d = await r.json();
+  if (d.formato !== 1 || !Array.isArray(d.pendientes)) throw new Error('La lista de pendientes no tiene el formato esperado.');
+  return d;
+}
+
 // bytes (gzip o JSON plano) → objeto
 export async function leerLote(bytes) {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);

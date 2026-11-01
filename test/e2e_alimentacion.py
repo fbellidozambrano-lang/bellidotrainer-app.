@@ -30,20 +30,38 @@ with sync_playwright() as pw:
 
     # ---------- base de alimentos: importar los tres conjuntos de USDA ----------
     c.locator('.losa', has_text='Alimentos').click(); c.wait_for_timeout(900)
-    items = c.locator('.item.imp'); assert items.count() == 3, items.count()
+    items = c.locator('.item.imp'); assert items.count() == 4, items.count()
     shot(c, '01_base_vacia')
-    for nombre in ('Foundation', 'SR Legacy', 'FNDDS'):
+    for nombre in ('Foundation', 'SR Legacy', 'FNDDS', 'Venezuela'):
         it = c.locator('.item.imp', has_text=nombre); t0 = time.time()
         it.get_by_role('button', name='Importar').click()
         it.get_by_role('button', name='Revisar').wait_for(timeout=240000)
         print(f'{nombre}: {time.time() - t0:.1f} s · {it.locator(".item-t span").first.inner_text()}')
     kp = c.locator('.kpi').first.locator('b').inner_text().replace('.', '')
-    assert int(kp) == 363 + 7793 + 5431, kp
+    assert int(kp) == 363 + 7793 + 5431 + 313, kp
     shot(c, '02_base_importada', True)
     # repetir: no duplica
     c.locator('.item.imp', has_text='Foundation').get_by_role('button', name='Revisar').click()
     c.locator('.item.imp', has_text='Foundation').get_by_role('button', name='Revisar').wait_for(timeout=120000); c.wait_for_timeout(500)
     assert c.locator('.kpi').first.locator('b').inner_text().replace('.', '') == kp, 'repetir la importación no debe duplicar'
+
+    # ---------- catálogo de Venezuela: pendientes y equivalencias ----------
+    ve = c.locator('.item.imp', has_text='Venezuela'); assert '639 pendientes' in ve.inner_text(), ve.inner_text()
+    ve.get_by_role('button', name='Ver pendientes').click(); c.wait_for_timeout(500)
+    h = c.locator('.hoja').last; assert 'Pendientes del catálogo (639)' in h.inner_text()
+    h.get_by_label('Buscar pendiente').fill('yuca'); c.wait_for_timeout(200)
+    assert h.locator('.pend-ve', has_text='Yuca, hervido').count() == 1
+    shot(c, '02b_pendientes_ve')
+    h.locator('.pend-ve', has_text='Yuca, hervido').get_by_role('button', name='Completar').click(); c.wait_for_timeout(400)
+    h = c.locator('.hoja').last; assert h.locator('input.in').first.input_value() == 'Yuca, hervido' and 'VE-0122' in h.inner_text()
+    h.get_by_role('button', name='Cancelar').click(); c.wait_for_timeout(300)
+    c.get_by_role('button', name='Buscar alimento').click(); c.wait_for_timeout(300)
+    c.get_by_label('Buscar alimento').fill('caraota negra hervida sin sal'); c.wait_for_timeout(1200)
+    primero = c.locator('.nres-i').first.inner_text(); assert 'Caraota negra, hervido sin sal' in primero, primero
+    c.locator('.nres-i').first.click(); c.wait_for_timeout(700)
+    t = c.locator('.hoja').last.inner_text(); assert 'Sin análisis propio' in t and '173735' in t and 'estimado' in t, t[:600]
+    shot(c, '02c_ficha_ve', True)
+    c.goto(BASE + '/?r=1#/alimentos'); c.wait_for_timeout(900)
 
     # ---------- búsqueda y ficha ----------
     c.get_by_role('button', name='Buscar alimento').click(); c.wait_for_timeout(300)

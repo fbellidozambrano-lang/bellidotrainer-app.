@@ -5,7 +5,7 @@ import { Hoja, Ico } from '../../ui/kit.jsx';
 import { ESTADOS, GRUPOS } from '../../lib/nutricion/catalogo.js';
 import { CALIDADES } from '../../lib/nutricion/clasificar.js';
 import { nutrientesDe, FACTOR_SAL } from '../../lib/nutricion/calculo.js';
-import { Calidad, metodoTexto, nCant, n0, n1, nombresDatos, prepTexto } from './comunes.jsx';
+import { Calidad, metodoTexto, nCant, n0, n1, nombresDatos, prepTexto, NOMBRE_FUENTE } from './comunes.jsx';
 
 export const compactaDeFicha = (f) => f && ({
   id: f.id, nombre: f.nombre, nombre_original: f.nombre_original, fuente: f.fuente_id || f.fuente?.id || f.fuente, calidad: f.calidad, tipo: f.tipo, preparacion: f.preparacion, base: f.base,
@@ -43,8 +43,10 @@ export default function FichaAlimento({ id, nutri, token, onCerrar, onAgregar, a
       {err && <p className="aviso rojo"><span>{err}</span></p>}
       {!f && !err && <div className="esq" aria-label="Cargando"><i /><i /><i style={{ width: '60%' }} /><b /></div>}
       {f && <>
-        <p className="ficha-orig">{f.nombre_original}{f.nombre_traducido ? <small> · nombre traducido automáticamente del inglés</small> : null}</p>
+        {f.nombre_original !== f.nombre && <p className="ficha-orig">{f.nombre_original}{f.nombre_traducido ? <small> · nombre traducido automáticamente del inglés</small> : null}</p>}
         <div className="ficha-tags"><Calidad calidad={f.calidad} fuente={f.fuente_id || fte.id} historico={f.historico} /><span className="q">{prepTexto(f.preparacion)}</span>{f.marca && <span className="q">{f.marca}</span>}{f.codigo_barras && <span className="q num">{f.codigo_barras}</span>}</div>
+        {f.ids?.usda && <div className="ficha-eq"><p><b>Sin análisis propio.</b> Valores de un alimento comparable de USDA ({NOMBRE_FUENTE[f.ids.usda_fuente] || 'USDA'} {f.ids.usda}): <i>{f.ids.usda_nombre}</i>.</p>
+          {f.ids.diferencia && <small>Diferencias: {f.ids.diferencia}.</small>}<small>Cada valor está marcado como estimado; se reemplaza cuando haya un análisis venezolano verificable.</small></div>}
         {(f.sospechosos || []).length > 0 && <p className="aviso rojo" style={{ marginTop: 10 }}><Ico n="ojo" s={18} /><span><b>Revisa estos datos:</b> {f.sospechosos.join(' · ')}</span></p>}
         {alternativas.length > 0 && <div className="ficha-alt"><small>Otras preparaciones:</small>{alternativas.map((a) => <button key={a.id} className="chip" onClick={() => onAlternativa?.(a.id)}>{prepTexto(a.preparacion)}</button>)}</div>}
         {onAgregar && <><p className="etq" style={{ margin: '14px 0 6px' }}>Cantidad (los valores son por {f.base})</p><Cantidad ficha={comp} gramos={g} setGramos={setG} /></>}
@@ -71,7 +73,7 @@ export default function FichaAlimento({ id, nutri, token, onCerrar, onAgregar, a
           <p><b>{fte.nombre || f.fuente_id}</b>{f.version ? ` · versión ${f.version}` : ''}{f.publicado ? ` · publicado ${f.publicado}` : ''}</p>
           {f.historico && <p className="ayuda" style={{ margin: '4px 0' }}>Colección histórica: USDA dejó de actualizarla en 2018.</p>}
           <p className="ayuda" style={{ margin: '4px 0' }}>{CALIDADES[f.calidad]?.d}</p>
-          {f.id_externo && <p className="ayuda" style={{ margin: '4px 0' }}>Identificador en la fuente: {f.id_externo}{f.ids?.ndb ? ` · NDB ${f.ids.ndb}` : ''}{f.ids?.fndds ? ` · código FNDDS ${f.ids.fndds}` : ''}</p>}
+          {f.id_externo && <p className="ayuda" style={{ margin: '4px 0' }}>Identificador en la fuente: {f.id_externo}{f.ids?.ve && f.ids?.usda ? ` · USDA fdcId ${f.ids.usda}` : ''}{f.ids?.ndb ? ` · NDB ${f.ids.ndb}` : ''}{f.ids?.fndds ? ` · código FNDDS ${f.ids.fndds}` : ''}</p>}
           {f.importacion && <p className="ayuda" style={{ margin: '4px 0' }}>Importado de {f.importacion.archivo || 'la descarga oficial'}{f.importacion.terminado ? ` el ${String(f.importacion.terminado).slice(0, 10)}` : ''}.</p>}
           {f.autor && <p className="ayuda" style={{ margin: '4px 0' }}>Cargado por: {f.autor}</p>}
           {f.cambios > 0 && <p className="ayuda" style={{ margin: '4px 0' }}>{f.cambios} {f.cambios === 1 ? 'cambio registrado' : 'cambios registrados'} en el historial.</p>}

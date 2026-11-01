@@ -468,7 +468,7 @@ create table if not exists public.nutri_alimentos (
   base                text not null default '100 g de parte comestible',
   publicado           date,
   historico           boolean not null default false,
-  calidad             text not null check (calidad in ('oficial_analitico','referencia','etiqueta','colaborativo','personalizado')),
+  calidad             text not null check (calidad in ('oficial_analitico','referencia','equivalente','etiqueta','colaborativo','personalizado')),
   completitud         smallint, completitud_de smallint,
   sospechosos         text[] not null default '{}',
   revision            text not null default 'importado' check (revision in ('importado','revisado','marcado')),
@@ -485,6 +485,9 @@ create unique index if not exists nutri_alimentos_externo on public.nutri_alimen
   (fuente_id, id_externo, coalesce(coach_id, '00000000-0000-0000-0000-000000000000'::uuid)) where id_externo is not null;
 create index if not exists nutri_alimentos_barras on public.nutri_alimentos (codigo_barras) where codigo_barras is not null;
 create index if not exists nutri_alimentos_coach on public.nutri_alimentos (coach_id) where coach_id is not null;
+-- calidad 'equivalente' (catálogo de Venezuela con valores de un alimento comparable de USDA); se rehace para bases ya creadas
+alter table public.nutri_alimentos drop constraint if exists nutri_alimentos_calidad_check;
+alter table public.nutri_alimentos add constraint nutri_alimentos_calidad_check check (calidad in ('oficial_analitico','referencia','equivalente','etiqueta','colaborativo','personalizado'));
 create table if not exists public.nutri_valores (
   alimento_id     uuid not null references public.nutri_alimentos(id) on delete cascade,
   nutriente_id    smallint not null references public.nutri_nutrientes(id),
@@ -604,6 +607,7 @@ insert into public.nutri_fuentes (id, nombre, organizacion, evidencia, estado, u
   ('ciqual', 'CIQUAL (ANSES, Francia)', 'Agence nationale de sécurité sanitaire (ANSES)', 'referencia', 'preparada', 'https://ciqual.anses.fr/', 'Por verificar antes de importar (licencia abierta Etalab según ANSES)', 'https://ciqual.anses.fr/', null, 'Carbohidratos "disponibles" (sin fibra, convención europea) y energía con factores de la UE: no se mezclan con los de USDA.', false),
   ('bedca', 'BEDCA (España)', 'Red BEDCA / AESAN', 'referencia', 'preparada', 'https://www.bedca.net/', 'Por verificar antes de importar (condiciones de uso propias de BEDCA)', 'https://www.bedca.net/', null, 'Nombres en español. Revisar condiciones de reutilización comercial antes de importar.', false),
   ('bls', 'BLS · Bundeslebensmittelschlüssel (Alemania)', 'Max Rubner-Institut', 'referencia', 'preparada', 'https://blsdb.de/download', 'Por verificar antes de importar', 'https://blsdb.de/download', null, 'Convenciones europeas de carbohidratos y energía.', false),
+  ('catalogo_ve', 'Catálogo de alimentos de Venezuela · equivalentes USDA', 'Catálogo de 1.000 alimentos venezolanos (v1.0) con valores tomados de USDA FoodData Central', 'referencia', 'integrada', 'https://fdc.nal.usda.gov/', 'Valores: CC0 1.0 (USDA, dominio público)', 'https://creativecommons.org/publicdomain/zero/1.0/', 'Valores de U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.', 'Nombres y preparaciones de Venezuela sin análisis propio. Cada ficha copia los valores de un alimento genérico comparable de USDA (dice cuál y en qué difiere) y los marca como estimados. Lo que no tiene equivalente queda pendiente hasta tener la Tabla de Composición de Alimentos de Venezuela, una receta calculada o una etiqueta.', false),
   ('coach', 'Alimento personalizado', 'El coach', 'personalizado', 'integrada', null, 'Datos propios del coach', null, null, 'Escrito a mano. No está verificado por ninguna fuente oficial.', false)
 on conflict (id) do update set nombre = excluded.nombre, organizacion = excluded.organizacion, evidencia = excluded.evidencia, estado = excluded.estado, url = excluded.url,
   licencia = excluded.licencia, licencia_url = excluded.licencia_url, atribucion = excluded.atribucion, nota = excluded.nota, historico = excluded.historico;
@@ -901,7 +905,7 @@ begin
       + case when exists (select 1 from unnest(a.sinonimos) s where public.nutri_norm(s) = q) then 28
              when exists (select 1 from unnest(a.sinonimos) s where public.nutri_norm(s) like q || '%') then 12 else 0 end
       + case when public.nutri_norm(a.nombre_original) like q || '%' then 3 else 0 end
-      + case a.calidad when 'oficial_analitico' then 6 when 'personalizado' then 5 when 'referencia' then 4 when 'etiqueta' then 2 else 0 end
+      + case a.calidad when 'oficial_analitico' then 6 when 'personalizado' then 5 when 'referencia' then 4 when 'equivalente' then 4 when 'etiqueta' then 2 else 0 end
       + case when q ~ '(^| )(crud[oa]s?|raw)( |$)' and a.preparacion = 'crudo' then 10
              when q ~ '(^| )(cocid[oa]s?|hervid[oa]s?|cooked|boiled)( |$)' and a.preparacion in ('cocido','hervido','al_vapor','guisado') then 10
              when q ~ '(^| )(asad[oa]s?|parrilla|plancha|hornead[oa]s?)( |$)' and a.preparacion in ('asado','horneado') then 10
@@ -961,7 +965,7 @@ begin
     'cambios', (select count(*) from public.nutri_historial h where h.alimento_id = a.id),
     'alternativas', coalesce((select jsonb_agg(jsonb_build_object('id', o.id, 'nombre', o.nombre, 'preparacion', o.preparacion, 'fuente', o.fuente_id) order by o.par desc, o.pri desc, o.nombre)
         from (select y.* from (select x.id, x.nombre, x.preparacion, x.fuente_id, public.nutri_parecido(a.nombre_original, x.nombre_original) as par,
-                case x.calidad when 'oficial_analitico' then 5 when 'referencia' then 4 when 'personalizado' then 3 when 'etiqueta' then 2 else 1 end as pri
+                case x.calidad when 'oficial_analitico' then 5 when 'referencia' then 4 when 'equivalente' then 3.5 when 'personalizado' then 3 when 'etiqueta' then 2 else 1 end as pri
               from public.nutri_alimentos x
               where x.id <> a.id and (x.coach_id is null or x.coach_id = c) and x.categoria is not distinct from a.categoria
                 and public.nutri_norm(split_part(x.nombre_original, ',', 1)) = public.nutri_norm(split_part(a.nombre_original, ',', 1))

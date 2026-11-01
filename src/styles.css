@@ -753,6 +753,8 @@ body.velado #root{opacity:0}
 .ing strong{display:block;font-weight:600;font-size:14px}.ing .in{height:40px}.ing small{color:var(--mute)}
 .imp .item-t span{white-space:normal}
 .imp-b{position:relative;height:8px;border-radius:4px;background:#262626;margin-top:8px;overflow:hidden}.imp-b i{display:block;height:100%;background:var(--gold)}.imp-b small{display:block;margin-top:10px}
+.ver-pend{align-self:flex-start;margin-top:6px}.pend-ve .item-t span{white-space:normal}.pend-ve .item-t em{font-size:12px;color:var(--mute)}
+.ficha-eq{margin:12px 0 0;padding:10px 12px;border-radius:12px;border:1px solid #3a3320;background:#1d1a12}.ficha-eq p{margin:0 0 4px}.ficha-eq small{display:block;color:var(--mute)}
 .fuente-i .item-t span,.fuente-i .item-t em{white-space:normal}.fuente-i em{display:block;font-size:12.5px;color:var(--mute);font-style:normal;margin-top:4px}
 .nv{display:grid;gap:6px}.nv-f{display:grid;grid-template-columns:1fr 100px 36px;gap:8px;align-items:center;font-size:14px}.nv-f .in{height:40px}.nv-f small{color:var(--mute)}
 /* la etiqueta de calidad dentro de una fila de lista: chip en línea, no bloque */

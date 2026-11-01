@@ -23,7 +23,7 @@ export const nombresComidas = (obj) => {
   return Array.from({ length: Math.max(1, Math.min(8, n)) }, (_, i) => (Array.isArray(c) && c[i]?.nombre) || COMIDAS_BASE[i]);
 };
 
-const CLASE_CALIDAD = { oficial_analitico: 'q-oficial', referencia: 'q-ref', etiqueta: 'q-etiq', colaborativo: 'q-colab', personalizado: 'q-pers' };
+const CLASE_CALIDAD = { oficial_analitico: 'q-oficial', referencia: 'q-ref', etiqueta: 'q-etiq', colaborativo: 'q-colab', personalizado: 'q-pers', equivalente: 'q-ref' };
 export function Calidad({ calidad, fuente, historico, corto }) {
   const c = CALIDADES[calidad]; if (!c) return null;
   const f = FUENTES[fuente];
@@ -38,7 +38,7 @@ export function metodoTexto(m) {
   const t = String(m || ''); const cod = t.split(' · ')[0]; if (!cod || cod === t) return t;
   const r = METODOS.find(([re]) => re.test(cod)); return r ? `${cod} · ${r[1]}` : t;
 }
-export const NOMBRE_FUENTE = { usda_foundation: 'USDA Foundation', usda_sr_legacy: 'USDA SR Legacy', usda_fndds: 'USDA FNDDS', usda_branded: 'USDA marcas', off: 'Open Food Facts', coach: 'personalizado' };
+export const NOMBRE_FUENTE = { usda_foundation: 'USDA Foundation', usda_sr_legacy: 'USDA SR Legacy', usda_fndds: 'USDA FNDDS', usda_branded: 'USDA marcas', off: 'Open Food Facts', catalogo_ve: 'Catálogo Venezuela', coach: 'personalizado' };
 export const prepTexto = (p) => PREPARACIONES[p] || p;
 
 // barra de progreso contra una meta (mínima o máxima)
