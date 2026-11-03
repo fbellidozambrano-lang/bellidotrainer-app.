@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRuta, ir, useAviso } from '../ui/kit.jsx';
 import { uuid, tokenNuevo } from '../lib/util.js';
+import { baseDe } from '../lib/esquemas.js';
 import Login from './Login.jsx';
 import Inicio from './Inicio.jsx';
 import Hub from './Hub.jsx';
@@ -124,7 +125,7 @@ export default function CoachApp({ store }) {
       const p = ps.find((x) => x.id === r3); const d = p?.dias.find((x) => x.id === r4);
       if (!d) { setTimeout(() => ir('a', a.id), 0); return null; }
       return <Entrenamiento modo="coach" programa={p} dia={d} historial={ss} quien={a.nombre.split(' ')[0]} claveBorrador={`bt:borrador:c:${a.id}:${p.id}:${d.id}`}
-        sexo={a.datos?.sexo || ''} onGuardar={async (s) => { await acc.guardarSesion({ ...s, asesoradoId: a.id, origen: 'coach' }); return {}; }} onSalir={() => ir('a', a.id)} />;
+        sexo={a.datos?.sexo || ''} esquemaBase={baseDe(a)} onGuardar={async (s) => { await acc.guardarSesion({ ...s, asesoradoId: a.id, origen: 'coach' }); return {}; }} onSalir={() => ir('a', a.id)} />;
     }
     return <Hub a={a} programas={ps} sesiones={ss} acc={acc} store={store} controles={datos.controles.filter((c) => c.asesoradoId === a.id)} faltaTablas={datos.faltaTablas} />;
   }

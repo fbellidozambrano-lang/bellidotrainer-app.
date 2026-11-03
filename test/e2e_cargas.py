@@ -12,7 +12,7 @@ hoy = datetime.date.today()
 def shot(pg, n, full=False): pg.wait_for_timeout(450); pg.screenshot(path=f'{OUT}/{n}.png', full_page=full)
 
 a = {'id': U(), 'nombre': 'Daniela Ruiz', 'objetivo': 'Hipertrofia', 'nivel': 'Intermedio', 'token': 'tokcargas0000000daniela', 'datos': {'sexo': 'F'}, 'sinCodigo': True}
-EJ = lambda n, g, c='', r='', mn=8, mx=12: {'id': U(), 'ejercicio': n, 'grupo': g, 'tipo': 'reps', 'series': 3, 'repMin': mn, 'repMax': mx, 'segundos': 40, 'descanso': 5, 'rpe': 8, 'pesoSugerido': c, 'repsSugeridas': r, 'nota': '', 'video': ''}
+EJ = lambda n, g, c='', r='', mn=8, mx=12: {'id': U(), 'ejercicio': n, 'grupo': g, 'tipo': 'reps', 'series': 3, 'repMin': mn, 'repMax': mx, 'segundos': 40, 'descanso': 5, 'rpe': 8, 'pesoSugerido': c, 'repsSugeridas': r, 'nota': '', 'video': '', 'esquema': 'recto'}
 dia = {'id': U(), 'nombre': 'Torso', 'ejercicios': [EJ('Press banca', 'Pecho', '80 kg', '8', 6, 10), EJ('Remo con barra', 'Espalda')]}
 p = {'id': U(), 'asesoradoId': a['id'], 'nombre': 'Fuerza · 1 día', 'orden': 0, 'visible': True, 'nota': '', 'dias': [dia]}
 S = lambda e, g, peso, reps, n: {'ejercicio': e, 'grupo': g, 'serie': n, 'peso': peso, 'reps': reps, 'rpe': 8}

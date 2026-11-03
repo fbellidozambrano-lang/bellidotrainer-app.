@@ -203,7 +203,7 @@ export function crearStoreLocal() {
       const v = abiertoDe(d, a.id); const libre = !!v || coach || !!a.sinCodigo;
       const ps = d.programas.filter((p) => p.asesoradoId === a.id && p.visible !== false).sort((x, y) => (x.orden || 0) - (y.orden || 0))
         .map((p) => (libre ? p : { id: p.id, asesoradoId: p.asesoradoId, nombre: p.nombre, orden: p.orden, nota: '', dias: (p.dias || []).map((x) => ({ id: x.id, nombre: x.nombre, grupos: (x.ejercicios || []).map((e) => e.grupo) })) }));
-      return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null, sexo: a.datos?.sexo || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, sinCodigo: !!a.sinCodigo, hasta: v && !a.sinCodigo ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
+      return { asesorado: { id: a.id, nombre: a.nombre, objetivo: a.objetivo, nivel: a.nivel, vence: a.vence || null, sexo: a.datos?.sexo || null, esquema: a.datos?.esquema || null, esq: a.datos?.esq || null }, controles: d.controles.filter((c) => c.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 6), acceso: { abierto: libre, coach, permiso: v?.id || null, sinCodigo: !!a.sinCodigo, hasta: v && !a.sinCodigo ? new Date(Date.parse(v.abierto) + H4).toISOString() : null }, programas: ps,
         sesiones: d.sesiones.filter((s) => s.asesoradoId === a.id).sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).slice(0, 400) };
     },
     async atletaAbrir(token, codigo) {

@@ -6,6 +6,8 @@ import { SelectorBib, asegurarEnBib, Sugerencia } from './Biblioteca.jsx';
 import { ejDesdeBib } from '../data/biblioteca.js';
 import { colorGrupo, copiaEj, esTiempo, fmt, nDias, normEj, primerNombre, resumenEj, textoCarga, textoSugerencia, uuid, clonarDias, ytId } from '../lib/util.js';
 import { esUnilateral } from '../lib/series.js';
+import { esquemaDe, ponerCfg, nombreEsquema, conEsquema, baseDe } from '../lib/esquemas.js';
+import ConfigEsquema from '../shared/Esquema.jsx';
 import { mismoEj } from '../lib/nombres.js';
 import { sesionesCon, renombrarEnSesiones, renombrarEnProgramas } from '../lib/renombrar.js';
 
@@ -19,11 +21,12 @@ function usePortapapeles() {
 }
 
 // ---------- hoja de ejercicio ----------
-export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, onGuardar, onCerrar, onMover, onBorrar }) {
+export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, onGuardar, onCerrar, onMover, onBorrar, esquemaBase = null }) {
   const editando = !esNuevo && !!inicial?.ejercicio;
   const [e, setE] = useState(() => normEj(inicial || { series: 3, repMin: 8, repMax: 12, rpe: 8, descanso: 90 }));
   const [grupoTocado, setGT] = useState(!!inicial?.ejercicio); const [conf, setConf] = useState(false);
-  const T = esTiempo(e); const f = (k, v) => setE((x) => ({ ...x, [k]: v }));
+  const T = esTiempo(e); const f = (k, v) => setE((x) => ({ ...x, [k]: v })); const cfg = esquemaDe(e, esquemaBase);
+  const ponerEsq = (c) => setE((x) => ponerCfg(x, c));
   const nombre = (v) => setE((x) => {
     const b = biblioteca.find((y) => y.nombre.toLowerCase() === v.trim().toLowerCase());
     if (b) return { ...x, ejercicio: v, grupo: b.grupo, tipo: b.tipo, video: x.video || b.video, bibId: b.id }; // elegido de la biblioteca
@@ -31,7 +34,7 @@ export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, 
   });
   return (
     <Hoja titulo={editando ? 'Editar ejercicio' : 'Nuevo ejercicio'} onCerrar={onCerrar}
-      acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={!e.ejercicio.trim()} onClick={() => onGuardar(normEj(e))}>Guardar</button></>}>
+      acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={!e.ejercicio.trim()} onClick={() => onGuardar(normEj(conEsquema(e, esquemaBase)))}>Guardar</button></>}>
       <Campo l="Ejercicio"><input className="in" list="bt-ejs" autoFocus={!editando} value={e.ejercicio} onChange={(x) => nombre(x.target.value)} placeholder="Hip thrust con barra" />
         <datalist id="bt-ejs">{sugerencias.map((s) => <option key={s} value={s} />)}</datalist><Sugerencia valor={e.ejercicio} onUsar={nombre} /></Campo>
       <Campo l="Músculo principal"><select className="in" value={e.grupo} onChange={(x) => { setGT(true); f('grupo', x.target.value); }} style={{ borderLeft: `4px solid ${colorGrupo(e.grupo)}` }}>{GRUPOS.map((g) => <option key={g}>{g}</option>)}</select></Campo>
@@ -45,6 +48,7 @@ export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, 
       <Interruptor on={esUnilateral(e)} onChange={(v) => f('unilateral', v)} label="Un lado a la vez" ayuda={esUnilateral(e) ? 'Registra la derecha y la izquierda por separado.' : 'Actívalo en ejercicios unilaterales (búlgara, remo a una mano…).'} />
       <div className="dos dos-sug"><Campo l="Carga sugerida"><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder="22,5 kg · banda verde" /></Campo>
         {!T && <Campo l="Reps sugeridas"><input className="in num" inputMode="numeric" value={e.repsSugeridas || ''} onChange={(x) => f('repsSugeridas', x.target.value)} placeholder={`${e.repMin}–${e.repMax}`} /></Campo>}</div>
+      {cfg && <Campo l="Cómo se hacen las series"><ConfigEsquema cfg={cfg} rpe={e.rpe} compacto onChange={ponerEsq} /></Campo>}
       <Campo l="RPE objetivo"><div className="chips">{[6, 7, 8, 9, 10].map((v) => <button key={v} className={`chip ${Number(e.rpe) === v ? 'on' : ''}`} style={{ minWidth: 48 }} onClick={() => f('rpe', v)}>{v}</button>)}</div></Campo>
       <Campo l="Descanso entre series"><div className="chips">{[45, 60, 90, 120, 150, 180].map((v) => <button key={v} className={`chip ${Number(e.descanso) === v ? 'on' : ''}`} onClick={() => f('descanso', v)}>{v < 120 ? `${v} s` : v === 150 ? '2:30' : `${v / 60} min`}</button>)}</div></Campo>
       <Campo l="Nota para el asesorado"><textarea className="in" rows={2} value={e.nota} onChange={(x) => f('nota', x.target.value)} placeholder="Tempo 3-1-1, pausa arriba, sube 2,5 kg si llegas a 12…" /></Campo>
@@ -93,7 +97,7 @@ function HojaCopiarDe({ datos, actual, destino, onPegar, onCerrar }) {
 
 // ---------- editor de programa ----------
 export default function Editor({ a, p: inicial, datos, acc }) {
-  const avisar = useAviso(); const nom = primerNombre(a.nombre);
+  const avisar = useAviso(); const nom = primerNombre(a.nombre); const base = baseDe(a);
   const [p, setP] = useState(inicial); const [diaId, setDiaId] = useState(() => sessionStorage.getItem('bt:dia:' + inicial.id) || inicial.dias[0]?.id);
   const [estado, setEstado] = useState('ok'); const pend = useRef(null); const tm = useRef(null);
   const [hoja, setHoja] = useState(null); const [selec, setSelec] = useState(null); const [pp, setPP] = usePortapapeles();
@@ -157,7 +161,7 @@ export default function Editor({ a, p: inicial, datos, acc }) {
           <button key={e.id} className="ej" onClick={() => (selec ? setSelec((s) => ({ ...s, [e.id]: !s[e.id] })) : setHoja({ t: 'ej', e, i }))}>
             {selec && <span className={`ej-sel ${selec[e.id] ? 'on' : ''}`}>{selec[e.id] && <Ico n="check" s={16} w={3} />}</span>}
             <span className="ej-barra" style={{ background: colorGrupo(e.grupo) }} />
-            <div className="ej-t"><strong>{e.ejercicio}</strong><span>{e.grupo} · {resumenEj(e)}{esUnilateral(e) ? ' por lado' : ''} · RPE {fmt(e.rpe, 1)} · {e.descanso} s{e.video ? ' · video' : ''}</span>
+            <div className="ej-t"><strong>{e.ejercicio}</strong><span>{e.grupo} · {resumenEj(e)}{esUnilateral(e) ? ' por lado' : ''}{esTiempo(e) ? '' : ` · ${nombreEsquema(esquemaDe(e, base))}`} · RPE {fmt(e.rpe, 1)} · {e.descanso} s{e.video ? ' · video' : ''}</span>
               {(e.pesoSugerido || e.repsSugeridas) && <span className="carga">{textoSugerencia(e)}</span>}{e.nota && <em>{e.nota}</em>}</div>
             {!selec && <Ico n="chev" className="chev" s={18} />}
           </button>))}</div>}
@@ -171,8 +175,8 @@ export default function Editor({ a, p: inicial, datos, acc }) {
         <button className="ico-b" onClick={() => setPP(null)} aria-label="Vaciar copiados"><Ico n="cerrar" s={18} /></button></div>}
 
       {hoja?.t === 'bib' && <SelectorBib biblioteca={datos.biblioteca} destino={dia.nombre} onCerrar={() => setHoja(null)} onNuevo={(q) => setHoja({ t: 'ej', e: q ? { ejercicio: q } : undefined, nuevo: true })}
-        onElegir={(bs) => { conDia((d) => d.ejercicios.push(...bs.map(ejDesdeBib))); setHoja(null); avisar(`${bs.length} ${bs.length === 1 ? 'ejercicio agregado' : 'ejercicios agregados'} a ${dia.nombre}`); }} />}
-      {hoja?.t === 'ej' && <HojaEjercicio biblioteca={datos.biblioteca} esNuevo={hoja.nuevo} inicial={hoja.nuevo ? (hoja.e ? { series: 3, repMin: 8, repMax: 12, rpe: 8, descanso: 90, ...hoja.e } : undefined) : hoja.e} sugerencias={sugerencias} onCerrar={() => setHoja(null)}
+        onElegir={(bs) => { conDia((d) => d.ejercicios.push(...bs.map((b) => conEsquema(ejDesdeBib(b), base)))); setHoja(null); avisar(`${bs.length} ${bs.length === 1 ? 'ejercicio agregado' : 'ejercicios agregados'} a ${dia.nombre}`); }} />}
+      {hoja?.t === 'ej' && <HojaEjercicio esquemaBase={base} biblioteca={datos.biblioteca} esNuevo={hoja.nuevo} inicial={hoja.nuevo ? (hoja.e ? { series: 3, repMin: 8, repMax: 12, rpe: 8, descanso: 90, ...hoja.e } : undefined) : hoja.e} sugerencias={sugerencias} onCerrar={() => setHoja(null)}
         onGuardar={async (e0) => {
           const antes = hoja.nuevo ? null : hoja.e;
           // le cambió el nombre a un ejercicio que ya tiene historial: ¿es el mismo (corrección) u otro?

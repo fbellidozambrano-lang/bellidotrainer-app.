@@ -162,7 +162,7 @@ export default function AtletaApp({ store, token, vista }) {
     const p = ps.find((x) => x.id === r1); const dia = p?.dias.find((x) => x.id === r2);
     if (dia && !dia.ejercicios) return bloqueo;
     if (!dia) { setTimeout(() => ir('rutinas'), 0); return null; }
-    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} sinCodigo={!!d.acceso?.sinCodigo} sexo={d.asesorado.sexo || ''} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
+    return <><Entrenamiento programa={p} dia={dia} historial={ses} quien={nom} claveBorrador={`bt:borrador:a:${token}:${p.id}:${dia.id}`} onGuardar={guardar} sinCodigo={!!d.acceso?.sinCodigo} sexo={d.asesorado.sexo || ''} esquemaBase={d.asesorado.esquema ? { esquema: d.asesorado.esquema, esq: d.asesorado.esq } : null} onSalir={() => salirEntreno(p)} onProgreso={vista === 'coach' ? null : (x) => { store.atletaProgreso(token, x).catch(() => {}); }} /></>;
   }
   // ---------- en casa (no necesita código) ----------
   if (r0 === 'ce') {

@@ -2,9 +2,41 @@ import React, { useState } from 'react';
 import { Barra, Ico, ir, Hoja, Campo, useAviso } from '../ui/kit.jsx';
 import { TarjetaPrograma, ordenarProgramas } from '../shared/Programas.jsx';
 import { PLANTILLAS_BASE } from '../data/constants.js';
-import { nuevoPrograma, clonarDias, normEj, uuid, nDias, primerNombre } from '../lib/util.js';
+import { nuevoPrograma, clonarDias, normEj, uuid, nDias, primerNombre, esTiempo } from '../lib/util.js';
+import { baseDe, esquemaDe, nombreEsquema, textoEsquema, aplicarEsquemaProgramas, guardarEsquema, conEsquema } from '../lib/esquemas.js';
+import ConfigEsquema from '../shared/Esquema.jsx';
 
-const desdePlantilla = (pl) => { if (pl.dias) return clonarDias(pl.dias); const orden = [...new Set(pl.ejercicios.map((e) => e.dia))]; return orden.map((d) => ({ id: uuid(), nombre: d, ejercicios: pl.ejercicios.filter((e) => e.dia === d).map((e) => normEj({ ...e, id: uuid() })) })); };
+// La forma de hacer las series de un asesorado: queda como la de sus ejercicios nuevos y, si se pide, se pone en todas sus rutinas
+function HojaEsquemaAsesorado({ a, programas, acc, onCerrar }) {
+  const avisar = useAviso(); const nom = primerNombre(a.nombre);
+  const [cfg, setCfg] = useState(() => esquemaDe({ tipo: 'reps' }, baseDe(a))); const [todas, setTodas] = useState(true); const [guardando, setGuardando] = useState(false);
+  const ejs = programas.flatMap((p) => (p.dias || []).flatMap((d) => (d.ejercicios || []).filter((e) => !esTiempo(e))));
+  const distintos = ejs.filter((e) => esquemaDe(e, baseDe(a)).k !== cfg.k).length;
+  async function guardar() {
+    setGuardando(true);
+    try {
+      const datos = { ...(a.datos || {}) }; delete datos.esq;
+      await acc.guardarAsesorado({ ...a, datos: { ...datos, ...guardarEsquema(cfg) } });
+      if (todas && programas.length) await acc.guardarProgramas(aplicarEsquemaProgramas(programas, cfg));
+      avisar(todas ? `${nom}: ${nombreEsquema(cfg).toLowerCase()} en ${ejs.length} ${ejs.length === 1 ? 'ejercicio' : 'ejercicios'}` : `${nom}: ${nombreEsquema(cfg).toLowerCase()} para sus ejercicios nuevos`); onCerrar();
+    } catch { avisar('No se pudo guardar', 'error'); }
+    setGuardando(false);
+  }
+  return (
+    <Hoja titulo={`Series de ${nom}`} onCerrar={onCerrar} acciones={<><button className="btn" onClick={onCerrar}>Cancelar</button><button className="btn oro" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button></>}>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>Cómo hace {nom} sus series. En cada ejercicio de la rutina puedes poner otra forma.</p>
+      <ConfigEsquema cfg={cfg} compacto onChange={setCfg} />
+      <label className="todas-s"><input type="checkbox" checked={todas} onChange={(e) => setTodas(e.target.checked)} /> Ponerlo en todos sus ejercicios ({ejs.length}{distintos ? `, ${distintos} cambian` : ''})</label>
+      {!todas && <p className="ayuda">Solo se usará en los ejercicios que agregues desde ahora.</p>}
+    </Hoja>
+  );
+}
+
+const desdePlantilla0 = (pl) => { if (pl.dias) return clonarDias(pl.dias); const orden = [...new Set(pl.ejercicios.map((e) => e.dia))]; return orden.map((d) => ({ id: uuid(), nombre: d, ejercicios: pl.ejercicios.filter((e) => e.dia === d).map((e) => normEj({ ...e, id: uuid() })) })); };
+
+// lo que viene de una plantilla o de otro asesorado toma la forma de series de este asesorado si no trae una
+const conBase = (dias, a) => dias.map((d) => ({ ...d, ejercicios: d.ejercicios.map((e) => conEsquema(e, baseDe(a))) }));
+const desdePlantilla = (pl, a) => conBase(desdePlantilla0(pl), a);
 
 export function NuevoPrograma({ a, datos, onCrear, onCerrar }) {
   const [n, setN] = useState(3); const [nombre, setNombre] = useState(''); const [base, setBase] = useState('blanco'); const [elegido, setElegido] = useState(null);
@@ -13,8 +45,8 @@ export function NuevoPrograma({ a, datos, onCrear, onCerrar }) {
   const propias = [...(datos.plantillas || [])].sort((x, y) => nDias(y) - nDias(x) || x.nombre.localeCompare(y.nombre));
   function crear() {
     const base0 = elegido ? String(elegido.nombre || '').replace(/\s*\(copia\)$/, '') : ''; const p = nuevoPrograma(a.id, n, nombre.trim() || base0 || `Plan ${nDiasFinal} días`);
-    if (base === 'plantilla' && elegido) { p.dias = desdePlantilla(elegido); p.nota = elegido.nota || ''; }
-    if (base === 'copiar' && elegido) p.dias = clonarDias(elegido.dias);
+    if (base === 'plantilla' && elegido) { p.dias = desdePlantilla(elegido, a); p.nota = elegido.nota || ''; }
+    if (base === 'copiar' && elegido) p.dias = conBase(clonarDias(elegido.dias), a);
     p.orden = Math.max(0, ...datos.programas.filter((x) => x.asesoradoId === a.id).map((x) => x.orden || 0)) + 1;
     onCrear(p);
   }
@@ -39,8 +71,8 @@ export function NuevoPrograma({ a, datos, onCrear, onCerrar }) {
 }
 
 export default function Rutinas({ a, programas, sesiones, datos, acc }) {
-  const avisar = useAviso(); const [nuevo, setNuevo] = useState(false); const nom = primerNombre(a.nombre);
-  const ps = ordenarProgramas(programas);
+  const avisar = useAviso(); const [nuevo, setNuevo] = useState(false); const [hojaEsq, setHojaEsq] = useState(false); const nom = primerNombre(a.nombre);
+  const ps = ordenarProgramas(programas); const cfgA = esquemaDe({ tipo: 'reps' }, baseDe(a));
   return (
     <div className="pantalla">
       <Barra volver={{ fn: () => ir('a', a.id), texto: nom }} titulo="" borde={false} />
@@ -48,9 +80,12 @@ export default function Rutinas({ a, programas, sesiones, datos, acc }) {
         <h1 className="gigante">Rutinas</h1>
         <p className="sub">Arma un programa por cada frecuencia. {nom} elige cada semana el que le cuadre según los días que puede entrenar.</p>
       </section>
+      <button className="esq-b esq-a" onClick={() => setHojaEsq(true)}><span className="esq-ico">{cfgA.k === 'backoff' ? 'TOP' : nombreEsquema(cfgA).slice(0, 1)}</span>
+        <div><small className="etq">Series de {nom}</small><b>{nombreEsquema(cfgA)}</b><small>{textoEsquema(cfgA)}</small></div><Ico n="chev" s={18} /></button>
       {ps.length === 0 && <div className="vacio" style={{ marginBottom: 12 }}><b>Sin programas todavía</b>Empieza por los que más usa: 2, 3 o 5 días por semana.</div>}
       {ps.map((p) => <TarjetaPrograma key={p.id} p={p} sesiones={sesiones} coach onClick={() => ir('a', a.id, 'p', p.id)} />)}
       <button className="nuevo-prog" onClick={() => setNuevo(true)}><Ico n="mas" />Nuevo programa</button>
+      {hojaEsq && <HojaEsquemaAsesorado a={a} programas={programas} acc={acc} onCerrar={() => setHojaEsq(false)} />}
       {nuevo && <NuevoPrograma a={a} datos={datos} onCerrar={() => setNuevo(false)} onCrear={async (p) => { setNuevo(false); await acc.guardarPrograma(p); avisar('Programa creado'); ir('a', a.id, 'p', p.id); }} />}
     </div>
   );

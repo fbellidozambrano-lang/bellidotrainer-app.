@@ -4,7 +4,7 @@
   "2": "Editor.jsx",
   "3": "util.js",
   "4": "legacy.js",
-  "5": "casa.js",
+  "5": "store.js",
   "6": "Compartir.jsx",
   "7": "package.json",
   "8": "e2e_compartir.py",
@@ -35,8 +35,6 @@
   "33": "usda.js",
   "34": "vivo.test.mjs",
   "35": "manifest.json",
-  "36": "ref_node_assert",
   "37": "nutriLocal.js",
-  "38": "sincodigo.test.mjs",
-  "39": "Alimentacion"
+  "38": "sincodigo.test.mjs"
 }

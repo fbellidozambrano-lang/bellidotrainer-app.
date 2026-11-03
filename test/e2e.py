@@ -155,8 +155,8 @@ with sync_playwright() as p:
         shot(pg, '51_hub_compo')
     pg.get_by_role('button', name='Dar código').click(); pg.wait_for_timeout(500)
     shot(pg, '52_preparar'); shot(pg, '52_preparar_full', True)
-    if pg.locator('.prep .btn.fant').count():
-        pg.locator('.prep .btn.fant').first.click(); pg.wait_for_timeout(200)
+    if pg.locator('.prep .btn.fant', has_text='Escala de intensidad').count():
+        pg.locator('.prep .btn.fant', has_text='Escala de intensidad').first.click(); pg.wait_for_timeout(200)
         pg.locator('.escala-t button', has_text='80%').click(); pg.locator('.escala .btn.oro').click(); pg.wait_for_timeout(300)
         shot(pg, '53_escala')
     pg.locator('.prep-campos input').nth(0).fill('4'); pg.wait_for_timeout(1000)

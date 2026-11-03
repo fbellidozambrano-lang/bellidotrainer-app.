@@ -58,7 +58,7 @@ export function diaCasa(dia) {
   const elegidos = []; const vistos = new Set();
   grupos.forEach((g) => { const c = CASA[g]; if (elegidos.length < MAX && !vistos.has(c.ejercicio)) { vistos.add(c.ejercicio); elegidos.push([g, c]); } });
   if (elegidos.length < 4 && !vistos.has(CASA.Core.ejercicio)) elegidos.push(['Core', CASA.Core]); // que valga la pena
-  const ejercicios = elegidos.map(([g, c], i) => normEj({ id: `casa-${dia.id}-${i}`, ejercicio: c.ejercicio, grupo: g, tipo: c.tipo, series: c.series, repMin: c.repMin, repMax: c.repMax, segundos: c.segundos, descanso: c.descanso, rpe: c.rpe, pesoSugerido: c.carga, nota: c.nota }));
+  const ejercicios = elegidos.map(([g, c], i) => normEj({ id: `casa-${dia.id}-${i}`, ejercicio: c.ejercicio, grupo: g, tipo: c.tipo, series: c.series, repMin: c.repMin, repMax: c.repMax, segundos: c.segundos, descanso: c.descanso, rpe: c.rpe, pesoSugerido: c.carga, nota: c.nota, esquema: 'recto' }));
   const seg = ejercicios.reduce((t, e) => t + e.series * ((e.tipo === 'tiempo' ? e.segundos : 40) + e.descanso), 0);
   return { id: `casa-${dia.id}`, nombre: `${dia.nombre} en casa`, base: dia.nombre, grupos: elegidos.map((x) => x[0]), minutos: Math.max(10, Math.round(seg / 60 / 5) * 5), ejercicios };
 }

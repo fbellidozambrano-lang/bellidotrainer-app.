@@ -59,6 +59,27 @@ alter table public.asesorados add column if not exists vence date;
 -- Acceso libre: el asesorado abre su rutina sin código (el coach lo decide por asesorado)
 alter table public.asesorados add column if not exists sin_codigo boolean not null default false;
 
+-- Forma de hacer las series (v9.16). Cada ejercicio por repeticiones lleva "esquema":
+-- backoff (top set + back off) | recto | rampa | inversa | piramide | rpe, y su ajuste en "esq"
+-- ({ paso, modo, dReps, aprox }). Todos los asesorados y ejercicios que aún no tienen uno quedan
+-- en top set + back off; lo que el coach ya eligió no se toca (se puede correr las veces que sea).
+update public.asesorados set datos = coalesce(datos, '{}'::jsonb) || '{"esquema":"backoff"}'::jsonb
+ where not (coalesce(datos, '{}'::jsonb) ? 'esquema');
+update public.programas p set dias = (
+  select coalesce(jsonb_agg(
+           case when jsonb_typeof(d -> 'ejercicios') = 'array' then jsonb_set(d, '{ejercicios}', (
+             select coalesce(jsonb_agg(
+                      case when jsonb_typeof(e) <> 'object' or e ? 'esquema' or coalesce(e ->> 'tipo', 'reps') = 'tiempo' then e
+                           else e || '{"esquema":"backoff"}'::jsonb end order by o), '[]'::jsonb)
+               from jsonb_array_elements(d -> 'ejercicios') with ordinality x(e, o)))
+           else d end order by od), '[]'::jsonb)
+    from jsonb_array_elements(p.dias) with ordinality y(d, od))
+ where jsonb_typeof(p.dias) = 'array'
+   and exists (select 1 from jsonb_array_elements(p.dias) d
+                where jsonb_typeof(d -> 'ejercicios') = 'array'
+                  and exists (select 1 from jsonb_array_elements(d -> 'ejercicios') e
+                               where jsonb_typeof(e) = 'object' and not (e ? 'esquema') and coalesce(e ->> 'tipo', 'reps') <> 'tiempo'));
+
 -- Códigos para entrenar: el coach genera uno, el asesorado lo ingresa para
 -- ver su rutina, y al enviar la sesión se gasta.
 create table if not exists public.permisos (
@@ -234,7 +255,7 @@ begin
   return jsonb_build_object(
     'asesorado', jsonb_build_object('id', a.id, 'nombre', a.nombre,
                                     'objetivo', a.objetivo, 'nivel', a.nivel, 'vence', a.vence,
-                                    'sexo', a.datos ->> 'sexo'),
+                                    'sexo', a.datos ->> 'sexo', 'esquema', a.datos ->> 'esquema', 'esq', a.datos -> 'esq'),
     'acceso', jsonb_build_object('abierto', libre, 'coach', coach, 'permiso', v.id, 'sinCodigo', a.sin_codigo,
                                  'hasta', case when a.sin_codigo then null else v.abierto + interval '4 hours' end),
     -- sin código solo viajan los nombres de programas y días, nunca los ejercicios

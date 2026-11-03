@@ -48,6 +48,16 @@ export function textoSugerencia(e) {
 }
 export function cargaNumero(t) { const s = String(t || '').toLowerCase().replace(',', '.'); const m = s.match(/[0-9]+(?:\.[0-9]+)?/); if (!m) return 0; let v = parseFloat(m[0]); if (/lb/.test(s)) v = Math.round(v * 0.45359237 * 10) / 10; return v > 0 && v < 1000 ? v : 0; }
 
+// formas de hacer las series (ver esquemas.js)
+export const ESQ_KEYS = ['backoff', 'recto', 'rampa', 'inversa', 'piramide', 'rpe'];
+function normEsq(c) {
+  if (!c || typeof c !== 'object') return null; const o = {};
+  const paso = nSeg(c.paso); if (paso >= 2.5 && paso <= 30) o.paso = Math.round(paso * 2) / 2;
+  if (c.modo === 'reps') o.modo = 'reps';
+  const d = Math.round(nSeg(c.dReps)); if (d >= 1 && d <= 3) o.dReps = d;
+  const a = Math.round(nSeg(c.aprox)); if (a >= 1 && a <= 3) o.aprox = a;
+  return Object.keys(o).length ? o : null;
+}
 export function normEj(e = {}) {
   const tipo = esTiempo(e) ? 'tiempo' : 'reps';
   const n = (v, def, min, max) => { const x = Math.round(nSeg(v)); return Math.min(max, Math.max(min, x || def)); };
@@ -57,6 +67,7 @@ export function normEj(e = {}) {
     segundos: n(e.segundos, 40, 5, 3600), descanso: e.descanso === '' || e.descanso == null ? 90 : Math.max(0, Math.round(nSeg(e.descanso))),
     rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), repsSugeridas: String(e.repsSugeridas ?? '').trim().slice(0, 12), nota: String(e.nota || ''), video: String(e.video || ''),
     ...(e.bibId ? { bibId: e.bibId } : {}), ...(typeof e.unilateral === 'boolean' ? { unilateral: e.unilateral } : {}),
+    ...(tipo === 'reps' && ESQ_KEYS.includes(e.esquema) ? { esquema: e.esquema, ...(normEsq(e.esq) ? { esq: normEsq(e.esq) } : {}) } : {}),
   };
 }
 export const copiaEj = (e) => normEj({ ...e, id: uuid() });
@@ -75,7 +86,7 @@ export function seriesPrevias(sesiones, ej, antesDe) {
   const s = sesiones.filter((x) => (!antesDe || x.fecha <= antesDe) && (x.series || []).some((y) => mismoEj(y.ejercicio, ej)))
     .sort((a, b) => (a.fecha === b.fecha ? String(b.creado || '').localeCompare(String(a.creado || '')) : a.fecha < b.fecha ? 1 : -1))[0];
   if (!s) return null;
-  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null, ...(x.lado ? { lado: x.lado } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}), ...(x.subs?.length ? { subs: x.subs } : {}) })), nota: notaDe(s, ej) };
+  return { fecha: s.fecha, series: seriesDe(s, ej).map((x) => ({ peso: nSeg(x.peso), reps: Math.round(nSeg(x.reps)), rpe: nSeg(x.rpe) || null, seg: Math.round(nSeg(x.seg)) || null, ...(x.lado ? { lado: x.lado } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}), ...(x.subs?.length ? { subs: x.subs } : {}), ...(x.rol ? { rol: x.rol } : {}), ...(Array.isArray(x.aprox) && x.aprox.length ? { aprox: x.aprox } : {}) })), nota: notaDe(s, ej) };
 }
 export function records(sesiones, ej) {
   let maxPeso = 0, maxE1 = 0, maxVol = 0, maxSeg = 0;

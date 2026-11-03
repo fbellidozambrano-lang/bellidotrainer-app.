@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Hoja, Ico, useAviso } from '../ui/kit.jsx';
 import { CUES, ESCALA_RPE, MOTIVACION } from '../data/constants.js';
-import { textoSugerencia, cargaNumero, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, semanasSeguidas, volumen, seriesPrevias, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
+import { textoSugerencia, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, semanasSeguidas, volumen, seriesPrevias, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
 import brazo from '../assets/brazo.png';
 import { analogia } from '../lib/analogias.js';
 import { revisarSerie } from '../lib/validar.js';
@@ -12,8 +12,10 @@ import Compartir from './Compartir.jsx';
 // la silueta pesa ~130 kB: se carga recién al terminar el entreno
 const MapaMuscular = React.lazy(() => import('./MapaMuscular.jsx'));
 import MarcaSerie from './MarcaSerie.jsx';
-import { TECNICAS, tecnicaDe, esUnilateral, filasUnilaterales, filasBilaterales, numeroFila, LADOS, balanceLados } from '../lib/series.js';
-import { ajusteSugerido, nuevasSubs, pesosSubs, primerNumero, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
+import { TECNICAS, tecnicaDe, filasUnilaterales, filasBilaterales, numeroFila, LADOS, balanceLados } from '../lib/series.js';
+import { ajusteSugerido, nuevasSubs, pesosSubs, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
+import { esquemaDe, armarFilas, recalcular, cambiarEsquema, filasMasSerie, filasMenosSerie, etiquetaFila, previaFila, analizarFila, analizarEjercicio, textoEsquema, esAprox, ROLES, nombreEsquema } from '../lib/esquemas.js';
+import ConfigEsquema from './Esquema.jsx';
 
 // ---------- conversor kg ⇄ lb ----------
 const LB = 2.20462;
@@ -94,36 +96,24 @@ const FIN = [[660, 0, 0.15], [880, 0.17, 0.3]], LOGRO = [[523, 0, 0.1], [659, 0.
 const leer = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const escribir = (k, v) => { try { v ? localStorage.setItem(k, JSON.stringify(v)) : localStorage.removeItem(k); } catch {} };
 
-function preparar(dia, historial) {
+function preparar(dia, historial, base) {
   const reg = {};
-  (dia.ejercicios || []).forEach((ej) => {
-    const prev = seriesPrevias(historial, ej.ejercicio); const T = esTiempo(ej); const sug = cargaNumero(ej.pesoSugerido); const repsSug = Math.round(primerNumero(ej.repsSugeridas)) || 0; const uni = esUnilateral(ej);
-    // con lados, cada fila toma lo que hizo la vez pasada con ese mismo lado
-    const fila = (k, lado) => { const ps = (prev?.series || []).filter((x) => (lado ? !x.lado || x.lado === lado : x.lado !== 'I')); const p = ps[k] || ps[ps.length - 1];
-      return { peso: sug || (p?.peso || ''), reps: T ? '' : (repsSug || p?.reps || ej.repMin || ''), seg: T ? (p?.seg || ej.segundos || 40) : '', rpe: '', hecha: false, tocada: false, ...(lado ? { lado } : {}) }; };
-    reg[ej.id] = Array.from({ length: ej.series || 3 }, (_, k) => (uni ? [fila(k, 'D'), fila(k, 'I')] : [fila(k)])).flat();
-  });
+  (dia.ejercicios || []).forEach((ej) => { reg[ej.id] = armarFilas(ej, historial, esquemaDe(ej, base)); });
   return reg;
 }
 
-// la misma serie la vez pasada (con lados, la del mismo lado)
-function previaDe(prev, filas, k) {
-  if (!prev?.series?.length) return null; const x = filas[k]; const n = numeroFila(filas, k) - 1;
-  const ps = prev.series.filter((y) => (x.lado ? !y.lado || y.lado === x.lado : y.lado !== 'I'));
-  return ps[n] || ps[ps.length - 1] || null;
-}
 // tocar el % de un tramo lo cambia: 10 → 15 → 20 → 25 → 5 …
 const siguientePct = (p, modo) => { const m = Math.abs(Number(p) || 0); const sig = [5, 10, 15, 20, 25, 30].find((v) => v > m) || 5; return modo === 'baja' ? -sig : sig; };
 
 // Carga y reps sugeridas por el coach, con lo que significan: % de su 1RM y cambio desde la vez pasada
-function Sugerida({ ej, historial }) {
+function Sugerida({ ej, historial, cfg }) {
   if (!ej.pesoSugerido && !ej.repsSugeridas) return null;
   const a = ajusteSugerido(ej, historial);
   if (!a.carga && String(ej.pesoSugerido).length > 14) return <div className="sug texto"><span>Con qué hacerlo</span><b>{textoSugerencia(ej)}</b></div>;
   const sube = a.cambioPct != null && a.cambioPct > 0.5, baja = a.cambioPct != null && a.cambioPct < -0.5;
   return (
     <div className="sug sug-c">
-      <div className="sug-top"><span>{a.carga ? 'Carga sugerida hoy' : 'Sugerido hoy'}</span><b>{textoSugerencia(ej)}</b></div>
+      <div className="sug-top"><span>{a.carga ? (cfg?.k === 'backoff' ? 'Top set sugerido hoy' : ['rampa', 'inversa', 'piramide'].includes(cfg?.k) ? 'Serie más pesada hoy' : 'Carga sugerida hoy') : 'Sugerido hoy'}</span><b>{textoSugerencia(ej)}</b></div>
       {(a.pct1RM || a.cambioPct != null) && <div className="sug-pct">
         {a.pct1RM != null && <div><b className="num">{fmt(a.pct1RM)} %</b><span>de tu 100 % (1RM {fmt(a.e1, 1)} kg){a.pct1RMantes != null ? ` · la vez pasada ${fmt(a.pct1RMantes)} %` : ''}</span></div>}
         {a.cambioPct != null && <div className={sube ? 'sube' : baja ? 'baja' : ''}><b className="num">{Math.abs(a.cambioPct) < 0.5 ? '=' : textoPct(a.cambioPct, 1)}</b><span>{sube ? `subimos ${fmt(a.cambioKg, 1)} kg` : baja ? `bajamos ${fmt(-a.cambioKg, 1)} kg` : 'mismo peso'} vs. la vez pasada ({fmt(a.top.peso, 1)} kg × {a.top.reps})</span></div>}
@@ -155,10 +145,14 @@ function TipoSerie({ tec, fila, n, onPoner, onCerrar }) {
   );
 }
 
-export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, onProgreso, modo = 'atleta', sinCodigo = false, sexo = '' }) {
+export default function Entrenamiento({ programa, dia, historial, quien, claveBorrador, onGuardar, onSalir, onProgreso, modo = 'atleta', sinCodigo = false, sexo = '', esquemaBase = null }) {
   const avisar = useAviso();
   const guardado = useMemo(() => leer(claveBorrador), [claveBorrador]);
-  const [reg, setReg] = useState(() => guardado?.reg || preparar(dia, historial));
+  const [reg, setReg] = useState(() => guardado?.reg || preparar(dia, historial, esquemaBase));
+  // forma de las series de cada ejercicio: la del programa, o la que se eligió hoy
+  const [esq, setEsq] = useState(() => guardado?.esq || {}); const [hojaEsq, setHojaEsq] = useState(null);
+  const cfgDe = (ej) => (ej ? esq[ej.id] || esquemaDe(ej, esquemaBase) : null);
+  const ejDe = (id) => (dia.ejercicios || []).find((e) => e.id === id);
   const [notas, setNotas] = useState(() => guardado?.notas || {});
   const [inicio] = useState(() => guardado?.inicio || Date.now());
   const [fecha, setFecha] = useState(() => guardado?.fecha || hoy());
@@ -168,7 +162,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   const [cierre, setCierre] = useState(false); const [fin, setFin] = useState(null); const [guardando, setGuardando] = useState(false); const [compartir, setCompartir] = useState(false);
   const retomado = useRef(!!guardado?.reg);
 
-  useEffect(() => { if (!fin) escribir(claveBorrador, { reg, notas, inicio, fecha, t: Date.now() }); }, [reg, notas, fecha, fin, claveBorrador, inicio]);
+  useEffect(() => { if (!fin) escribir(claveBorrador, { reg, notas, inicio, fecha, esq, t: Date.now() }); }, [reg, notas, fecha, fin, claveBorrador, inicio, esq]);
   useEffect(() => { if (retomado.current) avisar('Sigues donde lo dejaste'); }, [avisar]);
   // en vivo: el coach ve el avance (se manda unos segundos después de cada cambio)
   useEffect(() => {
@@ -177,8 +171,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       const ejs0 = dia.ejercicios || [];
       onProgreso({ programa: programa?.nombre || '', programaId: programa?.id || null, dia: dia.nombre, inicio: new Date(inicio).toISOString(),
         hechas: ejs0.reduce((n, e) => n + (reg[e.id] || []).filter((x) => x.hecha).length, 0), total: ejs0.reduce((n, e) => n + (reg[e.id] || []).length, 0),
-        ejercicios: ejs0.map((e) => ({ ejercicio: e.ejercicio, grupo: e.grupo, tipo: e.tipo, objetivo: `${e.series} × ${esTiempo(e) ? `${e.segundos} s` : `${e.repMin}–${e.repMax}`}`, carga: textoSugerencia(e), nota: notas[e.ejercicio] || '',
-          series: (reg[e.id] || []).map((x) => ({ peso: x.peso, reps: x.reps, seg: x.seg, rpe: x.rpe, hecha: !!x.hecha, ...(x.lado ? { lado: x.lado } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}), ...(x.subs?.length ? { subs: subsParaGuardar(x.peso, x.subs) } : {}) })) })) });
+        ejercicios: ejs0.map((e) => ({ ejercicio: e.ejercicio, grupo: e.grupo, tipo: e.tipo, objetivo: `${e.series} × ${esTiempo(e) ? `${e.segundos} s` : `${e.repMin}–${e.repMax}`}${cfgDe(e) ? ` · ${nombreEsquema(cfgDe(e))}` : ''}`, carga: textoSugerencia(e), nota: notas[e.ejercicio] || '',
+          series: (reg[e.id] || []).map((x) => ({ peso: x.peso, reps: x.reps, seg: x.seg, rpe: x.rpe, hecha: !!x.hecha, ...(x.lado ? { lado: x.lado } : {}), ...(esAprox(x) ? { aprox: true } : {}), ...(x.rol ? { rol: x.rol } : {}), ...(x.tecnica ? { tecnica: x.tecnica } : {}), ...(x.subs?.length ? { subs: subsParaGuardar(x.peso, x.subs) } : {}) })) })) });
     }, 2500);
     return () => clearTimeout(t);
   }, [reg, notas, fin]); // eslint-disable-line
@@ -192,11 +186,15 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
 
   const ejs = dia.ejercicios || [];
   const todas = ejs.flatMap((e) => reg[e.id] || []); const hechas = todas.filter((x) => x.hecha).length;
-  const set = (id, k, campo, v) => setReg((r) => ({ ...r, [id]: r[id].map((x, i) => (i === k ? { ...x, [campo]: v, tocada: campo === 'hecha' ? x.tocada : true } : x)) }));
-  const masSerie = (id) => setReg((r) => { const f = r[id]; const lados = f.some((x) => x.lado);
-    const nuevas = lados ? ['D', 'I'].map((l) => ({ ...([...f].reverse().find((x) => x.lado === l) || f[f.length - 1] || {}), lado: l })) : [f[f.length - 1] || {}];
-    return { ...r, [id]: [...f, ...nuevas.map((u) => ({ ...u, hecha: false, tocada: false, tecnica: undefined, subs: undefined }))] }; });
-  const menosSerie = (id) => setReg((r) => { const n = r[id].some((x) => x.lado) ? 2 : 1; return r[id].length > n ? { ...r, [id]: r[id].slice(0, -n) } : r; });
+  // al escribir peso o reps, las series que no tocó se reajustan según el esquema (top set → back off…);
+  // por RPE, el RPE de una serie ajusta el peso de las siguientes
+  const set = (id, k, campo, v) => setReg((r) => { const ej = ejDe(id); const cfg = cfgDe(ej);
+    let f = r[id].map((x, i) => (i === k ? { ...x, [campo]: v, tocada: campo === 'hecha' ? x.tocada : true, ...(campo === 'peso' ? { ap: false } : campo === 'reps' ? { ar: false } : {}) } : x));
+    if (cfg && (campo === 'peso' || campo === 'reps' || campo === 'hecha' || (cfg.k === 'rpe' && campo === 'rpe'))) f = recalcular(f, cfg, ej);
+    return { ...r, [id]: f }; });
+  const masSerie = (id) => setReg((r) => { const ej = ejDe(id); return { ...r, [id]: filasMasSerie(r[id], cfgDe(ej), ej) }; });
+  const menosSerie = (id) => setReg((r) => { const ej = ejDe(id); return { ...r, [id]: filasMenosSerie(r[id], cfgDe(ej), ej) }; });
+  const ponerEsquema = (ej, cfg) => { setEsq((m) => ({ ...m, [ej.id]: cfg })); setReg((r) => ({ ...r, [ej.id]: cambiarEsquema(r[ej.id], ej, historial, cfg) })); };
   const alternarLados = (id) => setReg((r) => ({ ...r, [id]: r[id].some((x) => x.lado) ? filasBilaterales(r[id]) : filasUnilaterales(r[id]) }));
   // tipo de serie: se pone en la fila (y en su otro lado); "todas" la pone en todas las series del ejercicio
   const ponerTecnica = (id, k, t, todas, cfg = {}) => setReg((r) => { const f = r[id]; const n = numeroFila(f, k);
@@ -219,16 +217,20 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
     // con lados: el descanso arranca cuando terminó los dos lados de la serie
     const f = reg[ej.id]; const otro = s.lado && f.find((x, i) => i !== k && x.lado !== s.lado && numeroFila(f, i) === numeroFila(f, k));
     if (otro && !otro.hecha) return;
-    arrancar(ej.descanso ?? 90);
+    arrancar(esAprox(s) ? Math.min(60, ej.descanso ?? 90) : ej.descanso ?? 90);
   }
 
   function paquete() {
     const series = [];
     ejs.forEach((ej) => { const T = esTiempo(ej); let n = 0;
       const filas = reg[ej.id] || []; const num = {}; // con lados, la derecha y la izquierda de la misma serie llevan el mismo número
-      filas.forEach((s, i) => { if (!(s.hecha || s.tocada)) return; const p = nSeg(s.peso), r = Math.round(nSeg(s.reps)), g = Math.round(nSeg(s.seg));
+      // la aproximación no es una serie efectiva: viaja dentro de la primera serie del ejercicio y no suma volumen ni récords
+      const aprox = filas.filter((s) => esAprox(s) && (s.hecha || s.tocada) && nSeg(s.peso) > 0 && Math.round(nSeg(s.reps)) > 0).map((s) => ({ peso: nSeg(s.peso), reps: Math.round(nSeg(s.reps)), ...(s.lado ? { lado: s.lado } : {}) }));
+      const desde = series.length;
+      filas.forEach((s, i) => { if (!(s.hecha || s.tocada) || esAprox(s)) return; const p = nSeg(s.peso), r = Math.round(nSeg(s.reps)), g = Math.round(nSeg(s.seg));
         if (T ? g > 0 : p > 0 || r > 0) { if (!T && !(r > 0)) return; const k = numeroFila(filas, i); if (!num[k]) num[k] = ++n;
-          const o = { ejercicio: ej.ejercicio, grupo: ej.grupo, serie: num[k], peso: p, reps: T ? 0 : r, rpe: nSeg(s.rpe) || ej.rpe || 8 }; if (T) o.seg = g; if (s.lado) o.lado = s.lado; if (s.tecnica) o.tecnica = s.tecnica; if (!T && s.subs?.length) { const sb = subsParaGuardar(p, s.subs); if (sb.length) o.subs = sb; } series.push(o); } }); });
+          const o = { ejercicio: ej.ejercicio, grupo: ej.grupo, serie: num[k], peso: p, reps: T ? 0 : r, rpe: nSeg(s.rpe) || ej.rpe || 8 }; if (T) o.seg = g; if (s.lado) o.lado = s.lado; if (s.rol) o.rol = s.rol; if (s.tecnica) o.tecnica = s.tecnica; if (!T && s.subs?.length) { const sb = subsParaGuardar(p, s.subs); if (sb.length) o.subs = sb; } series.push(o); } });
+      if (aprox.length && series.length > desde) series[desde].aprox = aprox; });
     const nt = {}; Object.entries(notas).forEach(([k, v]) => { if (String(v).trim()) nt[k] = String(v).trim(); });
     return { id: uuid(), programaId: programa?.id || null, programaNombre: programa?.nombre || '', dia: dia.nombre, fecha, minutos: Math.max(1, Math.round((Date.now() - inicio) / 60000)), series, notas: nt };
   }
@@ -275,7 +277,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       {modo === 'coach' && <label className="campo" style={{ marginTop: 14 }}><span>Fecha de la sesión</span><input type="date" className="in" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value || hoy())} /></label>}
 
       {ejs.map((ej) => {
-        const T = esTiempo(ej); const prev = seriesPrevias(historial, ej.ejercicio); const filas = reg[ej.id] || []; const recEj = records(historial, ej.ejercicio); const yt = ytId(ej.video); const cues = CUES[ej.grupo] || []; const lados = filas.some((x) => x.lado); const bal = lados ? balanceLados(historial, ej.ejercicio) : null; const pe = progresoEjercicio(filas, historial, ej.ejercicio, T);
+        const T = esTiempo(ej); const prev = seriesPrevias(historial, ej.ejercicio); const filas = reg[ej.id] || []; const recEj = records(historial, ej.ejercicio); const yt = ytId(ej.video); const cues = CUES[ej.grupo] || []; const lados = filas.some((x) => x.lado); const bal = lados ? balanceLados(historial, ej.ejercicio) : null; const cfg = cfgDe(ej); const conPl = cfg && filas.some((x) => x.pl);
+        const pe = conPl ? null : progresoEjercicio(filas, historial, ej.ejercicio, T); const ae = conPl ? analizarEjercicio({ cfg, filas, prev, rec: recEj, ej }) : null;
         return (
           <article className="ent" key={ej.id} style={{ borderLeft: `4px solid ${colorGrupo(ej.grupo)}` }}>
             <div className="ent-cab">
@@ -291,20 +294,28 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                 {prev.nota && <p className="guia">“{prev.nota}”</p>}
                 <Marcas historial={historial} ej={ej} />
               </> : <p className="previa-t">Primera vez con este ejercicio</p>}
-              <Sugerida ej={ej} historial={historial} />
+              <Sugerida ej={ej} historial={historial} cfg={cfg} />
+              {cfg && <button className="esq-b" onClick={() => setHojaEsq(ej.id)} aria-label={`Cómo se hacen las series: ${nombreEsquema(cfg)}. Cambiar`}>
+                <span className="esq-ico">{cfg.k === 'backoff' ? 'TOP' : nombreEsquema(cfg).slice(0, 1)}</span><div><b>{nombreEsquema(cfg)}</b><small>{textoEsquema(cfg, ej.rpe)}</small></div><Ico n="abajo" s={16} /></button>}
               {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}
               <div className="sets">
+                {ae && <div className={`prog-ej ${ae.clase}`}>
+                  <Ico n={ae.record ? 'fuego' : 'tendencia'} s={16} />
+                  <span>{ae.record && <><b>Récord: {ae.signo(ae.record)}</b> sobre tu mejor marca{ae.partes.length ? ' · ' : ''}</>}
+                    {ae.partes.map((x, i) => <React.Fragment key={i}>{i ? ' · ' : ''}{x.t} <b>{x.txt}</b></React.Fragment>)}{ae.partes.some((x) => x.v != null) ? ' vs. la vez pasada' : ''}</span></div>}
                 {pe && (pe.vsAntes != null || pe.vsRecord != null) && <div className={`prog-ej ${pe.vsRecord > 0 ? 'record' : pe.vsAntes > 0 ? 'sube' : pe.vsAntes < 0 ? 'baja' : ''}`}>
                   <Ico n={pe.vsRecord > 0 ? 'fuego' : 'tendencia'} s={16} />
                   {pe.vsRecord > 0 ? <span><b>Récord: {textoPct(pe.vsRecord, 1)}</b> sobre tu mejor marca</span>
                     : pe.vsAntes != null ? <span>Hoy vas <b>{textoPct(pe.vsAntes, 1)}</b> {T ? 'en tiempo' : 'de fuerza'} vs. la vez pasada</span> : null}</div>}
                 <div className="set-h"><span>#</span><span>Peso</span><span>{T ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>
                 {filas.map((s, k) => { const av = s.tocada || s.hecha ? revisarSerie(s, ej, recEj) : null;
-                  const pr = !av && (s.tocada || s.hecha) ? progresoSerie(s, previaDe(prev, filas, k), T) : null; const sb = !T && s.tecnica ? subDe(s.tecnica) : null; const ps = sb ? pesosSubs(s.peso, s.subs || []) : []; return (
+                  const pr = !av && !s.pl && (s.tocada || s.hecha) ? progresoSerie(s, previaFila(prev, filas, k, numeroFila(filas, k)), T) : null;
+                  const af = !av && s.pl ? analizarFila({ cfg, filas, k, prev, ej }) : null; const et = etiquetaFila(filas, k, numeroFila(filas, k)); const sb = !T && s.tecnica ? subDe(s.tecnica) : null; const ps = sb ? pesosSubs(s.peso, s.subs || []) : []; return (
                   <React.Fragment key={k}>
-                  <div className={`set ${s.hecha ? 'ok' : ''} ${av ? 'raro' : ''}`}>
-                    <button className={`n-serie ${s.lado ? 'lado' : ''} ${s.tecnica ? 'tec' : ''}`} onClick={() => setTec({ id: ej.id, k, ej: ej.ejercicio })} aria-label={`Tipo de serie ${numeroFila(filas, k)}${s.lado ? ` ${LADOS[s.lado].toLowerCase()}` : ''}${s.tecnica ? `: ${tecnicaDe(s.tecnica)?.n}` : ''}`}>
-                      <b>{numeroFila(filas, k)}{s.lado && <small>{s.lado}</small>}</b>{s.tecnica && <em>{tecnicaDe(s.tecnica)?.c}</em>}</button>
+                  {s.pl && (k === 0 || filas[k - 1].pl?.t !== s.pl.t) && <p className={`set-grupo ${s.pl.t === 'a' ? 'aprox' : ''}`}>{s.pl.t === 'a' ? 'Aproximación' : cfg?.aprox ? 'Series efectivas' : ''}</p>}
+                  <div className={`set ${s.hecha ? 'ok' : ''} ${av ? 'raro' : ''} ${esAprox(s) ? 'aprox' : ''} ${s.rol ? `rol-${s.rol}` : ''}`}>
+                    <button className={`n-serie ${s.lado ? 'lado' : ''} ${s.tecnica ? 'tec' : ''}`} onClick={() => setTec({ id: ej.id, k, ej: ej.ejercicio })} aria-label={`Tipo de serie ${et}${s.lado ? ` ${LADOS[s.lado].toLowerCase()}` : ''}${s.rol ? ` (${ROLES[s.rol]})` : ''}${s.tecnica ? `: ${tecnicaDe(s.tecnica)?.n}` : ''}`}>
+                      <b>{et}{s.lado && <small>{s.lado}</small>}</b>{s.tecnica ? <em>{tecnicaDe(s.tecnica)?.c}</em> : s.rol && (s.rol !== 'max' || !s.lado) ? <i className="rol">{s.rol === 'top' ? 'TOP' : s.rol === 'bo' ? 'BO' : 'MAX'}</i> : null}</button>
                     <input className="cel" inputMode="decimal" value={s.peso} placeholder="kg" onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, 'peso', e.target.value)} aria-label={`Peso serie ${k + 1}`} />
                     <input className="cel" inputMode="numeric" value={T ? s.seg : s.reps} placeholder={T ? 's' : '—'} onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, T ? 'seg' : 'reps', e.target.value)} aria-label={`${T ? 'Segundos' : 'Repeticiones'} serie ${k + 1}`} />
                     <div className="cel-rpe"><input className="cel" inputMode="decimal" value={s.rpe} placeholder={fmt(ej.rpe, 1)} onFocus={(e) => e.target.select()} onChange={(e) => set(ej.id, k, 'rpe', e.target.value)} aria-label={`RPE serie ${k + 1}`} />
@@ -322,10 +333,11 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                     </div>))}
                   {sb && <button className="sub-mas" onClick={() => masSub(ej.id, k)}><Ico n="mas" s={14} />{(s.subs || []).length ? sb.mas : sb.nombre}</button>}
                   {av && <p className={`set-aviso ${av.nivel}`} role="alert">{av.texto}</p>}
+                  {af && <p className={`set-prog ${af.clase}`}>{af.texto}</p>}
                   {pr && pr.pct != null && <p className={`set-prog ${pr.pct > 0.05 ? 'sube' : pr.pct < -0.05 ? 'baja' : ''}`}>{pr.pct > 0.05 ? '▲' : pr.pct < -0.05 ? '▼' : '='} {textoPct(pr.pct, 1)} vs. la vez pasada ({pr.antes}{T ? '' : ' kg'})</p>}
                   </React.Fragment>); })}
               </div>
-              <div className="set-acc"><button className="btn chico" onClick={() => masSerie(ej.id)}><Ico n="mas" s={16} />Serie</button>{filas.length > (lados ? 2 : 1) && <button className="btn chico" onClick={() => menosSerie(ej.id)}>Quitar serie</button>}
+              <div className="set-acc"><button className="btn chico" onClick={() => masSerie(ej.id)}><Ico n="mas" s={16} />Serie</button>{filas.filter((x) => !esAprox(x)).length > (lados ? 2 : 1) && <button className="btn chico" onClick={() => menosSerie(ej.id)}>Quitar serie</button>}
                 <button className={`btn chico ${lados ? 'on-lados' : ''}`} onClick={() => alternarLados(ej.id)} aria-pressed={lados}>{lados ? 'D / I por separado' : 'Separar D / I'}</button></div>
               {filas.length > 0 && !filas.some((x) => x.tecnica) && <p className="ayuda" style={{ margin: '6px 0 0' }}>Toca el número de la serie para marcar rest-pause, drop set, superserie o pirámide.</p>}
               <textarea className="in obs" rows={1} placeholder={modo === 'coach' ? 'Observación del ejercicio…' : 'Cómo te sentiste, molestias…'} value={notas[ej.ejercicio] || ''} onChange={(e) => setNotas((n) => ({ ...n, [ej.ejercicio]: e.target.value }))} />
@@ -346,6 +358,11 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
       </Hoja>}
 
       {conv && <Conversor onCerrar={() => setConv(false)} />}
+      {hojaEsq && (() => { const ej = ejDe(hojaEsq); const cfg = cfgDe(ej); if (!cfg) return null; return (
+        <Hoja titulo="Cómo se hacen las series" onCerrar={() => setHojaEsq(null)} acciones={<button className="btn oro" onClick={() => setHojaEsq(null)}>Listo</button>}>
+          <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>{ej.ejercicio}. {atleta ? 'El cambio es solo para hoy: tu coach decide la forma de tu programa.' : 'El cambio es solo para esta sesión; para el programa, cámbialo en la rutina.'} Lo que ya marcaste se conserva.</p>
+          <ConfigEsquema cfg={cfg} rpe={ej.rpe} compacto onChange={(c) => ponerEsquema(ej, c)} />
+        </Hoja>); })()}
       {tec && <TipoSerie tec={tec} fila={reg[tec.id]?.[tec.k]} n={numeroFila(reg[tec.id] || [], tec.k)} onPoner={(t, todas, cfg) => { ponerTecnica(tec.id, tec.k, t, todas, cfg); setTec(null); }} onCerrar={() => setTec(null)} />}
       {cierre && <Hoja titulo={atleta ? '¿Enviar a tu coach?' : '¿Terminar el entreno?'} onCerrar={() => setCierre(false)} acciones={<><button className="btn" onClick={() => setCierre(false)}>Seguir</button><button className="btn oro" disabled={guardando} onClick={terminar}>{guardando ? (atleta ? 'Enviando…' : 'Guardando…') : atleta ? 'Enviar a Coach' : 'Terminar y guardar'}</button></>}>
         <p className="muted">Se guardan <b style={{ color: 'var(--chalk)' }}>{paquete().series.length} series</b>: las que marcaste con ✓ o escribiste a mano. {atleta ? (sinCodigo ? 'Tu coach las ve al instante.' : 'Tu coach las ve al instante y la rutina se bloquea hasta tu próximo código.') : ''}</p>
