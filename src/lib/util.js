@@ -40,10 +40,24 @@ export function ytId(v) { if (!v) return null; const m = String(v).match(/(?:you
 export const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 export const primerNombre = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 export function textoCarga(v) { const s = String(v ?? '').trim(); return /^\d+([.,]\d+)?$/.test(s) ? `${s} kg` : s; }
-// "80 kg × 8 reps", "banda verde × 12 reps", "8 reps"
+// reps sugeridas: un número ("8") o un rango ("8-10", "8–10", "8 a 10") → { min, max }
+export function rangoReps(t) {
+  const m = String(t ?? '').match(/(\d+)\s*(?:-|–|—|a|al|hasta)\s*(\d+)/i);
+  if (m) { const a = parseInt(m[1], 10), b = parseInt(m[2], 10); return a > 0 && b > 0 ? { min: Math.min(a, b), max: Math.max(a, b) } : null; }
+  const n = String(t ?? '').match(/\d+/); const v = n ? parseInt(n[0], 10) : 0; return v > 0 ? { min: v, max: v } : null;
+}
+export const esRango = (t) => { const r = rangoReps(t); return !!r && r.max > r.min; };
+// lo que se guarda: "8" o "8-10" (cualquier otro texto queda como está)
+export function normRepsSug(t) {
+  const s = String(t ?? '').trim(); if (!s) return '';
+  if (/^\d+\s*((-|–|—|a|al|hasta)\s*\d+)?\s*(reps?|repeticiones)?$/i.test(s)) { const r = rangoReps(s); if (r) return r.max > r.min ? `${r.min}-${r.max}` : String(r.min); }
+  return s.slice(0, 12);
+}
+export const textoReps = (t) => { const r = rangoReps(t); return r ? (r.max > r.min ? `${r.min}–${r.max}` : String(r.min)) : String(t ?? '').trim(); };
+// "80 kg × 8 reps", "80 kg × 8–10 reps", "banda verde × 12 reps", "8 reps"
 export function textoSugerencia(e) {
-  const c = String(e?.pesoSugerido || '').trim(); const r = String(e?.repsSugeridas || '').trim();
-  const reps = r ? `${r} ${/rep/i.test(r) ? '' : 'reps'}`.trim() : '';
+  const c = String(e?.pesoSugerido || '').trim(); const r0 = String(e?.repsSugeridas || '').trim(); const r = /^\d+(\s*-\s*\d+)?$/.test(r0) ? textoReps(r0) : r0;
+  const reps = r ? `${r} ${/^\d/.test(r) && !/rep/i.test(r) ? 'reps' : ''}`.trim() : '';
   return c && reps ? `${textoCarga(c)} × ${reps}` : c ? textoCarga(c) : reps;
 }
 export function cargaNumero(t) { const s = String(t || '').toLowerCase().replace(',', '.'); const m = s.match(/[0-9]+(?:\.[0-9]+)?/); if (!m) return 0; let v = parseFloat(m[0]); if (/lb/.test(s)) v = Math.round(v * 0.45359237 * 10) / 10; return v > 0 && v < 1000 ? v : 0; }
@@ -65,7 +79,7 @@ export function normEj(e = {}) {
     id: e.id || uuid(), ejercicio: String(e.ejercicio || '').trim(), grupo: e.grupo || 'Core', tipo,
     series: n(e.series, 3, 1, 12), repMin: n(e.repMin, 8, 1, 100), repMax: Math.max(n(e.repMin, 8, 1, 100), n(e.repMax, 12, 1, 100)),
     segundos: n(e.segundos, 40, 5, 3600), descanso: e.descanso === '' || e.descanso == null ? 90 : Math.max(0, Math.round(nSeg(e.descanso))),
-    rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), repsSugeridas: String(e.repsSugeridas ?? '').trim().slice(0, 12), nota: String(e.nota || ''), video: String(e.video || ''),
+    rpe: Math.min(10, Math.max(5, nSeg(e.rpe) || 8)), pesoSugerido: String(e.pesoSugerido || ''), repsSugeridas: normRepsSug(e.repsSugeridas), nota: String(e.nota || ''), video: String(e.video || ''),
     ...(e.bibId ? { bibId: e.bibId } : {}), ...(typeof e.unilateral === 'boolean' ? { unilateral: e.unilateral } : {}),
     ...(tipo === 'reps' && ESQ_KEYS.includes(e.esquema) ? { esquema: e.esquema, ...(normEsq(e.esq) ? { esq: normEsq(e.esq) } : {}) } : {}),
   };

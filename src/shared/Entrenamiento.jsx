@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Barra, Hoja, Ico, useAviso } from '../ui/kit.jsx';
 import { CUES, ESCALA_RPE, MOTIVACION } from '../data/constants.js';
-import { textoSugerencia, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, semanasSeguidas, volumen, seriesPrevias, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
+import { textoSugerencia, rangoReps, colorGrupo, esTiempo, fCorta, fmt, hoy, nSeg, records, semanasSeguidas, volumen, seriesPrevias, uuid, ytId, mejorSerie, repsAlPct, PCTS, r05 } from '../lib/util.js';
 import brazo from '../assets/brazo.png';
 import { analogia } from '../lib/analogias.js';
 import { revisarSerie } from '../lib/validar.js';
@@ -13,7 +13,7 @@ import Compartir from './Compartir.jsx';
 const MapaMuscular = React.lazy(() => import('./MapaMuscular.jsx'));
 import MarcaSerie from './MarcaSerie.jsx';
 import { TECNICAS, tecnicaDe, filasUnilaterales, filasBilaterales, numeroFila, LADOS, balanceLados } from '../lib/series.js';
-import { ajusteSugerido, nuevasSubs, pesosSubs, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
+import { ajusteSugerido, aproximarPeso, pasoEquipo, PASOS_EQUIPO, nuevasSubs, pesosSubs, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
 import { esquemaDe, armarFilas, recalcular, cambiarEsquema, filasMasSerie, filasMenosSerie, etiquetaFila, previaFila, analizarFila, analizarEjercicio, textoEsquema, esAprox, ROLES, nombreEsquema } from '../lib/esquemas.js';
 import ConfigEsquema from './Esquema.jsx';
 
@@ -96,9 +96,12 @@ const FIN = [[660, 0, 0.15], [880, 0.17, 0.3]], LOGRO = [[523, 0, 0.1], [659, 0.
 const leer = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const escribir = (k, v) => { try { v ? localStorage.setItem(k, JSON.stringify(v)) : localStorage.removeItem(k); } catch {} };
 
+// de cuánto en cuánto sube el equipo de cada ejercicio, recordado en este teléfono
+const KEY_PASOS = 'bt:pasos';
+const conPaso = (ej, pasos) => { const v = pasos?.[String(ej?.ejercicio || '').toLowerCase()]; return v ? { ...ej, pasoPeso: v } : ej; };
 function preparar(dia, historial, base) {
-  const reg = {};
-  (dia.ejercicios || []).forEach((ej) => { reg[ej.id] = armarFilas(ej, historial, esquemaDe(ej, base)); });
+  const reg = {}; const pasos = leer(KEY_PASOS) || {};
+  (dia.ejercicios || []).forEach((ej) => { reg[ej.id] = armarFilas(conPaso(ej, pasos), historial, esquemaDe(ej, base)); });
   return reg;
 }
 
@@ -106,7 +109,31 @@ function preparar(dia, historial, base) {
 const siguientePct = (p, modo) => { const m = Math.abs(Number(p) || 0); const sig = [5, 10, 15, 20, 25, 30].find((v) => v > m) || 5; return modo === 'baja' ? -sig : sig; };
 
 // Carga y reps sugeridas por el coach, con lo que significan: % de su 1RM y cambio desde la vez pasada
-function Sugerida({ ej, historial, cfg }) {
+// Cuando el peso sugerido no existe en su máquina o mancuernas: el de abajo con más reps o el de arriba con menos
+const kgTxt = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+function Aproximar({ ej, carga, onUsar, paso0, onPaso }) {
+  const [paso, setPaso0] = useState(() => paso0 || pasoEquipo(ej.ejercicio)); const setPaso = (v) => { setPaso0(v); onPaso?.(v); };
+  const rg = rangoReps(ej.repsSugeridas) || { min: Number(ej.repMin) || 8, max: Number(ej.repMax) || Number(ej.repMin) || 8 };
+  const ap = aproximarPeso(carga, rg, paso);
+  // abierto de entrada cuando ese peso no existe en una máquina; después lo abre o cierra quien entrena
+  const [abierto] = useState(() => !!ap && !ap.exacto && paso >= 5); if (!ap) return null;
+  const rTxt = (o) => (o.max > o.min ? `${o.min}–${o.max}` : `${o.min}`);
+  return (
+    <details className="aprox-p" open={abierto}>
+      <summary>¿No hay {kgTxt(carga)} kg exactos en tu máquina o mancuernas?<Ico n="abajo" s={16} /></summary>
+      <div className="chips"><span>Tu equipo sube de</span>{PASOS_EQUIPO.map((v) => <button key={v} className={`chip ${paso === v ? 'on' : ''}`} onClick={() => setPaso(v)}>{kgTxt(v)} kg</button>)}</div>
+      {ap.exacto ? <p>Con saltos de {kgTxt(paso)} kg, {kgTxt(carga)} kg sí existe: úsalo tal cual.</p> : <>
+        <div className="aprox-op">{['abajo', 'arriba'].map((k) => { const o = ap[k]; return (
+          <div key={k} className={ap.cerca === k ? 'cerca' : ''}><b className="num">{kgTxt(o.peso)} kg</b><span>haz {rTxt(o)} reps</span>
+            <small>{k === 'abajo' ? 'menos peso, más reps' : 'más peso, menos reps'}{ap.cerca === k ? ' · más cerca' : ''}</small>
+            {onUsar && <button className="btn chico" style={{ marginTop: 8, width: '100%' }} onClick={() => onUsar(o.peso, o.min, paso)}>Usar</button>}</div>); })}</div>
+        <p>Es el mismo esfuerzo: si bajas el peso, sumas reps; si lo subes, restas. Elige el que puedas hacer con buena técnica. Si tu máquina tiene una placa pequeña o puedes colgar un disco, súmalo para llegar a {kgTxt(carga)} kg. Al tocar Usar, tus demás series quedan en pesos de {kgTxt(paso)} en {kgTxt(paso)} kg.</p>
+      </>}
+    </details>
+  );
+}
+
+function Sugerida({ ej, historial, cfg, onUsar, paso, onPaso }) {
   if (!ej.pesoSugerido && !ej.repsSugeridas) return null;
   const a = ajusteSugerido(ej, historial);
   if (!a.carga && String(ej.pesoSugerido).length > 14) return <div className="sug texto"><span>Con qué hacerlo</span><b>{textoSugerencia(ej)}</b></div>;
@@ -118,7 +145,11 @@ function Sugerida({ ej, historial, cfg }) {
         {a.pct1RM != null && <div><b className="num">{fmt(a.pct1RM)} %</b><span>de tu 100 % (1RM {fmt(a.e1, 1)} kg){a.pct1RMantes != null ? ` · la vez pasada ${fmt(a.pct1RMantes)} %` : ''}</span></div>}
         {a.cambioPct != null && <div className={sube ? 'sube' : baja ? 'baja' : ''}><b className="num">{Math.abs(a.cambioPct) < 0.5 ? '=' : textoPct(a.cambioPct, 1)}</b><span>{sube ? `subimos ${fmt(a.cambioKg, 1)} kg` : baja ? `bajamos ${fmt(-a.cambioKg, 1)} kg` : 'mismo peso'} vs. la vez pasada ({fmt(a.top.peso, 1)} kg × {a.top.reps})</span></div>}
       </div>}
-      {a.exigencia != null && <p className="sug-nota">{a.exigencia > 100.5 ? `Si haces las ${a.reps} reps superas tu mejor marca en ${fmt(a.exigencia - 100, 1)} %.` : `Equivale al ${fmt(a.exigencia)} % de tu mejor marca: margen para hacerlo con buena técnica.`}</p>}
+      {a.exigencia != null && <p className="sug-nota">{a.exigenciaMax != null
+        ? `Con ${a.reps} reps es el ${fmt(a.exigencia)} % de tu mejor marca; con ${a.repsMax}, el ${fmt(a.exigenciaMax)} %${a.exigenciaMax > 100.5 ? ' (la superas)' : ''}. Si llegas a ${a.repsMax} en todas las series, la próxima sube el peso.`
+        : a.exigencia > 100.5 ? `Si haces las ${a.reps} reps superas tu mejor marca en ${fmt(a.exigencia - 100, 1)} %.` : `Equivale al ${fmt(a.exigencia)} % de tu mejor marca: margen para hacerlo con buena técnica.`}</p>}
+      {a.exigencia == null && a.repsMax > 0 && <p className="sug-nota">Trabaja entre {a.reps} y {a.repsMax} reps. Si llegas a {a.repsMax} en todas las series, la próxima sube el peso.</p>}
+      {a.carga > 0 && <Aproximar ej={ej} carga={a.carga} onUsar={onUsar} paso0={paso} onPaso={onPaso} />}
     </div>
   );
 }
@@ -152,7 +183,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   // forma de las series de cada ejercicio: la del programa, o la que se eligió hoy
   const [esq, setEsq] = useState(() => guardado?.esq || {}); const [hojaEsq, setHojaEsq] = useState(null);
   const cfgDe = (ej) => (ej ? esq[ej.id] || esquemaDe(ej, esquemaBase) : null);
-  const ejDe = (id) => (dia.ejercicios || []).find((e) => e.id === id);
+  const [pasos, setPasos] = useState(() => leer(KEY_PASOS) || {});
+  const ponerPaso = (ej, v) => setPasos((m) => { const n = { ...m, [String(ej.ejercicio).toLowerCase()]: v }; escribir(KEY_PASOS, n); return n; });
+  const ejDe = (id) => conPaso((dia.ejercicios || []).find((e) => e.id === id), pasos);
   const [notas, setNotas] = useState(() => guardado?.notas || {});
   const [inicio] = useState(() => guardado?.inicio || Date.now());
   const [fecha, setFecha] = useState(() => guardado?.fecha || hoy());
@@ -194,7 +227,15 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
     return { ...r, [id]: f }; });
   const masSerie = (id) => setReg((r) => { const ej = ejDe(id); return { ...r, [id]: filasMasSerie(r[id], cfgDe(ej), ej) }; });
   const menosSerie = (id) => setReg((r) => { const ej = ejDe(id); return { ...r, [id]: filasMenosSerie(r[id], cfgDe(ej), ej) }; });
-  const ponerEsquema = (ej, cfg) => { setEsq((m) => ({ ...m, [ej.id]: cfg })); setReg((r) => ({ ...r, [ej.id]: cambiarEsquema(r[ej.id], ej, historial, cfg) })); };
+  // "Usar" en la aproximación: pone ese peso y reps en la serie principal (las demás lo siguen)
+  const usarPeso = (ej0, peso, reps, paso) => { if (paso) ponerPaso(ej0, paso); const ej = paso ? { ...ej0, pasoPeso: paso } : conPaso(ej0, pasos);
+    setReg((r) => { const cfg = cfgDe(ej); const f = r[ej.id] || [];
+    const lados = [...new Set(f.map((x) => x.lado || '-'))];
+    const guias = new Set(lados.map((l) => { const del = f.map((x, i) => ({ x, i })).filter(({ x }) => (x.lado || '-') === l && !esAprox(x) && !x.hecha);
+      return (del.find(({ x }) => x.rol === 'top' || x.rol === 'max') || del[0])?.i; }).filter((i) => i != null));
+    const n = f.map((x, i) => (guias.has(i) ? { ...x, peso, reps, ap: false, ar: false, tocada: true } : x));
+    return { ...r, [ej.id]: cfg ? recalcular(n, cfg, ej) : n }; }); avisar(`${String(peso).replace('.', ',')} kg × ${reps} en tu serie principal`); };
+  const ponerEsquema = (ej, cfg) => { setEsq((m) => ({ ...m, [ej.id]: cfg })); setReg((r) => ({ ...r, [ej.id]: cambiarEsquema(r[ej.id], conPaso(ej, pasos), historial, cfg) })); };
   const alternarLados = (id) => setReg((r) => ({ ...r, [id]: r[id].some((x) => x.lado) ? filasBilaterales(r[id]) : filasUnilaterales(r[id]) }));
   // tipo de serie: se pone en la fila (y en su otro lado); "todas" la pone en todas las series del ejercicio
   const ponerTecnica = (id, k, t, todas, cfg = {}) => setReg((r) => { const f = r[id]; const n = numeroFila(f, k);
@@ -294,7 +335,7 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                 {prev.nota && <p className="guia">“{prev.nota}”</p>}
                 <Marcas historial={historial} ej={ej} />
               </> : <p className="previa-t">Primera vez con este ejercicio</p>}
-              <Sugerida ej={ej} historial={historial} cfg={cfg} />
+              <Sugerida ej={ej} historial={historial} cfg={cfg} onUsar={(peso, reps, paso) => usarPeso(ej, peso, reps, paso)} paso={pasos[String(ej.ejercicio).toLowerCase()]} onPaso={(v) => ponerPaso(ej, v)} />
               {cfg && <button className="esq-b" onClick={() => setHojaEsq(ej.id)} aria-label={`Cómo se hacen las series: ${nombreEsquema(cfg)}. Cambiar`}>
                 <span className="esq-ico">{cfg.k === 'backoff' ? 'TOP' : nombreEsquema(cfg).slice(0, 1)}</span><div><b>{nombreEsquema(cfg)}</b><small>{textoEsquema(cfg, ej.rpe)}</small></div><Ico n="abajo" s={16} /></button>}
               {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}

@@ -5,7 +5,7 @@ import { leerConfig, guardarConfigLocal } from '../data/store.js';
 import { fLarga, hoy, primerNombre, diasParaVencer } from '../lib/util.js';
 import { Cobro } from './Inicio.jsx';
 
-export const VERSION = 'v9.16 · noviembre 2026';
+export const VERSION = 'v9.17 · noviembre 2026';
 
 function Importar({ archivo, datos, acc, usuario, onCerrar }) {
   const avisar = useAviso(); const salt = (usuario?.id || 'local') + ':';

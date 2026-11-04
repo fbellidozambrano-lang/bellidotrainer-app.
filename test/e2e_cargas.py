@@ -36,7 +36,7 @@ with sync_playwright() as pw:
     assert '% de su 1RM' in t and '+5,3 %' in t and '76 kg × 8' in t, t
     c.locator('article.prep').first.get_by_role('button', name='Escala de intensidad (1–100 % del 1RM)').click(); c.wait_for_timeout(200)
     c.locator('.escala-t button', has_text='75%').click(); c.locator('.escala .btn.oro', has_text='Usar').click(); c.wait_for_timeout(300)
-    assert c.locator('article.prep').first.get_by_label('Reps sugeridas').input_value() == '8', 'al 75 % ≈ 10 reps máx.; con RPE 8 quedan 8'
+    assert c.locator('article.prep').first.get_by_label('Reps sugeridas desde').input_value() == '8', 'al 75 % ≈ 10 reps máx.; con RPE 8 quedan 8'
     shot(c, '01_preparar', True)
     # vuelve a lo que el asesorado verá en el recorrido
     c.locator('article.prep').first.get_by_label('Carga sugerida').fill('80 kg'); c.wait_for_timeout(1500)

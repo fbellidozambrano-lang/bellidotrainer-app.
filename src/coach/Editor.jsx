@@ -8,6 +8,7 @@ import { colorGrupo, copiaEj, esTiempo, fmt, nDias, normEj, primerNombre, resume
 import { esUnilateral } from '../lib/series.js';
 import { esquemaDe, ponerCfg, nombreEsquema, conEsquema, baseDe } from '../lib/esquemas.js';
 import ConfigEsquema from '../shared/Esquema.jsx';
+import RepsSugeridas from '../shared/RepsSugeridas.jsx';
 import { mismoEj } from '../lib/nombres.js';
 import { sesionesCon, renombrarEnSesiones, renombrarEnProgramas } from '../lib/renombrar.js';
 
@@ -46,8 +47,8 @@ export function HojaEjercicio({ inicial, sugerencias, biblioteca = [], esNuevo, 
             <Campo l="Reps máx."><input className="in num" style={{ fontSize: 20 }} inputMode="numeric" value={e.repMax} onChange={(x) => f('repMax', x.target.value)} /></Campo></>}
       </div>
       <Interruptor on={esUnilateral(e)} onChange={(v) => f('unilateral', v)} label="Un lado a la vez" ayuda={esUnilateral(e) ? 'Registra la derecha y la izquierda por separado.' : 'Actívalo en ejercicios unilaterales (búlgara, remo a una mano…).'} />
-      <div className="dos dos-sug"><Campo l="Carga sugerida"><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder="22,5 kg · banda verde" /></Campo>
-        {!T && <Campo l="Reps sugeridas"><input className="in num" inputMode="numeric" value={e.repsSugeridas || ''} onChange={(x) => f('repsSugeridas', x.target.value)} placeholder={`${e.repMin}–${e.repMax}`} /></Campo>}</div>
+      <Campo l="Carga sugerida"><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder="22,5 kg · banda verde" /></Campo>
+      {!T && <Campo l="Reps sugeridas" ayuda="Pon una cantidad (de 8) o un rango (de 8 a 10)."><RepsSugeridas valor={e.repsSugeridas || ''} onChange={(v) => f('repsSugeridas', v)} repMin={e.repMin} repMax={e.repMax} /></Campo>}
       {cfg && <Campo l="Cómo se hacen las series"><ConfigEsquema cfg={cfg} rpe={e.rpe} compacto onChange={ponerEsq} /></Campo>}
       <Campo l="RPE objetivo"><div className="chips">{[6, 7, 8, 9, 10].map((v) => <button key={v} className={`chip ${Number(e.rpe) === v ? 'on' : ''}`} style={{ minWidth: 48 }} onClick={() => f('rpe', v)}>{v}</button>)}</div></Campo>
       <Campo l="Descanso entre series"><div className="chips">{[45, 60, 90, 120, 150, 180].map((v) => <button key={v} className={`chip ${Number(e.descanso) === v ? 'on' : ''}`} onClick={() => f('descanso', v)}>{v < 120 ? `${v} s` : v === 150 ? '2:30' : `${v / 60} min`}</button>)}</div></Campo>

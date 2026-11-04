@@ -6,6 +6,7 @@ import { mismoNombre } from '../lib/nombres.js';
 import { ajusteSugerido, textoPct } from '../lib/progreso.js';
 import { esquemaDe, ponerCfg, nombreEsquema, textoEsquema, baseDe } from '../lib/esquemas.js';
 import ConfigEsquema from '../shared/Esquema.jsx';
+import RepsSugeridas from '../shared/RepsSugeridas.jsx';
 
 const r05 = (v) => Math.round(v * 2) / 2;
 // repeticiones posibles a un % del 1RM (Epley al revés)
@@ -57,7 +58,7 @@ function TarjetaPreparar({ e, historial, cambiar, nomA, base }) {
       </div>
       <div className="prep-sug">
         <label className="prep-carga"><span>Carga sugerida</span><input className="in" value={e.pesoSugerido} onChange={(x) => f('pesoSugerido', x.target.value)} placeholder={rec.maxPeso ? `Ej: ${fmt(rec.maxPeso, 1)} kg` : '22,5 kg · banda verde'} /></label>
-        {!T && <label className="prep-carga"><span>Reps sugeridas</span><input className="in num" inputMode="numeric" value={e.repsSugeridas || ''} onChange={(x) => f('repsSugeridas', x.target.value)} placeholder={`${e.repMin}–${e.repMax}`} /></label>}
+        {!T && <div className="prep-carga"><span>Reps sugeridas</span><RepsSugeridas valor={e.repsSugeridas || ''} onChange={(v) => f('repsSugeridas', v)} repMin={e.repMin} repMax={e.repMax} /></div>}
       </div>
       {aj.carga > 0 && (aj.pct1RM != null || aj.cambioPct != null) && <p className="prep-pct">
         {aj.pct1RM != null && <span><b>{Math.round(aj.pct1RM)} %</b> de su 1RM</span>}

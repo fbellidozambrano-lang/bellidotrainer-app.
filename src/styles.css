@@ -836,7 +836,7 @@ body.velado #root{opacity:0}
 .tipo-cfg{display:grid;gap:10px;margin:0 0 12px;padding:12px;border-radius:14px;background:var(--s1);border:1px solid var(--line)}
 .tipo-cfg > div > span{display:block;font-size:13px;color:var(--mute);margin-bottom:6px}
 .s-sub{display:inline;font-style:normal;color:var(--mute);font-size:.92em}
-.prep-sug{display:grid;grid-template-columns:1.6fr 1fr;gap:8px}
+.prep-sug{display:grid;grid-template-columns:1fr;gap:0}
 .prep-pct{display:flex;flex-wrap:wrap;gap:6px 12px;margin:8px 0 4px;font-size:13px;color:var(--mute)}
 .prep-pct b{color:var(--chalk);font-family:var(--cond);font-size:16px}.prep-pct .sube b{color:var(--ok)}.prep-pct .baja b{color:#FF9E4D}
 .prep-pct small{flex-basis:100%;font-size:12px}
@@ -880,3 +880,22 @@ body.velado #root{opacity:0}
 .s-tag.rol-top,.s-tag.rol-max{background:var(--goldbg);color:var(--gold)}
 .s-aprox{display:block;margin-top:2px;font-size:.88em}
 .s-tag.rol-aprox{color:var(--info)}
+
+/* ---------- reps sugeridas por rango y cómo aproximar el peso ---------- */
+.reps-sug{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:8px}
+.reps-sug .in{text-align:center;font-size:18px;min-width:0}
+.reps-sug > span,.prep-carga .reps-sug > span{display:inline;margin:0;font-size:14px;color:var(--mute)}
+.aprox-p{margin-top:10px;padding-top:10px;border-top:1px solid #4a3b00}
+.aprox-p summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13.5px;font-weight:600;color:#f1d27a}
+.aprox-p summary::-webkit-details-marker{display:none}
+.aprox-p[open] summary svg{transform:rotate(180deg)}
+.aprox-p .chips{margin:10px 0 8px;gap:6px}
+.aprox-p .chips .chip{height:32px;padding:0 11px;font-size:13px}
+.aprox-p .chips > span{flex-basis:100%;font-size:12.5px;color:#d9c37a}
+.aprox-op{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aprox-op div{padding:9px 10px;border-radius:11px;background:rgba(0,0,0,.35);border:1px solid #4a3b00}
+.aprox-op div.cerca{border-color:var(--gold)}
+.aprox-op b{display:block;font-family:var(--cond);font-size:22px;color:var(--gold);line-height:1.1}
+.aprox-op span{display:block;font-size:13px;color:#f1d27a;margin-top:2px}
+.aprox-op small{display:block;font-size:11px;color:#d9c37a;margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.aprox-p p{font-size:12.5px;color:#d9c37a;line-height:1.4;margin:8px 0 0}

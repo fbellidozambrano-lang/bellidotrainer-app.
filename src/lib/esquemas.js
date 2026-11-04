@@ -2,7 +2,7 @@
 // rampa, pirámide, pirámide inversa o por RPE, con series de aproximación opcionales.
 // Arma las filas del entreno con su peso y reps objetivo, las reajusta mientras se registra
 // y analiza el progreso según el tipo de serie.
-import { cargaNumero, e1rm, esTiempo, nSeg, r05, seriesPrevias, ESQ_KEYS } from './util.js';
+import { cargaNumero, e1rm, esTiempo, nSeg, r05, rangoReps, seriesPrevias, ESQ_KEYS } from './util.js';
 import { esUnilateral } from './series.js';
 
 export const ESQUEMAS = [
@@ -93,6 +93,8 @@ export function clavePrevia(series = []) {
   return ef.find((x) => x.rol === 'top' || x.rol === 'max') || [...ef].filter((x) => x.peso > 0).sort((a, b) => b.peso - a.peso || b.reps - a.reps)[0] || null;
 }
 
+// peso de una serie del plan: al 0,5 kg o, si se sabe de cuánto en cuánto sube su equipo (ej.pasoPeso), a ese salto
+export const redondear = (v, ej = {}) => { const s = nSeg(ej.pasoPeso); return s > 0 ? Math.max(s, Math.round(Math.round(v / s) * s * 100) / 100) : r05(v); };
 // filas del registro de un ejercicio (con lados, una fila por lado en cada serie)
 export function armarFilas(ej, historial, cfg, n = ej.series || 3) {
   const prev = seriesPrevias(historial, ej.ejercicio); const T = esTiempo(ej); const lados = esUnilateral(ej) ? ['D', 'I'] : [null];
@@ -105,7 +107,7 @@ export function armarFilas(ej, historial, cfg, n = ej.series || 3) {
   const ref = {}; lados.forEach((l) => { const ps = (prev?.series || []).filter((x) => mismoLado(x, l)); const c = clavePrevia(ps);
     ref[l || '-'] = { P: pesoNumero(ej.pesoSugerido) || c?.peso || 0, R: repsNumero(ej.repsSugeridas) || c?.reps || nSeg(ej.repMin) || 0 }; });
   const fila = (t, i, l) => { const { P, R } = ref[l || '-']; const x = t === 'a' ? ap[i] : plan[i];
-    return { peso: P > 0 ? r05(P * x.m) : '', reps: t === 'a' ? x.r : R > 0 ? repsPlan(R, x, cfg, ej) : '', seg: '', rpe: '', hecha: false, tocada: false, pl: { t, i }, ap: true, ar: true, ...(t === 'e' && x.rol ? { rol: x.rol } : {}), ...(l ? { lado: l } : {}) }; };
+    return { peso: P > 0 ? redondear(P * x.m, ej) : '', reps: t === 'a' ? x.r : R > 0 ? repsPlan(R, x, cfg, ej) : '', seg: '', rpe: '', hecha: false, tocada: false, pl: { t, i }, ap: true, ar: true, ...(t === 'e' && x.rol ? { rol: x.rol } : {}), ...(l ? { lado: l } : {}) }; };
   return [...ap.map((_, i) => lados.map((l) => fila('a', i, l))).flat(), ...plan.map((_, i) => lados.map((l) => fila('e', i, l))).flat()];
 }
 
@@ -132,7 +134,7 @@ export function recalcular(filas, cfg, ej = {}) {
       const gP = x.ap ? guia(anclasP, i, x.pl.t === 'a') : null;
       if (gP) { let P = nSeg(gP.x.peso) / (ent(gP.x).m || 1);
         if (cfg.k === 'rpe' && gP.i < i && gP.x.hecha && nSeg(gP.x.rpe) > 0) P *= 1 + ajusteRpe(gP.x.rpe, ej.rpe) / 100;
-        y.peso = r05(P * e.m); }
+        y.peso = redondear(P * e.m, ej); }
       const gR = x.ar && x.pl.t === 'e' ? guia(anclasR, i, false) : null;
       if (gR) y.reps = repsPlan(nSeg(gR.x.reps) - ent(gR.x).dr, e, cfg, ej);
       out[i] = y;
@@ -185,6 +187,14 @@ const signo = (p, d = 1) => (p == null ? '' : `${p > 0.05 ? '+' : p < -0.05 ? '�
 const clase = (p) => (p == null ? '' : p > 0.05 ? 'sube' : p < -0.05 ? 'baja' : '');
 const flecha = (p) => (p > 0.05 ? '▲' : p < -0.05 ? '▼' : '=');
 
+// con reps sugeridas por rango (8–10): dónde quedó la serie
+export function notaRango(reps, ej = {}) {
+  const r = rangoReps(ej.repsSugeridas); const n = nSeg(reps); if (!r || r.max <= r.min || !(n > 0)) return '';
+  if (n > r.max) return ` · pasaste el rango ${r.min}–${r.max}: la próxima sube el peso`;
+  if (n === r.max) return ` · tope del rango ${r.min}–${r.max} ✓`;
+  if (n < r.min) return ` · debajo del rango ${r.min}–${r.max}`;
+  return ` · en el rango ${r.min}–${r.max} ✓`;
+}
 // Una fila mientras se registra: qué significa según su papel en el esquema
 export function analizarFila({ cfg, filas, k, prev, ej = {} }) {
   const x = filas[k]; if (!cfg || !x?.pl || !(x.hecha || x.tocada)) return null;
@@ -201,21 +211,25 @@ export function analizarFila({ cfg, filas, k, prev, ej = {} }) {
   const esClave = x === clave || x.rol === 'top' || x.rol === 'max';
   if (cfg.k === 'rpe') {
     if (!(nSeg(x.rpe) > 0)) return { texto: `Anota el RPE de esta serie para ajustar la siguiente${colaAntes('esta serie')}`, clase: clase(vsAntes) };
-    const adj = ajusteRpe(x.rpe, ej.rpe); const sig = r05(nSeg(x.peso) * (1 + adj / 100)); const obj = nSeg(ej.rpe) || 8;
-    if (adj <= -2.5) return { texto: `▼ RPE ${fmtN(nSeg(x.rpe))} sobre el objetivo (${fmtN(obj)}): la siguiente baja a ${kg(sig)} kg${colaAntes('esta serie')}`, clase: 'baja' };
-    if (adj >= 4.5) return { texto: `▲ RPE ${fmtN(nSeg(x.rpe))}: te sobró margen, la siguiente sube a ${kg(sig)} kg${colaAntes('esta serie')}`, clase: 'sube' };
-    return { texto: `✓ En el RPE objetivo (${fmtN(obj)}): mantén ${kg(x.peso)} kg${colaAntes('esta serie')}`, clase: 'sube' };
+    const adj = ajusteRpe(x.rpe, ej.rpe); const sig = redondear(nSeg(x.peso) * (1 + adj / 100), ej); const obj = nSeg(ej.rpe) || 8;
+    const nr = notaRango(x.reps, ej);
+    if (adj <= -2.5) return { texto: `▼ RPE ${fmtN(nSeg(x.rpe))} sobre el objetivo (${fmtN(obj)}): la siguiente baja a ${kg(sig)} kg${nr}${colaAntes('esta serie')}`, clase: 'baja' };
+    if (adj >= 4.5) return { texto: `▲ RPE ${fmtN(nSeg(x.rpe))}: te sobró margen, la siguiente sube a ${kg(sig)} kg${nr}${colaAntes('esta serie')}`, clase: 'sube' };
+    return { texto: `✓ En el RPE objetivo (${fmtN(obj)}): mantén ${kg(x.peso)} kg${nr}${colaAntes('esta serie')}`, clase: 'sube' };
   }
   if (cfg.k === 'recto') {
     const s1 = del[0]; const menos = s1 && s1 !== x && lista(s1) && nSeg(x.peso) >= nSeg(s1.peso) ? nSeg(s1.reps) - nSeg(x.reps) : 0;
-    if (vsAntes == null && menos < 2) return null;
-    return { texto: `${vsAntes != null ? `${flecha(vsAntes)} ${signo(vsAntes)} vs. la vez pasada (${kg(antes.peso)} × ${antes.reps} kg)` : ''}${menos >= 2 ? `${vsAntes != null ? ' · ' : ''}${menos} reps menos que la serie 1: alarga el descanso` : ''}`, clase: menos >= 2 ? 'baja' : clase(vsAntes) };
+    const nr = notaRango(x.reps, ej);
+    if (vsAntes == null && menos < 2 && !nr) return null;
+    const t = [vsAntes != null ? `${flecha(vsAntes)} ${signo(vsAntes)} vs. la vez pasada (${kg(antes.peso)} × ${antes.reps} kg)` : '', menos >= 2 ? `${menos} reps menos que la serie 1: alarga el descanso` : '', nr.slice(3)].filter(Boolean).join(' · ');
+    return { texto: t, clase: menos >= 2 ? 'baja' : clase(vsAntes) };
   }
   const nombreClave = cfg.k === 'backoff' ? 'top set' : 'serie más pesada';
   if (esClave) {
     const p = prevClave && e1De(prevClave) > 0 ? pct(e1De(x), e1De(prevClave)) : null;
-    if (p == null) return { texto: `${cfg.k === 'backoff' ? 'Top set' : 'Serie más pesada'} de hoy: 1RM estimado ${kg(e1De(x))} kg. Es la referencia de ${cfg.k === 'backoff' ? 'tus back off' : 'las demás series'}`, clase: '' };
-    return { texto: `${flecha(p)} ${signo(p)} de fuerza vs. tu ${nombreClave} anterior (${kg(prevClave.peso)} × ${prevClave.reps} kg)`, clase: clase(p) };
+    const nr = notaRango(x.reps, ej);
+    if (p == null) return { texto: `${cfg.k === 'backoff' ? 'Top set' : 'Serie más pesada'} de hoy: 1RM estimado ${kg(e1De(x))} kg${nr}. Es la referencia de ${cfg.k === 'backoff' ? 'tus back off' : 'las demás series'}`, clase: '' };
+    return { texto: `${flecha(p)} ${signo(p)} de fuerza vs. tu ${nombreClave} anterior (${kg(prevClave.peso)} × ${prevClave.reps} kg)${nr}`, clase: clase(p) };
   }
   const Pc = nSeg(clave?.peso); if (!(Pc > 0)) return vsAntes != null ? { texto: `${flecha(vsAntes)} ${signo(vsAntes)} vs. la vez pasada`, clase: clase(vsAntes) } : null;
   const caida = pct(nSeg(x.peso), Pc);

@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/coach/Ajustes.jsx": {
-    "mtime": 1793735912.7897372,
-    "seen": 1793736060.1474006,
-    "ast_hash": "666662c7a592b3df0c6e3f3bcf7edced",
+    "mtime": 1793754356.117889,
+    "seen": 1793757425.4850152,
+    "ast_hash": "45b5d4c0b8d368726298e48b3ed034dd",
     "semantic_hash": ""
   },
   "src/coach/Biblioteca.jsx": {
@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "src/coach/Editor.jsx": {
-    "mtime": 1793734736.1868355,
-    "seen": 1793736060.1474843,
-    "ast_hash": "ae98478af586a6f6167f78187ece2a53",
+    "mtime": 1793754102.6126459,
+    "seen": 1793757425.4851258,
+    "ast_hash": "40ba9d45a7a6a86cf48139c22dea8529",
     "semantic_hash": ""
   },
   "src/coach/EnVivo.jsx": {
@@ -90,9 +90,9 @@
     "semantic_hash": ""
   },
   "src/coach/Preparar.jsx": {
-    "mtime": 1793734736.1863432,
-    "seen": 1793736060.1476018,
-    "ast_hash": "17ecaea66ea4e496135572cda2480b8a",
+    "mtime": 1793754102.6129742,
+    "seen": 1793757425.485328,
+    "ast_hash": "de256d9033b66fffc65bd7323d272993",
     "semantic_hash": ""
   },
   "src/coach/Rutinas.jsx": {
@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "src/lib/util.js": {
-    "mtime": 1793734498.2170794,
-    "seen": 1793736060.1483448,
-    "ast_hash": "204236d44b51b9ffa01743e74f1d5f3a",
+    "mtime": 1793754089.4162846,
+    "seen": 1793757425.4861104,
+    "ast_hash": "00953c83ec76ae337bfebfb68ecf6b06",
     "semantic_hash": ""
   },
   "src/lib/validar.js": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "src/shared/Entrenamiento.jsx": {
-    "mtime": 1793735809.0423799,
-    "seen": 1793736060.148435,
-    "ast_hash": "8b1ffc6bb373433584cd2e41c961a69f",
+    "mtime": 1793754323.828255,
+    "seen": 1793757425.4861946,
+    "ast_hash": "2a96882f164be1a73764f729c689837c",
     "semantic_hash": ""
   },
   "src/shared/MapaMuscular.jsx": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793735912.789313,
-    "seen": 1793736060.1491587,
-    "ast_hash": "426e4ca5e3eddfa9cdc4efb1fd24711e",
+    "mtime": 1793757416.3219218,
+    "seen": 1793757425.4870434,
+    "ast_hash": "24c64f4ce09f042b9322612c4812639d",
     "semantic_hash": ""
   },
   "index.html": {
@@ -816,21 +816,21 @@
     "semantic_hash": ""
   },
   "src/lib/progreso.js": {
-    "mtime": 1793392755.715501,
-    "seen": 1793395378.4682312,
-    "ast_hash": "4140e97beea8dbdc44084adc9f949749",
+    "mtime": 1793754089.4166634,
+    "seen": 1793757425.4860666,
+    "ast_hash": "bd59a9532c6938fe5ba17e834c37ae4e",
     "semantic_hash": ""
   },
   "test/e2e_cargas.py": {
-    "mtime": 1793735293.3007576,
-    "seen": 1793736060.1486971,
-    "ast_hash": "0bbe16d6114507ddd6ec9ee2129267f8",
+    "mtime": 1793754222.9199536,
+    "seen": 1793757425.4865472,
+    "ast_hash": "fcfc4379af075ee4d6b728ca5234a63e",
     "semantic_hash": ""
   },
   "test/progreso.test.mjs": {
-    "mtime": 1793392819.7264857,
-    "seen": 1793395378.4692478,
-    "ast_hash": "ec39775cd943a183d751ab872e56e51a",
+    "mtime": 1793754350.4015005,
+    "seen": 1793757425.4869373,
+    "ast_hash": "5c9a29b1cefa5e7e3911e2e3ab0e3805",
     "semantic_hash": ""
   },
   "src/lib/nutricion/objetivos.js": {
@@ -876,9 +876,9 @@
     "semantic_hash": ""
   },
   "src/lib/esquemas.js": {
-    "mtime": 1793735847.7876065,
-    "seen": 1793736060.1479154,
-    "ast_hash": "19922a897d63fc867c99eb8245b49864",
+    "mtime": 1793754316.5851338,
+    "seen": 1793757425.4856493,
+    "ast_hash": "ee6728236c05bf4845abdfa98ff9fd3f",
     "semantic_hash": ""
   },
   "src/shared/Esquema.jsx": {
@@ -897,6 +897,18 @@
     "mtime": 1793735036.13988,
     "seen": 1793736060.1487527,
     "ast_hash": "06d848730e42af3a150b0b34613c0098",
+    "semantic_hash": ""
+  },
+  "src/shared/RepsSugeridas.jsx": {
+    "mtime": 1793754102.5951114,
+    "seen": 1793757425.4863324,
+    "ast_hash": "68bcfe35acd2b5c18c3e0f19c1b3b952",
+    "semantic_hash": ""
+  },
+  "test/e2e_rango.py": {
+    "mtime": 1793754323.8342006,
+    "seen": 1793757425.4865868,
+    "ast_hash": "9ead2d2aaf98a0adbf2f202ea44afcc0",
     "semantic_hash": ""
   }
 }

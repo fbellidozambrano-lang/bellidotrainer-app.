@@ -13,7 +13,7 @@ const hist = [
 await t('reps sugeridas: se guardan en el ejercicio y se muestran con la carga', () => {
   const e = normEj({ ejercicio: 'Press banca', pesoSugerido: '80', repsSugeridas: ' 8 ' });
   assert.equal(e.repsSugeridas, '8'); assert.equal(textoSugerencia(e), '80 kg × 8 reps');
-  assert.equal(textoSugerencia({ pesoSugerido: 'banda verde', repsSugeridas: '12-15' }), 'banda verde × 12-15 reps');
+  assert.equal(textoSugerencia({ pesoSugerido: 'banda verde', repsSugeridas: '12-15' }), 'banda verde × 12–15 reps');
   assert.equal(textoSugerencia({ repsSugeridas: '10' }), '10 reps'); assert.equal(normEj({}).repsSugeridas, '');
 });
 
@@ -58,5 +58,40 @@ await t('progreso en vivo: cada serie contra la misma de la vez pasada y el ejer
   assert.ok(e.vsAntes > 5 && e.vsRecord > 5, 'solo cuentan las series hechas o escritas');
   assert.equal(P.progresoEjercicio([{ peso: '80', reps: '8' }], hist, 'Press banca'), null);
   assert.equal(P.textoPct(5.26), '+5 %'); assert.equal(P.textoPct(-3.24, 1), '−3,2 %'); assert.equal(P.textoPct(0), '±0 %');
+});
+await t('reps sugeridas por rango: se guarda 8-10, se muestra 8–10 y dice qué tan exigente es cada punta', async () => {
+  const { rangoReps, normRepsSug } = await import('../src/lib/util.js');
+  assert.deepEqual(['8', '8-10', ' 8 a 10 ', '10–8', '8 reps', 'al fallo', ''].map(normRepsSug), ['8', '8-10', '8-10', '8-10', '8', 'al fallo', '']);
+  assert.deepEqual(rangoReps('8-10'), { min: 8, max: 10 }); assert.deepEqual(rangoReps('8'), { min: 8, max: 8 }); assert.equal(rangoReps('al fallo'), null);
+  assert.equal(textoSugerencia(normEj({ pesoSugerido: '52', repsSugeridas: '8 a 10' })), '52 kg × 8–10 reps');
+  assert.equal(textoSugerencia({ pesoSugerido: '20', repsSugeridas: 'al fallo' }), '20 kg × al fallo');
+  const a = P.ajusteSugerido({ ejercicio: 'Press banca', pesoSugerido: '80', repsSugeridas: '8-10' }, hist);
+  assert.equal(a.reps, 8); assert.equal(a.repsMax, 10); assert.ok(a.exigenciaMax > a.exigencia && a.exigenciaMax > 100);
+});
+
+await t('peso que no existe en la máquina: el de abajo con más reps y el de arriba con menos', () => {
+  assert.equal(P.pasoEquipo('Jalón al pecho'), 5); assert.equal(P.pasoEquipo('Press con mancuernas'), 2); assert.equal(P.pasoEquipo('Sentadilla con barra'), 2.5);
+  const x = P.aproximarPeso(52, { min: 8, max: 10 }, 5);
+  assert.deepEqual([x.abajo, x.arriba, x.cerca], [{ peso: 50, min: 10, max: 12 }, { peso: 55, min: 6, max: 8 }, 'abajo']);
+  assert.ok(Math.abs(50 * (1 + 10 / 30) - 52 * (1 + 8 / 30)) < 1.5, 'mismo esfuerzo (1RM estimado parecido)');
+  assert.deepEqual(P.aproximarPeso(52, { min: 8, max: 8 }, 2), { exacto: true, peso: 52 });
+  assert.equal(P.aproximarPeso(53.5, { min: 6, max: 6 }, 2.5).arriba.peso, 55);
+  assert.equal(P.aproximarPeso(0, null, 5), null);
+});
+
+await t('progreso en vivo con rango: en el rango, tope o lo pasó', async () => {
+  const E = await import('../src/lib/esquemas.js');
+  const ej = { ejercicio: 'Jalón al pecho', repsSugeridas: '8-10' };
+  assert.equal(E.notaRango(9, ej), ' · en el rango 8–10 ✓'); assert.equal(E.notaRango(10, ej), ' · tope del rango 8–10 ✓');
+  assert.match(E.notaRango(11, ej), /pasaste el rango 8–10: la próxima sube el peso/); assert.match(E.notaRango(7, ej), /debajo del rango/);
+  assert.equal(E.notaRango(9, { repsSugeridas: '8' }), '');
+});
+
+await t('con el salto del equipo conocido, los back off quedan en pesos que existen', async () => {
+  const E = await import('../src/lib/esquemas.js');
+  const ej = { ejercicio: 'Jalón al pecho', tipo: 'reps', series: 3, repMin: 8, repMax: 12, pesoSugerido: '50', repsSugeridas: '10', esquema: 'backoff' };
+  assert.deepEqual(E.armarFilas(ej, [], E.esquemaDe(ej)).map((x) => x.peso), [50, 45, 40.5]);
+  assert.deepEqual(E.armarFilas({ ...ej, pasoPeso: 5 }, [], E.esquemaDe(ej)).map((x) => x.peso), [50, 45, 40]);
+  assert.equal(E.redondear(3, { pasoPeso: 5 }), 5, 'nunca baja de un salto');
 });
 console.log(`\n${ok} pruebas OK`);

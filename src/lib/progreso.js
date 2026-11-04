@@ -1,6 +1,6 @@
 // Carga sugerida con % de su 1RM, sub-series (drop set, rest-pause, superserie, pirámides)
 // y el % de progreso de cada serie y de cada ejercicio mientras entrena.
-import { cargaNumero, e1rm, nSeg, r05, records, seriesPrevias } from './util.js';
+import { cargaNumero, e1rm, nSeg, r05, rangoReps, records, seriesPrevias } from './util.js';
 
 // primer número de un texto ("8–10 reps" → 8, "22,5 kg" → 22.5)
 export const primerNumero = (t) => { const m = String(t ?? '').replace(',', '.').match(/\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : 0; };
@@ -48,7 +48,7 @@ export { volSerie } from './util.js';
 export function ajusteSugerido(ej, historial) {
   // solo si es un peso ("80", "80 kg", "45 lb"); "banda verde" o "máquina 3" no se comparan
   const carga = /^\s*\d+([.,]\d+)?\s*(kg|kgs|lb|lbs)?\s*$/i.test(String(ej.pesoSugerido || '')) ? cargaNumero(ej.pesoSugerido) : 0;
-  const reps = Math.round(primerNumero(ej.repsSugeridas)) || 0;
+  const rg = rangoReps(ej.repsSugeridas); const reps = rg?.min || 0; const repsMax = rg?.max || 0;
   const rec = records(historial, ej.ejercicio); const prev = seriesPrevias(historial, ej.ejercicio);
   const top = (prev?.series || []).filter((x) => x.peso > 0).sort((a, b) => b.peso - a.peso || b.reps - a.reps)[0] || null;
   const e1 = rec.maxE1 || 0;
@@ -56,7 +56,28 @@ export function ajusteSugerido(ej, historial) {
   if (carga && e1) { r.pct1RM = (carga / e1) * 100; if (top) r.pct1RMantes = (top.peso / e1) * 100; }
   if (carga && top) { r.cambioKg = carga - top.peso; r.cambioPct = pct(carga, top.peso); }
   if (carga && reps && e1) { r.e1Hoy = e1rm(carga, reps); r.exigencia = (r.e1Hoy / e1) * 100; } // 100 % = igualar su mejor marca
+  if (repsMax > reps) { r.repsMax = repsMax; if (carga && e1) r.exigenciaMax = (e1rm(carga, repsMax) / e1) * 100; }
   return r;
+}
+
+// ---------- cuando no existe el peso exacto ----------
+// de cuánto en cuánto sube el equipo de ese ejercicio (se puede cambiar al entrenar)
+export const PASOS_EQUIPO = [1, 2, 2.5, 5];
+export function pasoEquipo(nombre = '') {
+  const n = String(nombre).toLowerCase();
+  if (/m[aá]quina|polea|jal[oó]n|cable|prensa|smith|pec ?deck|contractora|extensi[oó]n|femoral|abductor|aductor|hack|cruce/.test(n)) return 5;
+  if (/mancuerna|dumbbell|kettlebell|pesa rusa/.test(n)) return 2;
+  return 2.5; // barra con discos de 1,25 kg por lado
+}
+// reps que dan el mismo esfuerzo con otro peso (1RM estimado igual, Epley)
+export const repsEquivalentes = (peso, reps, otro) => (peso > 0 && reps > 0 && otro > 0 ? Math.max(1, Math.round(30 * ((peso * (1 + reps / 30)) / otro - 1))) : 0);
+// el peso sugerido no existe con ese paso: el de abajo con más reps y el de arriba con menos, para el mismo esfuerzo
+export function aproximarPeso(peso, rango, paso) {
+  const p = nSeg(peso), s = nSeg(paso); if (!(p > 0) || !(s > 0)) return null;
+  const abajo = Math.round(Math.floor(p / s + 1e-9) * s * 100) / 100; const arriba = Math.round(Math.ceil(p / s - 1e-9) * s * 100) / 100;
+  if (abajo === arriba || abajo <= 0) return { exacto: true, peso: p };
+  const r = rango || null; const op = (w) => (r ? { peso: w, min: repsEquivalentes(p, r.min, w), max: repsEquivalentes(p, r.max, w) } : { peso: w });
+  return { exacto: false, peso: p, abajo: op(abajo), arriba: op(arriba), cerca: p - abajo <= arriba - p ? 'abajo' : 'arriba' };
 }
 
 // ---------- progreso en vivo ----------
