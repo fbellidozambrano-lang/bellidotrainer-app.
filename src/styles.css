@@ -899,3 +899,20 @@ body.velado #root{opacity:0}
 .aprox-op span{display:block;font-size:13px;color:#f1d27a;margin-top:2px}
 .aprox-op small{display:block;font-size:11px;color:#d9c37a;margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
 .aprox-p p{font-size:12.5px;color:#d9c37a;line-height:1.4;margin:8px 0 0}
+.esq-b.fijo{cursor:default}
+.vivo-prog{margin:6px 0 0;font-family:var(--cond);font-size:14.5px;letter-spacing:.02em;color:var(--mute)}
+.vivo-prog.sube{color:var(--ok)}.vivo-prog.baja{color:#FF9E4D}.vivo-prog.record{color:var(--gold)}
+
+/* ---------- cronómetro de la serie (ejercicios de tiempo) ---------- */
+.iso-b{width:100%;margin-top:10px;gap:8px;background:var(--goldbg);border-color:#4a3b00;color:var(--gold)}
+.iso{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));z-index:41;width:min(584px,calc(100% - 24px));padding:14px 16px;border-radius:20px;background:var(--s2);border:1px solid var(--gold);box-shadow:0 14px 40px rgba(0,0,0,.7);animation:sube .25s}
+.iso.listo{background:var(--goldbg)}
+.iso-t small{display:block;font-size:13px;color:var(--mute2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iso-t b{display:block;font-family:var(--cond);font-weight:800;font-size:64px;line-height:1;color:var(--gold);margin:4px 0}
+.iso-t span{display:block;font-size:14px;color:var(--chalk)}
+.iso-barra{height:6px;border-radius:99px;background:var(--s3);margin:10px 0 12px;overflow:hidden}
+.iso-barra i{display:block;height:100%;background:var(--gold);transition:width .2s linear}
+.iso-acc{display:grid;grid-template-columns:1fr 2fr;gap:8px}
+.iso-acc button{height:48px;border-radius:13px;font-weight:700;font-size:16px;background:var(--s3);color:var(--chalk)}
+.iso-acc button.ok{background:var(--gold);color:#000}
+.iso-acc button:disabled{opacity:.45}

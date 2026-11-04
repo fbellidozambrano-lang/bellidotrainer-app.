@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Barra, Ico, ir, Placa } from '../ui/kit.jsx';
 import MarcaSerie from '../shared/MarcaSerie.jsx';
-import { fmt, primerNombre, nSeg } from '../lib/util.js';
+import { fmt, primerNombre, nSeg, hoy } from '../lib/util.js';
+import { progresoEjercicio, textoPct } from '../lib/progreso.js';
 
 const H4 = 4 * 36e5;
 const hora = (t) => new Date(t).toLocaleTimeString('es-VE', { hour: 'numeric', minute: '2-digit' });
@@ -9,7 +10,15 @@ const hace = (t) => { const s = Math.max(0, Math.round((Date.now() - Date.parse(
 export const activos = (vivo) => vivo.filter((v) => v.abierto && !v.usado && Date.now() - Date.parse(v.abierto) < H4);
 const deHoy = (t) => t && new Date(t).toDateString() === new Date().toDateString();
 
-function Tarjeta({ v, a, abierta, onToggle }) {
+// el coach ve el progreso de cada ejercicio, también cuando baja (el asesorado solo ve lo positivo)
+function ProgresoVivo({ e, historial }) {
+  const T = e.tipo === 'tiempo'; const filas = e.series.filter((x) => x.aprox !== true && x.hecha);
+  const p = filas.length ? progresoEjercicio(filas, historial, e.ejercicio, T) : null; if (!p || (p.vsAntes == null && !(p.vsRecord > 0))) return null;
+  const cls = p.vsRecord > 0 ? 'record' : p.vsAntes > 0.05 ? 'sube' : p.vsAntes < -0.05 ? 'baja' : '';
+  return <p className={`vivo-prog ${cls}`}>{p.vsRecord > 0 ? `Récord: ${textoPct(p.vsRecord, 1)} sobre su mejor marca` : `${p.vsAntes > 0.05 ? '▲' : p.vsAntes < -0.05 ? '▼' : '='} ${textoPct(p.vsAntes, 1)} ${T ? 'en tiempo' : 'de fuerza'} vs. la vez pasada`}{cls === 'baja' ? ' · solo lo ves tú' : ''}</p>;
+}
+
+function Tarjeta({ v, a, abierta, onToggle, historial = [] }) {
   const pr = v.progreso; const pct = pr?.total ? Math.round((pr.hechas / pr.total) * 100) : 0;
   const min = Math.round((Date.now() - Date.parse(v.abierto)) / 60000);
   const quieto = v.progresoAt && Date.now() - Date.parse(v.progresoAt) > 20 * 60000;
@@ -27,6 +36,7 @@ function Tarjeta({ v, a, abierta, onToggle }) {
         return <div key={i} className={`vivo-ej ${hechas && hechas === e.series.length ? 'listo' : ''}`}>
           <div className="vivo-ej-t"><strong>{e.ejercicio}</strong><span>{e.objetivo}{e.carga ? ` · ${e.carga}` : ''} · {hechas}/{e.series.length}</span></div>
           <div className="previa">{e.series.map((x, k) => <span key={k} className={x.hecha ? 'hecha' : 'pend'}><b>{e.tipo === 'tiempo' ? `${fmt(nSeg(x.seg))}s` : fmt(nSeg(x.peso), 1)}</b>{e.tipo !== 'tiempo' && <> × {x.reps || '—'}</>}{x.rpe ? <i> @{x.rpe}</i> : null}<MarcaSerie x={x} /></span>)}</div>
+          <ProgresoVivo e={e} historial={historial} />
           {e.nota && <p className="guia">“{e.nota}”</p>}
         </div>; })}</div>}
       {abierta && <button className="btn chico fant" onClick={() => ir('a', v.asesoradoId)}>Ver ficha de {primerNombre(a?.nombre)}<Ico n="chev" s={16} /></button>}
@@ -46,7 +56,7 @@ export default function EnVivo({ datos, vivo, recargar }) {
       <Barra volver={{ fn: () => ir(), texto: 'Equipo' }} titulo="" borde={false} />
       <section style={{ padding: '4px 0 16px' }}><h1 className="gigante">Entrenando ahora</h1>
         <p className="sub">Lo que van registrando tus asesorados con la rutina abierta. Se actualiza solo.</p></section>
-      {ahora.length ? ahora.map((v) => <Tarjeta key={v.id} v={v} a={ases(v.asesoradoId)} abierta={abiertas[v.id] ?? ahora.length === 1} onToggle={() => setAbiertas((x) => ({ ...x, [v.id]: !(x[v.id] ?? ahora.length === 1) }))} />)
+      {ahora.length ? ahora.map((v) => <Tarjeta key={v.id} v={v} a={ases(v.asesoradoId)} historial={datos.sesiones.filter((s) => s.asesoradoId === v.asesoradoId && s.fecha < hoy())} abierta={abiertas[v.id] ?? ahora.length === 1} onToggle={() => setAbiertas((x) => ({ ...x, [v.id]: !(x[v.id] ?? ahora.length === 1) }))} />)
         : <div className="vacio"><b>Nadie entrenando en este momento</b>Cuando un asesorado abra su rutina con el código, aparece aquí con cada serie que registre.</div>}
       {terminaron.length > 0 && <>
         <div className="sec"><h2>Terminaron hoy</h2><span>{terminaron.length}</span></div>

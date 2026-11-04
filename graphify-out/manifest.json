@@ -18,15 +18,15 @@
     "semantic_hash": ""
   },
   "src/atleta/AtletaApp.jsx": {
-    "mtime": 1793734517.6477406,
-    "seen": 1793736060.1473992,
-    "ast_hash": "8b23a777d9613a7b3f0c8feb7d18585d",
+    "mtime": 1793808560.6099842,
+    "seen": 1793809767.354021,
+    "ast_hash": "753894176677883c50cbae846e87ff31",
     "semantic_hash": ""
   },
   "src/coach/Ajustes.jsx": {
-    "mtime": 1793754356.117889,
-    "seen": 1793757425.4850152,
-    "ast_hash": "45b5d4c0b8d368726298e48b3ed034dd",
+    "mtime": 1793809153.0697584,
+    "seen": 1793809767.354024,
+    "ast_hash": "89ed4fed91234c3001038edf607c67c5",
     "semantic_hash": ""
   },
   "src/coach/Biblioteca.jsx": {
@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "src/coach/EnVivo.jsx": {
-    "mtime": 1793152785.3015628,
-    "seen": 1793153804.4378493,
-    "ast_hash": "f8748dd6e2d851049d428a20d6255270",
+    "mtime": 1793808576.3590324,
+    "seen": 1793809767.3541496,
+    "ast_hash": "3f163411e992b9c4e8856e0d9d8d9f8f",
     "semantic_hash": ""
   },
   "src/coach/Hub.jsx": {
@@ -222,15 +222,15 @@
     "semantic_hash": ""
   },
   "src/shared/Composicion.jsx": {
-    "mtime": 1792548179.5212724,
-    "seen": 1793153804.4378912,
-    "ast_hash": "b94c021040b8b1a3ee63d6d83630158a",
+    "mtime": 1793808560.6092308,
+    "seen": 1793809767.3553643,
+    "ast_hash": "2b6710f20ea7d577674548509f744845",
     "semantic_hash": ""
   },
   "src/shared/Entrenamiento.jsx": {
-    "mtime": 1793754323.828255,
-    "seen": 1793757425.4861946,
-    "ast_hash": "2a96882f164be1a73764f729c689837c",
+    "mtime": 1793808787.0197687,
+    "seen": 1793809767.355367,
+    "ast_hash": "43f02d437af6cbf6e11378c0bed81812",
     "semantic_hash": ""
   },
   "src/shared/MapaMuscular.jsx": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793757416.3219218,
-    "seen": 1793757425.4870434,
-    "ast_hash": "24c64f4ce09f042b9322612c4812639d",
+    "mtime": 1793809153.069136,
+    "seen": 1793809767.3562045,
+    "ast_hash": "d78f0c784e9471657d4d4aa6424e543c",
     "semantic_hash": ""
   },
   "index.html": {
@@ -822,9 +822,9 @@
     "semantic_hash": ""
   },
   "test/e2e_cargas.py": {
-    "mtime": 1793754222.9199536,
-    "seen": 1793757425.4865472,
-    "ast_hash": "fcfc4379af075ee4d6b728ca5234a63e",
+    "mtime": 1793808833.9391434,
+    "seen": 1793809767.3557262,
+    "ast_hash": "87855bd615cfaf25fc5d4e8589ba5650",
     "semantic_hash": ""
   },
   "test/progreso.test.mjs": {
@@ -876,9 +876,9 @@
     "semantic_hash": ""
   },
   "src/lib/esquemas.js": {
-    "mtime": 1793754316.5851338,
-    "seen": 1793757425.4856493,
-    "ast_hash": "ee6728236c05bf4845abdfa98ff9fd3f",
+    "mtime": 1793808538.3904815,
+    "seen": 1793809767.3546245,
+    "ast_hash": "8ba410d8d9b5d80188d7318a5af12175",
     "semantic_hash": ""
   },
   "src/shared/Esquema.jsx": {
@@ -888,15 +888,15 @@
     "semantic_hash": ""
   },
   "test/e2e_series.py": {
-    "mtime": 1793735791.7684612,
-    "seen": 1793736060.148734,
-    "ast_hash": "d4711c6db3ade3cc3484db23aba71f91",
+    "mtime": 1793808745.9351747,
+    "seen": 1793809767.355785,
+    "ast_hash": "f35c75e29e0f7c7f34eeac45f5e0af35",
     "semantic_hash": ""
   },
   "test/esquemas.test.mjs": {
-    "mtime": 1793735036.13988,
-    "seen": 1793736060.1487527,
-    "ast_hash": "06d848730e42af3a150b0b34613c0098",
+    "mtime": 1793808664.444585,
+    "seen": 1793809767.3558044,
+    "ast_hash": "3454a3cf3d210fc518dd9eb6d15755a6",
     "semantic_hash": ""
   },
   "src/shared/RepsSugeridas.jsx": {

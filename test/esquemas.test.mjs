@@ -13,14 +13,14 @@ const hist = [{ fecha: '2026-10-20', series: [
   { ejercicio: 'Sentadilla', serie: 1, peso: 100, reps: 6, rol: 'top', aprox: [{ peso: 50, reps: 8 }] },
   { ejercicio: 'Sentadilla', serie: 2, peso: 90, reps: 6, rol: 'bo' }, { ejercicio: 'Sentadilla', serie: 3, peso: 81, reps: 6, rol: 'bo' }] }];
 
-await t('sin esquema el ejercicio queda en top set + back off; tiempo no lleva esquema', () => {
-  assert.equal(E.esquemaDe(ej).k, 'backoff'); assert.equal(E.esquemaDe({ ...ej, esquema: 'recto' }).k, 'recto');
+await t('sin esquema el ejercicio queda en series rectas; tiempo no lleva esquema', () => {
+  assert.equal(E.esquemaDe(ej).k, 'recto'); assert.equal(E.esquemaDe({ ...ej, esquema: 'recto' }).k, 'recto');
   assert.equal(E.esquemaDe(ej, { esquema: 'rampa' }).k, 'rampa', 'el del asesorado manda si el ejercicio no tiene');
   assert.equal(E.esquemaDe({ ...ej, tipo: 'tiempo' }), null);
   const n = normEj({ ...ej, esquema: 'backoff', esq: { paso: 7.5, aprox: 2, raro: 1 } });
   assert.deepEqual([n.esquema, n.esq], ['backoff', { paso: 7.5, aprox: 2 }]);
   assert.equal(normEj({ ...ej, esquema: 'inventado' }).esquema, undefined); assert.equal(normEj({ ...ej, tipo: 'tiempo', esquema: 'recto' }).esquema, undefined);
-  assert.deepEqual(E.guardarEsquema(E.esquemaDe(ej)), { esquema: 'backoff' });
+  assert.deepEqual(E.guardarEsquema(E.esquemaDe(ej)), { esquema: 'recto' });
 });
 
 await t('plan de cada esquema: pesos y reps de cada serie', () => {
@@ -59,7 +59,7 @@ await t('por RPE: la siguiente serie sube o baja según cómo costó', () => {
 });
 
 await t('análisis en vivo de top set + back off', () => {
-  const e = { ...ej, pesoSugerido: '', repsSugeridas: '', series: 3 }; const cfg = E.esquemaDe(e); const prev = { series: hist[0].series };
+  const e = { ...ej, esquema: 'backoff', pesoSugerido: '', repsSugeridas: '', series: 3 }; const cfg = E.esquemaDe(e); const prev = { series: hist[0].series };
   let f = E.armarFilas(e, hist, cfg).map((x, i) => ({ ...x, hecha: true, peso: i === 0 ? 102.5 : x.peso, reps: i === 2 ? 4 : x.reps }));
   const a = f.map((_, k) => E.analizarFila({ cfg, filas: f, k, prev, ej: e }).texto);
   assert.equal(a[0], '▲ +2,5 % de fuerza vs. tu top set anterior (100 × 6 kg)');
@@ -95,23 +95,43 @@ await t('la aproximación se guarda dentro de la primera serie y no suma volumen
   const casa = fs.readFileSync(new URL('../src/data/casa.js', import.meta.url), 'utf8'); assert.match(casa, /esquema: 'recto'/, 'en casa: series rectas');
 });
 
-await t('migración: asesorados y ejercicios existentes quedan en back off; lo elegido no se toca', async () => {
+await t('migración: todos los asesorados, rutinas y plantillas vuelven a series rectas una sola vez', async () => {
   const db = await crearDB();
   const coach = '00000000-0000-0000-0000-0000000000c1';
   await db.query(`insert into auth.users (id) values ($1)`, [coach]);
-  const ins = await db.query(`insert into public.asesorados (coach_id, nombre, datos) values ($1, 'Ana', '{"sexo":"F"}'), ($1, 'Luis', '{"esquema":"recto"}') returning id, nombre`, [coach]);
+  await db.query(`delete from public.migraciones`); // una base de antes del cambio
+  const ins = await db.query(`insert into public.asesorados (coach_id, nombre, datos) values ($1, 'Ana', '{"sexo":"F","esquema":"backoff","esq":{"aprox":2}}'), ($1, 'Luis', '{}') returning id, nombre`, [coach]);
   const ana = ins.rows.find((x) => x.nombre === 'Ana').id;
-  const dias = [{ id: 'd1', nombre: 'Pierna', ejercicios: [{ id: 'a', ejercicio: 'Sentadilla', tipo: 'reps' }, { id: 'b', ejercicio: 'Plancha', tipo: 'tiempo' }, { id: 'c', ejercicio: 'Prensa', esquema: 'piramide' }, { id: 'd', ejercicio: 'Curl' }] }, { id: 'd2', nombre: 'Vacío', ejercicios: [] }];
+  const dias = [{ id: 'd1', nombre: 'Pierna', ejercicios: [{ id: 'a', ejercicio: 'Sentadilla', tipo: 'reps', esquema: 'backoff', esq: { paso: 15 } }, { id: 'b', ejercicio: 'Plancha', tipo: 'tiempo' }, { id: 'c', ejercicio: 'Prensa', esquema: 'piramide' }, { id: 'd', ejercicio: 'Curl' }] }, { id: 'd2', nombre: 'Vacío', ejercicios: [] }];
   await db.query(`insert into public.programas (coach_id, asesorado_id, nombre, dias) values ($1, $2, 'Plan', $3)`, [coach, ana, JSON.stringify(dias)]);
-  const sql = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8'); await db.exec(sql); await db.exec(sql);
-  const p = (await db.query(`select dias from public.programas`)).rows[0].dias;
-  assert.deepEqual(p[0].ejercicios.map((x) => x.esquema ?? null), ['backoff', null, 'piramide', 'backoff']);
-  assert.deepEqual(p.map((d) => d.id), ['d1', 'd2']); assert.deepEqual(p[0].ejercicios.map((x) => x.id), ['a', 'b', 'c', 'd'], 'el orden se conserva');
+  await db.query(`insert into public.plantillas (coach_id, nombre, dias) values ($1, 'Base', $2)`, [coach, JSON.stringify(dias)]);
+  const sql = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8'); await db.exec(sql);
+  for (const tabla of ['programas', 'plantillas']) {
+    const p = (await db.query(`select dias from public.${tabla}`)).rows[0].dias;
+    assert.deepEqual(p[0].ejercicios.map((x) => [x.id, x.esquema ?? null, x.esq ?? null]), [['a', 'recto', null], ['b', null, null], ['c', 'recto', null], ['d', 'recto', null]], tabla);
+    assert.deepEqual(p.map((d) => d.id), ['d1', 'd2'], 'el orden y los días vacíos se conservan');
+  }
   const as = (await db.query(`select nombre, datos from public.asesorados order by nombre`)).rows;
-  assert.deepEqual(as.map((x) => [x.nombre, x.datos.esquema, x.datos.sexo ?? null]), [['Ana', 'backoff', 'F'], ['Luis', 'recto', null]]);
+  assert.deepEqual(as.map((x) => [x.nombre, x.datos.esquema, x.datos.esq ?? null, x.datos.sexo ?? null]), [['Ana', 'recto', null, 'F'], ['Luis', 'recto', null, null]]);
   const tok = (await db.query(`select token from public.asesorados where nombre = 'Ana'`)).rows[0].token;
-  const r = (await db.query(`select public.atleta_cargar($1) as r`, [tok])).rows[0].r;
-  assert.equal(r.asesorado.esquema, 'backoff', 'la app del asesorado recibe su esquema');
+  assert.equal((await db.query(`select public.atleta_cargar($1) as r`, [tok])).rows[0].r.asesorado.esquema, 'recto', 'la app del asesorado recibe su esquema');
+  // después el coach elige back off para Ana: volver a correr el archivo no lo deshace
+  await db.query(`update public.programas set dias = public._dias_con_esquema(dias, 'backoff')`);
+  await db.exec(sql);
+  assert.equal((await db.query(`select dias from public.programas`)).rows[0].dias[0].ejercicios[0].esquema, 'backoff');
+  assert.equal(E.ESQUEMA_DEF, 'recto'); assert.equal(E.esquemaDe({ tipo: 'reps' }).k, 'recto', 'lo nuevo empieza en series rectas');
+});
+
+await t('el asesorado solo ve progreso positivo; el coach ve todo', () => {
+  assert.equal(E.filaPositiva({ texto: '▼ −3 % vs. la vez pasada', clase: 'baja' }), null);
+  assert.equal(E.filaPositiva({ texto: '= ±0 % vs. la vez pasada', clase: '' }), null);
+  assert.equal(E.filaPositiva({ texto: '▲ +2 % de fuerza · debajo del rango 8–10', clase: 'sube' }).texto, '▲ +2 % de fuerza');
+  assert.equal(E.filaPositiva({ texto: '−10 % del top · 6 de 6 reps ✓ · ±0 % vs. este back off la vez pasada', clase: 'sube' }).texto, '−10 % del top · 6 de 6 reps ✓');
+  assert.ok(E.filaPositiva({ texto: 'Aproximación al 50 %', clase: 'aprox' }));
+  const r = { partes: [{ t: 'Top set', v: 2, txt: '+2 %' }, { t: 'back off', v: -4, txt: '−4 % de volumen' }], record: null, clase: 'sube' };
+  assert.deepEqual(E.ejercicioPositivo(r).partes.map((x) => x.t), ['Top set']);
+  assert.equal(E.ejercicioPositivo({ partes: [{ t: 'Volumen', v: -3, txt: '−3 %' }], record: null, clase: 'baja' }), null);
+  assert.equal(E.ejercicioPositivo({ partes: [{ t: 'Volumen', v: -3, txt: '−3 %' }], record: 1.5, clase: 'record' }).partes.length, 0);
 });
 
 console.log(`\n${ok} pruebas de esquemas de series OK`);

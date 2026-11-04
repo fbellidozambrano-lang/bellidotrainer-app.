@@ -71,7 +71,7 @@ with sync_playwright() as pw:
     pb.locator('.n-serie').nth(2).click(); pg.wait_for_timeout(200); pg.locator('.hoja .tipo', has_text='Superserie').click(); pg.wait_for_timeout(200)
     pb.get_by_label('Ejercicio pareado serie 3').fill('Fondos'); pb.get_by_label('Reps ejercicio pareado 1 serie 3').fill('12')
     pb.locator('.set').nth(2).locator('input').first.fill('70'); pb.locator('.hecho').nth(2).click(); pg.wait_for_timeout(300)
-    assert pb.locator('.set-prog').nth(2).inner_text().startswith('▼'), 'menos que la vez pasada'
+    assert not any(pb.locator('.set-prog').nth(i).inner_text().startswith('▼') for i in range(pb.locator('.set-prog').count())), 'el asesorado no ve lo que bajó'
     pb.scroll_into_view_if_needed(); shot(pg, '04_subseries', True)
     rm = pg.locator('article.ent', has_text='Remo con barra'); rm.locator('.hecho').first.click()
     pg.get_by_role('button', name='Enviar a Coach').click(); pg.wait_for_timeout(300); pg.locator('.hoja-acc .btn.oro').click(); pg.wait_for_timeout(1500)

@@ -6,14 +6,14 @@ import { cargaNumero, e1rm, esTiempo, nSeg, r05, rangoReps, seriesPrevias, ESQ_K
 import { esUnilateral } from './series.js';
 
 export const ESQUEMAS = [
-  { k: 'backoff', n: 'Top set + back off', c: 'TOP', d: 'La primera serie es la más pesada (top set). En cada serie siguiente bajas el peso o las repeticiones.' },
   { k: 'recto', n: 'Series rectas', c: '=', d: 'Mismo peso y mismas repeticiones en todas las series.' },
+  { k: 'backoff', n: 'Top set + back off', c: 'TOP', d: 'La primera serie es la más pesada (top set). En cada serie siguiente bajas el peso o las repeticiones.' },
   { k: 'rampa', n: 'Rampa ascendente', c: '↗', d: 'Subes el peso en cada serie y bajan las repeticiones. La última es la más pesada.' },
   { k: 'inversa', n: 'Pirámide inversa', c: '↘', d: 'Empiezas con la serie más pesada; en cada serie bajas el peso y subes repeticiones.' },
   { k: 'piramide', n: 'Pirámide', c: '⋀', d: 'Subes el peso hasta la serie del medio y vuelves a bajar.' },
   { k: 'rpe', n: 'Por RPE', c: 'RPE', d: 'Cada serie se ajusta según el RPE de la anterior para quedar en el RPE objetivo.' },
 ];
-export const ESQUEMA_DEF = 'backoff';
+export const ESQUEMA_DEF = 'recto';
 export const esquemaInfo = (k) => ESQUEMAS.find((x) => x.k === k) || null;
 export const nombreEsquema = (cfg) => esquemaInfo(cfg?.k)?.n || '';
 export const PASOS = [5, 7.5, 10, 15, 20];
@@ -244,6 +244,16 @@ export function analizarFila({ cfg, filas, k, prev, ej = {} }) {
 }
 
 // El ejercicio completo, según el esquema: top set y back off, volumen de las series rectas, serie más pesada o RPE
+// Lo que ve el asesorado: solo progreso positivo (lo negativo queda para el coach)
+export function filaPositiva(r) {
+  if (!r || (r.clase !== 'sube' && r.clase !== 'aprox')) return null;
+  return { ...r, texto: r.texto.replace(/ · debajo del rango [^·]*/g, '').replace(/ · ±0 % vs\. [^·]*/g, '') };
+}
+export function ejercicioPositivo(r) {
+  if (!r) return null; const partes = r.partes.filter((x) => x.v != null && x.v > 0.05);
+  if (!partes.length && !r.record) return null;
+  return { ...r, partes, clase: r.record ? 'record' : 'sube' };
+}
 export function analizarEjercicio({ cfg, filas, prev, rec = {}, ej = {} }) {
   if (!cfg) return null;
   const ef = filas.filter((x) => x.pl?.t === 'e' && x.lado !== 'I'); const hechas = ef.filter(lista); if (!hechas.length) return null;

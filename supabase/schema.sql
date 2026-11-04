@@ -59,26 +59,6 @@ alter table public.asesorados add column if not exists vence date;
 -- Acceso libre: el asesorado abre su rutina sin código (el coach lo decide por asesorado)
 alter table public.asesorados add column if not exists sin_codigo boolean not null default false;
 
--- Forma de hacer las series (v9.16). Cada ejercicio por repeticiones lleva "esquema":
--- backoff (top set + back off) | recto | rampa | inversa | piramide | rpe, y su ajuste en "esq"
--- ({ paso, modo, dReps, aprox }). Todos los asesorados y ejercicios que aún no tienen uno quedan
--- en top set + back off; lo que el coach ya eligió no se toca (se puede correr las veces que sea).
-update public.asesorados set datos = coalesce(datos, '{}'::jsonb) || '{"esquema":"backoff"}'::jsonb
- where not (coalesce(datos, '{}'::jsonb) ? 'esquema');
-update public.programas p set dias = (
-  select coalesce(jsonb_agg(
-           case when jsonb_typeof(d -> 'ejercicios') = 'array' then jsonb_set(d, '{ejercicios}', (
-             select coalesce(jsonb_agg(
-                      case when jsonb_typeof(e) <> 'object' or e ? 'esquema' or coalesce(e ->> 'tipo', 'reps') = 'tiempo' then e
-                           else e || '{"esquema":"backoff"}'::jsonb end order by o), '[]'::jsonb)
-               from jsonb_array_elements(d -> 'ejercicios') with ordinality x(e, o)))
-           else d end order by od), '[]'::jsonb)
-    from jsonb_array_elements(p.dias) with ordinality y(d, od))
- where jsonb_typeof(p.dias) = 'array'
-   and exists (select 1 from jsonb_array_elements(p.dias) d
-                where jsonb_typeof(d -> 'ejercicios') = 'array'
-                  and exists (select 1 from jsonb_array_elements(d -> 'ejercicios') e
-                               where jsonb_typeof(e) = 'object' and not (e ? 'esquema') and coalesce(e ->> 'tipo', 'reps') <> 'tiempo'));
 
 -- Códigos para entrenar: el coach genera uno, el asesorado lo ingresa para
 -- ver su rutina, y al enviar la sesión se gasta.
@@ -142,6 +122,35 @@ alter table public.permisos add column if not exists progreso jsonb;
 alter table public.permisos add column if not exists progreso_at timestamptz;
 
 create index if not exists permisos_ases_idx on public.permisos (asesorado_id, creado desc);
+
+-- Forma de hacer las series. Cada ejercicio por repeticiones lleva "esquema":
+-- recto | backoff (top set + back off) | rampa | inversa | piramide | rpe, y su ajuste en "esq"
+-- ({ paso, modo, dReps, aprox }). La elige el coach.
+-- Cambios de datos que se hacen una sola vez (aunque este archivo se corra varias veces)
+create table if not exists public.migraciones (clave text primary key, hecho timestamptz not null default now());
+alter table public.migraciones enable row level security;
+revoke all on public.migraciones from anon, authenticated;
+-- pone el mismo esquema en todos los ejercicios por repeticiones de unos días (y quita su ajuste)
+create or replace function public._dias_con_esquema(p_dias jsonb, p_esquema text) returns jsonb
+language sql immutable set search_path = public as $$
+  select case when jsonb_typeof(p_dias) <> 'array' then p_dias else coalesce((
+    select jsonb_agg(case when jsonb_typeof(d -> 'ejercicios') = 'array' then jsonb_set(d, '{ejercicios}', (
+             select coalesce(jsonb_agg(case when jsonb_typeof(e) <> 'object' or coalesce(e ->> 'tipo', 'reps') = 'tiempo' then e
+                                            else (e - 'esq') || jsonb_build_object('esquema', p_esquema) end order by o), '[]'::jsonb)
+               from jsonb_array_elements(d -> 'ejercicios') with ordinality x(e, o)))
+           else d end order by od)
+      from jsonb_array_elements(p_dias) with ordinality y(d, od)), '[]'::jsonb) end
+$$;
+revoke all on function public._dias_con_esquema(jsonb, text) from public, anon, authenticated;
+-- 2026-11-04: todos los asesorados, rutinas y plantillas vuelven a series rectas
+do $$ begin
+  if not exists (select 1 from public.migraciones where clave = 'series_rectas_2026_11_04') then
+    update public.programas set dias = public._dias_con_esquema(dias, 'recto');
+    update public.plantillas set dias = public._dias_con_esquema(dias, 'recto');
+    update public.asesorados set datos = (coalesce(datos, '{}'::jsonb) - 'esq') || '{"esquema":"recto"}'::jsonb;
+    insert into public.migraciones (clave) values ('series_rectas_2026_11_04');
+  end if;
+end $$;
 
 create index if not exists asesorados_coach_idx  on public.asesorados (coach_id);
 create index if not exists programas_ases_idx    on public.programas  (asesorado_id, orden);

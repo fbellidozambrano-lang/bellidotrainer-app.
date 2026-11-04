@@ -222,7 +222,7 @@ export default function AtletaApp({ store, token, vista }) {
         <button className="losa" onClick={() => ir('alimentacion')}><span className="losa-ico"><Ico n="comida" /></span><div><h3 className="largo">Tu<br />alimentación</h3><p>Calorías, macros y agua del día</p></div></button>
         <button className="losa" onClick={() => ir('casa')}><span className="losa-ico"><Ico n="casa" /></span><div><h3>Ejercicios de casa</h3><p>Para cuando no puedas ir al gym</p></div></button>
       </div>
-      {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} merito /></>}
+      {d.controles?.length > 0 && <><div className="sec"><h2>Tu composición corporal</h2></div><Composicion controles={d.controles} merito soloPositivo /></>}
       {u && <><div className="sec"><h2>Último entreno</h2></div><button className="item" style={{ borderTop: '1px solid var(--line)' }} onClick={() => ir('metricas')}><div className="item-t"><strong>{u.dia}</strong><span>{haceCuanto(u.fecha)} · {(u.series || []).length} series</span></div><Ico n="chev" className="chev" s={18} /></button></>}
       {pie}
       {!standalone && <p className="instalar">Tenla a mano: en Safari toca Compartir → Agregar a inicio.</p>}

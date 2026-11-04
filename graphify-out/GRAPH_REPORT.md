@@ -1,23 +1,23 @@
-# Graph Report - bellidotrainer-app.  (2026-11-03)
+# Graph Report - bellidotrainer-app.  (2026-11-04)
 
 ## Corpus Check
-- 116 files · ~255,741 words
+- 116 files · ~257,217 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 61 file(s) not represented in the graph (top: .gz 58, (none) 1, .css 1)
 
 ## Summary
-- 1079 nodes · 3479 edges · 39 communities (33 shown, 6 thin omitted)
+- 1083 nodes · 3498 edges · 43 communities (37 shown, 6 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 35 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3e753eb0`
+- Built from commit: `7a6fff88`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- biblioteca.js
-- util.js
+- esquemas.js
+- Entrenamiento.jsx
 - Editor.jsx
 - util.js
 - legacy.js
@@ -43,7 +43,7 @@
 - BaseAlimentos.jsx
 - importar-usda.mjs
 - plan.js
-- Controles.jsx
+- Ico
 - nutricion.test.mjs
 - sql-catalogo.mjs
 - alimentos.js
@@ -53,10 +53,14 @@
 - manifest.json
 - traducir.js
 - nutriLocal.js
+- Preparar.jsx
+- nSeg
+- progreso.js
+- casa.js
 
 ## God Nodes (most connected - your core abstractions)
 1. `Ico()` - 81 edges
-2. `Entrenamiento()` - 71 edges
+2. `Entrenamiento()` - 75 edges
 3. `Hoja()` - 55 edges
 4. `nSeg()` - 54 edges
 5. `useAviso()` - 54 edges
@@ -81,27 +85,27 @@
 ## Import Cycles
 - None detected.
 
-## Communities (39 total, 6 thin omitted)
+## Communities (43 total, 6 thin omitted)
 
-### Community 0 - "biblioteca.js"
+### Community 0 - "esquemas.js"
+Cohesion: 0.15
+Nodes (32): ajustarPorRpe(), ajusteRpe(), analizarEjercicio(), analizarFila(), APROX, armarFilas(), cambiarEsquema(), clase() (+24 more)
+
+### Community 1 - "Entrenamiento.jsx"
 Cohesion: 0.10
-Nodes (34): guardarEj(), precargar(), armarBiblioteca(), BASE_DEF, buscarEnBib(), clavesDe(), correcciones(), enlazarProgramas() (+26 more)
-
-### Community 1 - "util.js"
-Cohesion: 0.05
-Nodes (108): analogia(), COSAS, esTiempoS(), extrasDisponibles(), lineasCompartir(), mejoresSeries(), resumenCompartir(), seriePorDefecto() (+100 more)
+Nodes (39): analogia(), COSAS, ejercicioPositivo(), esAprox(), etiquetaFila(), filaPositiva(), previaFila(), ROLES (+31 more)
 
 ### Community 2 - "Editor.jsx"
-Cohesion: 0.05
-Nodes (152): react, Ajustes(), elegir(), Importar(), VERSION, NuevoAlimento(), asegurarEnBib(), AvisoOrtografia() (+144 more)
+Cohesion: 0.06
+Nodes (102): NuevoAlimento(), asegurarEnBib(), AvisoOrtografia(), Biblioteca(), coincide(), FiltroGrupos(), HojaDuplicados(), HojaItem() (+94 more)
 
 ### Community 3 - "util.js"
-Cohesion: 0.07
-Nodes (69): Alimentacion(), borrar(), guardar(), guardarGuardado(), guardarVarios(), leer(), poner(), Alimentacion (+61 more)
+Cohesion: 0.06
+Nodes (86): Alimentacion(), borrar(), guardar(), guardarGuardado(), guardarVarios(), leer(), poner(), Cobro() (+78 more)
 
 ### Community 4 - "legacy.js"
-Cohesion: 0.08
-Nodes (32): COLOR_GRUPO, CUES, ESCALA_RPE, GRUPOS, MESES, MOTIVACION, NIVELES, OBJETIVOS (+24 more)
+Cohesion: 0.09
+Nodes (38): Ajustes(), elegir(), Importar(), VERSION, COLOR_GRUPO, CUES, ESCALA_RPE, MESES (+30 more)
 
 ### Community 5 - "store.js"
 Cohesion: 0.10
@@ -112,8 +116,8 @@ Cohesion: 0.07
 Nodes (36): 10. Panes, dulces, bebidas y otros preparados, 1. Cereales, harinas y derivados, 2. Tubérculos, raíces y plátanos, 3. Legumbres, granos y semillas, 4. Frutas venezolanas y de consumo habitual, 5. Hortalizas, verduras y aromáticas, 6. Carnes, aves y huevos, 7. Pescados y mariscos (+28 more)
 
 ### Community 7 - "package.json"
-Cohesion: 0.13
-Nodes (17): name, private, type, version, @electric-sql/pglite, eslint, @eslint/js, eslint-plugin-react (+9 more)
+Cohesion: 0.12
+Nodes (18): name, private, type, version, @electric-sql/pglite, eslint, @eslint/js, eslint-plugin-react (+10 more)
 
 ### Community 9 - "importar-catalogo-ve.mjs"
 Cohesion: 0.06
@@ -128,8 +132,8 @@ Cohesion: 0.15
 Nodes (13): devDependencies, @electric-sql/pglite, eslint, @eslint/js, eslint-plugin-react, eslint-plugin-react-hooks, eslint-plugin-react-refresh, globals (+5 more)
 
 ### Community 13 - "Ico"
-Cohesion: 0.06
-Nodes (96): AlimentacionCoach(), guardarPlan(), deDosPlanes(), EditorReceta(), num(), Objetivos(), PlanPDF(), leer() (+88 more)
+Cohesion: 0.07
+Nodes (70): AlimentacionCoach(), guardarPlan(), deDosPlanes(), EditorReceta(), num(), Objetivos(), PlanPDF(), leer() (+62 more)
 
 ### Community 14 - "store.test.mjs"
 Cohesion: 0.16
@@ -148,8 +152,8 @@ Cohesion: 0.22
 Nodes (4): A, historial(), menos(), PROG
 
 ### Community 18 - "biblioteca.test.mjs"
-Cohesion: 0.22
-Nodes (3): copiaSes, programas, sesiones
+Cohesion: 0.12
+Nodes (5): copiaSes, programas, sesiones, antes, hist
 
 ### Community 19 - "schema.test.mjs"
 Cohesion: 0.33
@@ -176,12 +180,12 @@ Cohesion: 0.08
 Nodes (19): args, conj, datos, dir, errores, est, lista, lotes (+11 more)
 
 ### Community 27 - "plan.js"
-Cohesion: 0.23
-Nodes (24): bajo(), balance(), colorProteina(), cuantas(), empiezaCantidad(), esG(), esPie(), esPorc() (+16 more)
+Cohesion: 0.22
+Nodes (25): bajo(), balance(), colorProteina(), cuantas(), empiezaCantidad(), esG(), esPie(), esPorc() (+17 more)
 
-### Community 28 - "Controles.jsx"
-Cohesion: 0.24
-Nodes (11): pdfjs-dist, elegir(), sinAcento(), CAMPOS, fechaISO(), fila(), leerInforme(), lineasDePdf() (+3 more)
+### Community 28 - "Ico"
+Cohesion: 0.07
+Nodes (72): react, Alimentacion, AtletaApp(), guardar(), guardarCasa(), AvisoPago(), cerrado(), Desbloquear() (+64 more)
 
 ### Community 29 - "nutricion.test.mjs"
 Cohesion: 0.10
@@ -215,25 +219,41 @@ Nodes (9): ACEITES, FRASES, minus(), PALABRAS, palabrasSinTraducir(), SINONIMOS,
 Cohesion: 0.19
 Nodes (17): compacta(), crearNutriLocal(), idb(), indice(), memoria(), PRIORIDAD_CAL, buscarEn(), contiene() (+9 more)
 
+### Community 39 - "Preparar.jsx"
+Cohesion: 0.17
+Nodes (24): Escala(), r05(), repsAl(), repsObjetivo(), TarjetaPreparar(), HojaEsquemaAsesorado(), guardar(), aplicarEsquemaProgramas() (+16 more)
+
+### Community 40 - "nSeg"
+Cohesion: 0.25
+Nodes (18): esTiempoS(), extrasDisponibles(), lineasCompartir(), mejoresSeries(), resumenCompartir(), seriePorDefecto(), textoSerie(), ajusteSugerido() (+10 more)
+
+### Community 41 - "progreso.js"
+Cohesion: 0.18
+Nodes (15): aproximarPeso(), nuevasSubs(), pasoDe(), pasoEquipo(), PASOS_EQUIPO, pesosSubs(), repsEquivalentes(), subDe() (+7 more)
+
+### Community 42 - "casa.js"
+Cohesion: 0.15
+Nodes (6): CASA, diaCasa(), FULL, gruposDelDia(), PESOS_CASEROS, POR_NOMBRE
+
 ## Knowledge Gaps
 - **4 isolated node(s):** `@types/react`, `@types/react-dom`, `eslint`, `vite-plugin-singlefile`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 342 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 343 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react` connect `Editor.jsx` to `util.js`, `util.js`, `Compartir.jsx`, `package.json`, `MapaMuscular.jsx`, `Ico`, `main.jsx`, `BaseAlimentos.jsx`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
+- **Why does `react` connect `Ico` to `Entrenamiento.jsx`, `Editor.jsx`, `util.js`, `legacy.js`, `Compartir.jsx`, `package.json`, `Preparar.jsx`, `MapaMuscular.jsx`, `Ico`, `main.jsx`, `BaseAlimentos.jsx`?**
+  _High betweenness centrality (0.085) - this node is a cross-community bridge._
 - **What connects `@types/react`, `@types/react-dom`, `eslint` to the rest of the system?**
   _4 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `biblioteca.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.1036036036036036 - nodes in this community are weakly interconnected._
-- **Why does `Ico()` connect `Editor.jsx` to `util.js`, `util.js`, `Compartir.jsx`, `Ico`, `BaseAlimentos.jsx`?**
+- **Should `esquemas.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.14772727272727273 - nodes in this community are weakly interconnected._
+- **Why does `Ico()` connect `Ico` to `Entrenamiento.jsx`, `Editor.jsx`, `util.js`, `legacy.js`, `Compartir.jsx`, `Preparar.jsx`, `progreso.js`, `Ico`, `BaseAlimentos.jsx`?**
   _High betweenness centrality (0.064) - this node is a cross-community bridge._
-- **Should `util.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.05330578512396694 - nodes in this community are weakly interconnected._
-- **Why does `useAviso()` connect `Editor.jsx` to `util.js`, `util.js`, `Compartir.jsx`, `Ico`, `BaseAlimentos.jsx`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
+- **Should `Entrenamiento.jsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.10404040404040404 - nodes in this community are weakly interconnected._
+- **Why does `useAviso()` connect `Editor.jsx` to `Entrenamiento.jsx`, `util.js`, `legacy.js`, `Compartir.jsx`, `Preparar.jsx`, `Ico`, `BaseAlimentos.jsx`, `Ico`?**
+  _High betweenness centrality (0.036) - this node is a cross-community bridge._
 - **Should `Editor.jsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.05191136777352332 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06242098609355246 - nodes in this community are weakly interconnected._

@@ -14,7 +14,7 @@ const MapaMuscular = React.lazy(() => import('./MapaMuscular.jsx'));
 import MarcaSerie from './MarcaSerie.jsx';
 import { TECNICAS, tecnicaDe, filasUnilaterales, filasBilaterales, numeroFila, LADOS, balanceLados } from '../lib/series.js';
 import { ajusteSugerido, aproximarPeso, pasoEquipo, PASOS_EQUIPO, nuevasSubs, pesosSubs, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
-import { esquemaDe, armarFilas, recalcular, cambiarEsquema, filasMasSerie, filasMenosSerie, etiquetaFila, previaFila, analizarFila, analizarEjercicio, textoEsquema, esAprox, ROLES, nombreEsquema } from '../lib/esquemas.js';
+import { esquemaDe, armarFilas, recalcular, cambiarEsquema, filasMasSerie, filasMenosSerie, etiquetaFila, previaFila, analizarFila, analizarEjercicio, textoEsquema, esAprox, ROLES, nombreEsquema, esquemaInfo, filaPositiva, ejercicioPositivo } from '../lib/esquemas.js';
 import ConfigEsquema from './Esquema.jsx';
 
 // ---------- conversor kg ⇄ lb ----------
@@ -217,6 +217,27 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   const arrancar = (s) => { alarma.current.forEach((o) => { try { o.stop(); } catch {} }); if (!s) { setFinAt(0); return; } alarma.current = pitar(FIN, s); setTotal(s); setFinAt(Date.now() + s * 1000); };
   const sumar = (s) => { const r = Math.max(5, restan + s); arrancar(r); };
 
+  // ---------- cronómetro de la serie en ejercicios de tiempo (plancha, isométricos) ----------
+  // cuenta 3-2-1 y luego los segundos que aguanta; avisa al llegar a la meta y sigue contando hasta "Terminé".
+  // Se calcula con la hora del teléfono, así no se atrasa ni se detiene si la pantalla se apaga un momento.
+  const [iso, setIso] = useState(null); const isoAvisos = useRef({}); const wake = useRef(null);
+  const empezarIso = (ej, k) => { audio(); arrancar(0); isoAvisos.current = {}; const meta = Number(ej.segundos) || nSeg(reg[ej.id]?.[k]?.seg) || 40; // la meta es la que puso el coach
+    setIso({ id: ej.id, k, meta, desde: Date.now() + 3000 }); pitar([[660, 0, 0.1]]);
+    try { navigator.wakeLock?.request('screen').then((w) => { wake.current = w; }).catch(() => {}); } catch {} };
+  const soltarWake = () => { try { wake.current?.release(); } catch {} wake.current = null; };
+  useEffect(() => {
+    if (!iso) return undefined;
+    const i = setInterval(() => { tick((x) => x + 1); const t = (Date.now() - iso.desde) / 1000; const av = isoAvisos.current;
+      if (t < 0) { const n = Math.ceil(-t); if (!av['c' + n]) { av['c' + n] = 1; pitar([[660, 0, 0.08]]); } return; }
+      if (!av.go) { av.go = 1; pitar([[990, 0, 0.18]]); navigator.vibrate?.(60); }
+      if (t >= iso.meta && !av.meta) { av.meta = 1; pitar(LOGRO); navigator.vibrate?.([140, 70, 140]); } }, 200);
+    return () => clearInterval(i);
+  }, [iso]);
+  const terminarIso = (guardar) => { const x = iso; setIso(null); soltarWake(); if (!x || !guardar) return;
+    const seg = Math.round((Date.now() - x.desde) / 1000); const ej = ejDe(x.id); if (!ej || seg < 1) return;
+    marcar(ej, x.k, { seg: String(seg) }); };
+  useEffect(() => () => soltarWake(), []);
+
   const ejs = dia.ejercicios || [];
   const todas = ejs.flatMap((e) => reg[e.id] || []); const hechas = todas.filter((x) => x.hecha).length;
   // al escribir peso o reps, las series que no tocó se reajustan según el esquema (top set → back off…);
@@ -246,8 +267,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
   const menosSub = (id, k, j) => setReg((r) => ({ ...r, [id]: r[id].map((x, i) => (i === k ? { ...x, subs: x.subs.filter((_, m) => m !== j) } : x)) }));
   const cambiarPct = (id, k, j, v) => setReg((r) => ({ ...r, [id]: r[id].map((x, i) => (i === k ? { ...x, subs: x.subs.map((y, m) => (m === j ? { ...y, pct: v, peso: '' } : y)) } : x)) }));
 
-  function marcar(ej, k) {
-    const s = reg[ej.id][k]; const on = !s.hecha; set(ej.id, k, 'hecha', on);
+  function marcar(ej, k, extra = null) {
+    if (extra) setReg((r) => ({ ...r, [ej.id]: r[ej.id].map((x, i) => (i === k ? { ...x, ...extra, tocada: true } : x)) }));
+    const s = { ...reg[ej.id][k], ...(extra || {}) }; const on = extra ? true : !s.hecha; set(ej.id, k, 'hecha', on);
     if (!on) return;
     audio(); const T = esTiempo(ej); const rec = records(historial, ej.ejercicio); const peso = nSeg(s.peso);
     const av = revisarSerie({ ...s, hecha: true }, ej, rec);
@@ -319,7 +341,9 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
 
       {ejs.map((ej) => {
         const T = esTiempo(ej); const prev = seriesPrevias(historial, ej.ejercicio); const filas = reg[ej.id] || []; const recEj = records(historial, ej.ejercicio); const yt = ytId(ej.video); const cues = CUES[ej.grupo] || []; const lados = filas.some((x) => x.lado); const bal = lados ? balanceLados(historial, ej.ejercicio) : null; const cfg = cfgDe(ej); const conPl = cfg && filas.some((x) => x.pl);
-        const pe = conPl ? null : progresoEjercicio(filas, historial, ej.ejercicio, T); const ae = conPl ? analizarEjercicio({ cfg, filas, prev, rec: recEj, ej }) : null;
+        // el asesorado solo ve progreso positivo; el coach lo ve todo
+        const pe0 = conPl ? null : progresoEjercicio(filas, historial, ej.ejercicio, T); const pe = pe0 && (!atleta || pe0.vsRecord > 0 || pe0.vsAntes > 0.05) ? pe0 : null;
+        const ae0 = conPl ? analizarEjercicio({ cfg, filas, prev, rec: recEj, ej }) : null; const ae = atleta ? ejercicioPositivo(ae0) : ae0;
         return (
           <article className="ent" key={ej.id} style={{ borderLeft: `4px solid ${colorGrupo(ej.grupo)}` }}>
             <div className="ent-cab">
@@ -336,8 +360,10 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                 <Marcas historial={historial} ej={ej} />
               </> : <p className="previa-t">Primera vez con este ejercicio</p>}
               <Sugerida ej={ej} historial={historial} cfg={cfg} onUsar={(peso, reps, paso) => usarPeso(ej, peso, reps, paso)} paso={pasos[String(ej.ejercicio).toLowerCase()]} onPaso={(v) => ponerPaso(ej, v)} />
-              {cfg && <button className="esq-b" onClick={() => setHojaEsq(ej.id)} aria-label={`Cómo se hacen las series: ${nombreEsquema(cfg)}. Cambiar`}>
-                <span className="esq-ico">{cfg.k === 'backoff' ? 'TOP' : nombreEsquema(cfg).slice(0, 1)}</span><div><b>{nombreEsquema(cfg)}</b><small>{textoEsquema(cfg, ej.rpe)}</small></div><Ico n="abajo" s={16} /></button>}
+              {/* la forma de las series la elige el coach; el asesorado solo la ve (y no la ve si son series rectas sin aproximación) */}
+              {cfg && !atleta && <button className="esq-b" onClick={() => setHojaEsq(ej.id)} aria-label={`Cómo se hacen las series: ${nombreEsquema(cfg)}. Cambiar`}>
+                <span className="esq-ico">{esquemaInfo(cfg.k)?.c}</span><div><b>{nombreEsquema(cfg)}</b><small>{textoEsquema(cfg, ej.rpe)}</small></div><Ico n="abajo" s={16} /></button>}
+              {cfg && atleta && (cfg.k !== 'recto' || cfg.aprox > 0) && <div className="esq-b fijo"><span className="esq-ico">{esquemaInfo(cfg.k)?.c}</span><div><b>{nombreEsquema(cfg)}</b><small>{textoEsquema(cfg, ej.rpe)}</small></div></div>}
               {ej.nota && <div className="nota-coach"><small>Nota de tu coach</small>{ej.nota}</div>}
               <div className="sets">
                 {ae && <div className={`prog-ej ${ae.clase}`}>
@@ -350,8 +376,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                     : pe.vsAntes != null ? <span>Hoy vas <b>{textoPct(pe.vsAntes, 1)}</b> {T ? 'en tiempo' : 'de fuerza'} vs. la vez pasada</span> : null}</div>}
                 <div className="set-h"><span>#</span><span>Peso</span><span>{T ? 'Seg' : 'Reps'}</span><span>RPE</span><span /></div>
                 {filas.map((s, k) => { const av = s.tocada || s.hecha ? revisarSerie(s, ej, recEj) : null;
-                  const pr = !av && !s.pl && (s.tocada || s.hecha) ? progresoSerie(s, previaFila(prev, filas, k, numeroFila(filas, k)), T) : null;
-                  const af = !av && s.pl ? analizarFila({ cfg, filas, k, prev, ej }) : null; const et = etiquetaFila(filas, k, numeroFila(filas, k)); const sb = !T && s.tecnica ? subDe(s.tecnica) : null; const ps = sb ? pesosSubs(s.peso, s.subs || []) : []; return (
+                  const pr0 = !av && !s.pl && (s.tocada || s.hecha) ? progresoSerie(s, previaFila(prev, filas, k, numeroFila(filas, k)), T) : null; const pr = pr0 && (!atleta || pr0.pct > 0.05) ? pr0 : null;
+                  const af0 = !av && s.pl ? analizarFila({ cfg, filas, k, prev, ej }) : null; const af = atleta ? filaPositiva(af0) : af0; const et = etiquetaFila(filas, k, numeroFila(filas, k)); const sb = !T && s.tecnica ? subDe(s.tecnica) : null; const ps = sb ? pesosSubs(s.peso, s.subs || []) : []; return (
                   <React.Fragment key={k}>
                   {s.pl && (k === 0 || filas[k - 1].pl?.t !== s.pl.t) && <p className={`set-grupo ${s.pl.t === 'a' ? 'aprox' : ''}`}>{s.pl.t === 'a' ? 'Aproximación' : cfg?.aprox ? 'Series efectivas' : ''}</p>}
                   <div className={`set ${s.hecha ? 'ok' : ''} ${av ? 'raro' : ''} ${esAprox(s) ? 'aprox' : ''} ${s.rol ? `rol-${s.rol}` : ''}`}>
@@ -378,6 +404,8 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
                   {pr && pr.pct != null && <p className={`set-prog ${pr.pct > 0.05 ? 'sube' : pr.pct < -0.05 ? 'baja' : ''}`}>{pr.pct > 0.05 ? '▲' : pr.pct < -0.05 ? '▼' : '='} {textoPct(pr.pct, 1)} vs. la vez pasada ({pr.antes}{T ? '' : ' kg'})</p>}
                   </React.Fragment>); })}
               </div>
+              {T && (() => { const k = filas.findIndex((x) => !x.hecha); if (k < 0) return null; const meta = Number(ej.segundos) || nSeg(filas[k].seg) || 40;
+                return <button className="btn iso-b" onClick={() => empezarIso(ej, k)} disabled={!!iso}><Ico n="play" s={18} />Cronómetro · serie {numeroFila(filas, k)}{filas[k].lado ? ` ${filas[k].lado}` : ''} · {meta} s</button>; })()}
               <div className="set-acc"><button className="btn chico" onClick={() => masSerie(ej.id)}><Ico n="mas" s={16} />Serie</button>{filas.filter((x) => !esAprox(x)).length > (lados ? 2 : 1) && <button className="btn chico" onClick={() => menosSerie(ej.id)}>Quitar serie</button>}
                 <button className={`btn chico ${lados ? 'on-lados' : ''}`} onClick={() => alternarLados(ej.id)} aria-pressed={lados}>{lados ? 'D / I por separado' : 'Separar D / I'}</button></div>
               {filas.length > 0 && !filas.some((x) => x.tecnica) && <p className="ayuda" style={{ margin: '6px 0 0' }}>Toca el número de la serie para marcar rest-pause, drop set, superserie o pirámide.</p>}
@@ -390,6 +418,14 @@ export default function Entrenamiento({ programa, dia, historial, quien, claveBo
 
       <div style={{ marginTop: 22 }}><button className="btn oro xl full" onClick={() => setCierre(true)}>{atleta ? <><Ico n="subir" s={20} />Enviar a Coach</> : 'Terminar entreno'}</button></div>
 
+      {iso && (() => { const ej = ejDe(iso.id); const t = (Date.now() - iso.desde) / 1000; const previo = t < 0; const seg = Math.max(0, Math.floor(t)); const listo = seg >= iso.meta;
+        return <div className={`iso ${listo ? 'listo' : ''}`} role="timer" aria-live="polite">
+          <div className="iso-t"><small>{ej?.ejercicio} · serie {numeroFila(reg[iso.id] || [], iso.k)}{reg[iso.id]?.[iso.k]?.lado ? ` ${reg[iso.id][iso.k].lado}` : ''}</small>
+            <b className="num">{previo ? Math.ceil(-t) : `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`}</b>
+            <span>{previo ? 'Prepárate…' : listo ? `¡Llegaste a ${iso.meta} s! Sigue o toca Terminé` : `Meta ${iso.meta} s · faltan ${iso.meta - seg} s`}</span></div>
+          <div className="iso-barra"><i style={{ width: `${previo ? 0 : Math.min(100, (seg / iso.meta) * 100)}%` }} /></div>
+          <div className="iso-acc"><button onClick={() => terminarIso(false)}>Cancelar</button><button className="ok" onClick={() => terminarIso(true)} disabled={previo}>Terminé</button></div>
+        </div>; })()}
       {finAt > 0 && <div className="reloj" role="timer"><b>{Math.floor(restan / 60)}:{String(restan % 60).padStart(2, '0')}<small>de {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')}</small></b>
         <button onClick={() => sumar(30)}>+30 s</button><button onClick={() => arrancar(0)}>Saltar</button></div>}
 
