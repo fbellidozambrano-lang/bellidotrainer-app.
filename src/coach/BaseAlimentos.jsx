@@ -8,6 +8,7 @@ import { NUTRIENTES, GRUPOS } from '../lib/nutricion/catalogo.js';
 import { CATEGORIAS, PREPARACIONES } from '../lib/nutricion/clasificar.js';
 import Buscador from '../shared/nutri/Buscador.jsx';
 import { n0 } from '../shared/nutri/comunes.jsx';
+import LectorEtiqueta from '../shared/nutri/LectorEtiqueta.jsx';
 
 // de mejor a menor calidad documentada: así se sugiere importarlos
 const ORDEN = ['usda_foundation', 'usda_sr_legacy', 'usda_fndds', 'catalogo_ve'];
@@ -69,7 +70,7 @@ function Pendientes({ datos, onCerrar, onCompletar }) {
 export default function BaseAlimentos({ store }) {
   const avisar = useAviso(); const nutri = store.nutri;
   const [estado, setEstado] = useState(null); const [man, setMan] = useState(null); const [err, setErr] = useState(''); const [prog, setProg] = useState(null);
-  const [buscar, setBuscar] = useState(false); const [nuevo, setNuevo] = useState(false); const [pend, setPend] = useState(null);
+  const [buscar, setBuscar] = useState(false); const [nuevo, setNuevo] = useState(false); const [lector, setLector] = useState(false); const [pend, setPend] = useState(null);
   const cargar = useCallback(async () => {
     try { setEstado(await nutri.estado()); setErr(''); } catch (e) { setErr(e.message); }
     try { setMan(await leerManifiesto()); } catch (e) { setMan({ error: e.message, conjuntos: [] }); }
@@ -91,6 +92,7 @@ export default function BaseAlimentos({ store }) {
       <p className="muted" style={{ margin: '10px 0 4px' }}>Datos nutricionales reales con su procedencia. Cada número dice de qué fuente, versión y método sale; lo desconocido no se cuenta como cero.</p>
       {err && <p className="aviso rojo"><span>{err}</span></p>}
       <div className="fila-btn" style={{ margin: '10px 0' }}><button className="btn oro" onClick={() => setBuscar(true)}><Ico n="buscar" s={18} />Buscar alimento</button><button className="btn" onClick={() => setNuevo(true)}><Ico n="mas" s={18} />Personalizado</button></div>
+      <button className="etq-abrir" onClick={() => setLector(true)}><Ico n="camara" s={22} /><div><b>Leer etiqueta con fotos</b><small>Foto del frente y de la tabla nutricional: crea el producto con sus datos</small></div><Ico n="chev" s={18} /></button>
       {estado && <div className="kpis"><div className="kpi"><b className="num">{n0(total)}</b><span>alimentos en total</span></div><div className="kpi"><b className="num">{n0(estado.propios)}</b><span>tuyos (personalizados y de marca)</span></div><div className="kpi"><b className="num">{NUTRIENTES.length}</b><span>nutrientes en el catálogo</span></div></div>}
 
       <div className="sec"><h2>Importar a la base</h2><span>USDA y catálogo de Venezuela</span></div>
@@ -116,6 +118,7 @@ export default function BaseAlimentos({ store }) {
           <span>Licencia: {f.licencia}</span>{f.nota && <em>{f.nota}</em>}</div></div>); })}</div>
       <p className="ayuda" style={{ marginTop: 8 }}>Para buscar productos de marca de EE. UU. en USDA hace falta una clave gratuita de api.data.gov guardada en Vercel (FDC_API_KEY). Open Food Facts no necesita clave.</p>
       {buscar && <Buscador nutri={nutri} titulo="Base de alimentos" onCerrar={() => setBuscar(false)} />}
+      {lector && <LectorEtiqueta nutri={nutri} quien="el coach" onCerrar={() => setLector(false)} onGuardado={() => { setLector(false); cargar(); }} />}
       {nuevo && <NuevoAlimento nutri={nutri} inicial={typeof nuevo === 'object' ? nuevo : null} onCerrar={() => { setNuevo(false); cargar(); }} />}
       {pend && <Pendientes datos={pend} onCerrar={() => setPend(null)} onCompletar={estado?.es_admin !== false ? (p) => { setPend(null); setNuevo({ datos: { nombre: p.nombre, categoria: p.categoria, preparacion: p.prep }, nota: `${p.id} · ${p.detalle || pend.motivos[p.motivo]}. Usa valores de una fuente verificable (tabla venezolana, etiqueta o receta calculada); deja vacío lo que no sepas.` }); } : null} />}
     </div>

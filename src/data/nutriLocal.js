@@ -100,23 +100,23 @@ export function crearNutriLocal() {
     async guardarAlimento(p, { asesorado = false } = {}) {
       if (!String(p.nombre || '').trim()) throw new Error('falta el nombre');
       if (!Array.isArray(p.valores) || !p.valores.length) throw new Error('faltan los valores nutricionales');
-      const fte = ['off', 'usda_branded'].includes(p.fuente) ? p.fuente : 'coach'; const externo = fte !== 'coach';
-      if (asesorado && !externo) throw new Error('el asesorado solo puede agregar productos comerciales (Open Food Facts o USDA)');
+      const fte = ['off', 'usda_branded', 'foto_etiqueta'].includes(p.fuente) ? p.fuente : 'coach'; const externo = fte !== 'coach';
+      if (asesorado && !externo) throw new Error('el asesorado solo puede agregar productos comerciales (Open Food Facts, USDA o la foto de la etiqueta)');
       if (p.valores.some((v) => v.cantidad != null && !(Number(v.cantidad) >= 0 && Number(v.cantidad) <= 100000))) throw new Error('hay valores fuera de rango');
-      const ext = fte === 'off' ? p.codigo_barras : fte === 'usda_branded' ? p.id_externo : null;
+      const ext = fte === 'off' ? p.codigo_barras : fte === 'usda_branded' ? p.id_externo : fte === 'foto_etiqueta' && /^\d{8,14}$/.test(String(p.codigo_barras || '')) ? p.codigo_barras : null;
       if (fte === 'off' && !/^\d{6,14}$/.test(String(ext || ''))) throw new Error('codigo de barras no valido');
       if (fte === 'usda_branded' && !/^\d{1,12}$/.test(String(ext || ''))) throw new Error('fdcId no valido');
       let ex = null;
-      if (externo) { const i = (await cargarIndice()).find((x) => x.fuente === fte && x.id_externo === ext && x.propio); if (i) ex = await alim.get(i.id); }
+      if (externo && ext) { const i = (await cargarIndice()).find((x) => x.fuente === fte && x.id_externo === ext && x.propio); if (i) ex = await alim.get(i.id); }
       else if (p.id) { ex = await alim.get(p.id); if (ex && !ex.coach_id) throw new Error('no se puede modificar un registro de referencia: crea uno personalizado'); }
       const id = ex?.id || (!externo && p.id) || uuid();
-      const estado = fte === 'off' ? 'colaborativo' : fte === 'usda_branded' ? 'etiqueta' : 'personalizado';
+      const estado = fte === 'off' ? 'colaborativo' : fte === 'usda_branded' || fte === 'foto_etiqueta' ? 'etiqueta' : 'personalizado';
       const a = { id, fuente: fte, id_externo: ext, version: p.version || null, coach_id: 'local', nombre: p.nombre, nombre_original: p.nombre_original || p.nombre,
         idioma_original: p.idioma_original || null, nombre_traducido: !!p.nombre_traducido, sinonimos: p.sinonimos || [], categoria: p.categoria || null, marca: p.marca || null, codigo_barras: p.codigo_barras || null,
-        tipo: externo ? 'comercial' : 'personalizado', tipo_registro: fte === 'off' ? 'Open Food Facts' : fte === 'usda_branded' ? 'Branded' : 'Personalizado', preparacion: p.preparacion || 'no_indicado', base: p.base || '100 g',
-        publicado: p.publicado || null, calidad: fte === 'off' ? 'colaborativo' : fte === 'usda_branded' ? 'etiqueta' : 'personalizado', sospechosos: p.sospechosos || [], energia_ref: p.energia_ref || null, ref_url: p.ref_url || null,
+        tipo: externo ? 'comercial' : 'personalizado', tipo_registro: fte === 'off' ? 'Open Food Facts' : fte === 'usda_branded' ? 'Branded' : fte === 'foto_etiqueta' ? 'Foto de la etiqueta' : 'Personalizado', preparacion: p.preparacion || 'no_indicado', base: p.base || '100 g',
+        publicado: p.publicado || null, calidad: fte === 'off' ? 'colaborativo' : fte === 'usda_branded' || fte === 'foto_etiqueta' ? 'etiqueta' : 'personalizado', sospechosos: p.sospechosos || [], energia_ref: p.energia_ref || null, ref_url: p.ref_url || null,
         autor: asesorado ? 'asesorado' : p.autor || 'coach', busqueda: normalizarBusqueda([p.nombre, p.nombre_original, p.marca, p.codigo_barras, ...(p.sinonimos || [])].filter(Boolean).join(' ')),
-        valores: p.valores.filter((v) => POR_CODIGO.has(v.codigo)).map((v) => ({ nutriente: POR_CODIGO.get(v.codigo).id, cantidad: v.cantidad == null ? null : Number(v.cantidad), estado, metodo: v.metodo || null, id_externo: v.id_externo || null, unidad_original: v.unidad_original || null })),
+        valores: p.valores.filter((v) => POR_CODIGO.has(v.codigo)).map((v) => ({ nutriente: POR_CODIGO.get(v.codigo).id, cantidad: v.cantidad == null ? null : Number(v.cantidad), estado: fte === 'foto_etiqueta' && v.estado === 'calculado' ? 'calculado' : estado, metodo: v.metodo || null, id_externo: v.id_externo || null, unidad_original: v.unidad_original || null })),
         porciones: (p.porciones || []).filter((x) => x.gramos > 0), creado: ex?.creado || new Date().toISOString(), actualizado: new Date().toISOString() };
       await historial(id, `${ex ? 'editado' : 'creado'}${asesorado ? ' por el asesorado' : ''}`, ex, p);
       await alim.put(id, a); tocarIndice(a); return compacta(a);

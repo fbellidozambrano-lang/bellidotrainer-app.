@@ -1,6 +1,7 @@
 // Capa de datos: Supabase (en línea) o modo local (solo este teléfono).
 // Las dos exponen exactamente las mismas funciones.
 import { createClient } from '@supabase/supabase-js';
+import { leerEtiquetaIA } from './externos.js';
 import { tokenNuevo, uuid } from '../lib/util.js';
 import { crearNutriLocal } from './nutriLocal.js';
 
@@ -143,6 +144,8 @@ export function crearStoreNube(cfg, clienteFalso) {
       async fichas(ids, token = null) { const u = [...new Set(ids.filter(Boolean))]; if (!u.length) return {}; return (await run(sb.rpc('nutri_fichas', { p_ids: u, p_token: token }))) || {}; },
       ficha: (id, token = null) => run(sb.rpc('nutri_ficha', { p_id: id, p_token: token })),
       guardarAlimento: (a, token = null) => run(sb.rpc('nutri_guardar_alimento', { p: a, p_token: token })),
+      // lector de etiquetas con IA (en el servidor): el coach con su sesión, el asesorado con su enlace
+      async leerEtiqueta(imagenes, token = null) { let jwt = null; if (!token) { try { jwt = (await sb.auth.getSession()).data.session?.access_token || null; } catch { jwt = null; } } return leerEtiquetaIA(imagenes, { token, jwt }); },
       importacionIniciar: (p) => run(sb.rpc('nutri_importacion_iniciar', { p })),
       importarLote: (id, parte, lote, forzar = false) => run(sb.rpc('nutri_importar_lote', { p_importacion: id, p_parte: parte, p_lote: lote, p_forzar: forzar })),
       importacionCerrar: (id, estado = null) => run(sb.rpc('nutri_importacion_cerrar', { p_importacion: id, p_estado: estado })),
@@ -253,6 +256,7 @@ export function crearStoreLocal() {
         buscar: (q, filtros = {}, token = null) => { if (token) deToken(token); return base.buscar(q, filtros); },
         fichas: (ids) => base.fichas([...new Set(ids.filter(Boolean))]),
         guardarAlimento: (a, token = null) => { if (token) deToken(token); return base.guardarAlimento(a, { asesorado: !!token }); },
+        leerEtiqueta: null, // sin servidor: la etiqueta se lee en el teléfono
         async plan(asesoradoId) { const p = (leer().nutri_planes || []).find((x) => x.asesorado_id === asesoradoId); return p ? { objetivos: p.objetivos || {}, plan: p.plan || null, actualizado: p.actualizado } : { objetivos: {}, plan: null }; },
         async guardarPlan(asesoradoId, { objetivos, plan }) { mut((d) => { d.nutri_planes = (d.nutri_planes || []).filter((x) => x.asesorado_id !== asesoradoId); d.nutri_planes.push({ id: asesoradoId, asesorado_id: asesoradoId, objetivos: objetivos || {}, plan: plan ?? null, actualizado: ahora() }); }); return true; },
         async recetas(asesoradoId) { return (leer().nutri_recetas || []).filter((r) => r.asesorado_id === asesoradoId).sort((a, b) => a.nombre.localeCompare(b.nombre)); },

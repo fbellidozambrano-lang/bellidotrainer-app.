@@ -53,6 +53,10 @@ export const FUENTES = {
     atribucion: 'Valores de U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.',
     nota: 'Nombres y preparaciones de Venezuela sin análisis propio. Cada ficha copia los valores de un alimento genérico comparable de USDA (dice cuál y en qué difiere) y los marca como estimados. Lo que no tiene equivalente queda pendiente hasta tener la Tabla de Composición de Alimentos de Venezuela, una receta calculada o una etiqueta.',
   },
+  foto_etiqueta: {
+    nombre: 'Etiqueta del producto (foto)', organizacion: 'Fabricante del producto, leído de las fotos del envase', evidencia: 'etiqueta', estado: 'integrada',
+    licencia: 'Datos declarados en la etiqueta del producto', nota: 'Valores que declara el fabricante en la tabla nutricional, leídos de las fotos del frente y de la tabla (con IA en el servidor o con el lector del teléfono) y revisados por quien los guardó. No es un análisis de laboratorio. Lo que no se leyó queda vacío; lo que se calcula (por 100 g, kcal desde kJ, sodio desde sal) dice cómo.',
+  },
   coach: {
     nombre: 'Alimento personalizado', organizacion: 'El coach', evidencia: 'personalizado', estado: 'integrada', licencia: 'Datos propios del coach', nota: 'Escrito a mano. No está verificado por ninguna fuente oficial.',
   },

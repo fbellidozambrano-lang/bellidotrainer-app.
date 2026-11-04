@@ -38,7 +38,7 @@ export function metodoTexto(m) {
   const t = String(m || ''); const cod = t.split(' · ')[0]; if (!cod || cod === t) return t;
   const r = METODOS.find(([re]) => re.test(cod)); return r ? `${cod} · ${r[1]}` : t;
 }
-export const NOMBRE_FUENTE = { usda_foundation: 'USDA Foundation', usda_sr_legacy: 'USDA SR Legacy', usda_fndds: 'USDA FNDDS', usda_branded: 'USDA marcas', off: 'Open Food Facts', catalogo_ve: 'Catálogo Venezuela', coach: 'personalizado' };
+export const NOMBRE_FUENTE = { usda_foundation: 'USDA Foundation', usda_sr_legacy: 'USDA SR Legacy', usda_fndds: 'USDA FNDDS', usda_branded: 'USDA marcas', off: 'Open Food Facts', catalogo_ve: 'Catálogo Venezuela', foto_etiqueta: 'Foto de la etiqueta', coach: 'personalizado' };
 export const prepTexto = (p) => PREPARACIONES[p] || p;
 
 // barra de progreso contra una meta (mínima o máxima)

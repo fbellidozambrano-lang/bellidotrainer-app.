@@ -638,6 +638,7 @@ insert into public.nutri_fuentes (id, nombre, organizacion, evidencia, estado, u
   ('bedca', 'BEDCA (España)', 'Red BEDCA / AESAN', 'referencia', 'preparada', 'https://www.bedca.net/', 'Por verificar antes de importar (condiciones de uso propias de BEDCA)', 'https://www.bedca.net/', null, 'Nombres en español. Revisar condiciones de reutilización comercial antes de importar.', false),
   ('bls', 'BLS · Bundeslebensmittelschlüssel (Alemania)', 'Max Rubner-Institut', 'referencia', 'preparada', 'https://blsdb.de/download', 'Por verificar antes de importar', 'https://blsdb.de/download', null, 'Convenciones europeas de carbohidratos y energía.', false),
   ('catalogo_ve', 'Catálogo de alimentos de Venezuela · equivalentes USDA', 'Catálogo de 1.000 alimentos venezolanos (v1.0) con valores tomados de USDA FoodData Central', 'referencia', 'integrada', 'https://fdc.nal.usda.gov/', 'Valores: CC0 1.0 (USDA, dominio público)', 'https://creativecommons.org/publicdomain/zero/1.0/', 'Valores de U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.', 'Nombres y preparaciones de Venezuela sin análisis propio. Cada ficha copia los valores de un alimento genérico comparable de USDA (dice cuál y en qué difiere) y los marca como estimados. Lo que no tiene equivalente queda pendiente hasta tener la Tabla de Composición de Alimentos de Venezuela, una receta calculada o una etiqueta.', false),
+  ('foto_etiqueta', 'Etiqueta del producto (foto)', 'Fabricante del producto, leído de las fotos del envase', 'etiqueta', 'integrada', null, 'Datos declarados en la etiqueta del producto', null, null, 'Valores que declara el fabricante en la tabla nutricional, leídos de las fotos del frente y de la tabla (con IA en el servidor o con el lector del teléfono) y revisados por quien los guardó. No es un análisis de laboratorio. Lo que no se leyó queda vacío; lo que se calcula (por 100 g, kcal desde kJ, sodio desde sal) dice cómo.', false),
   ('coach', 'Alimento personalizado', 'El coach', 'personalizado', 'integrada', null, 'Datos propios del coach', null, null, 'Escrito a mano. No está verificado por ninguna fuente oficial.', false)
 on conflict (id) do update set nombre = excluded.nombre, organizacion = excluded.organizacion, evidencia = excluded.evidencia, estado = excluded.estado, url = excluded.url,
   licencia = excluded.licencia, licencia_url = excluded.licencia_url, atribucion = excluded.atribucion, nota = excluded.nota, historico = excluded.historico;
@@ -1126,14 +1127,14 @@ $$;
 create or replace function public.nutri_guardar_alimento(p jsonb, p_token text default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare c uuid := public.nutri_coach(p_token); asesorado boolean := p_token is not null and p_token <> ''; v_id uuid; ex public.nutri_alimentos;
-  fte text := case when p->>'fuente' in ('off', 'usda_branded') then p->>'fuente' else 'coach' end; externo boolean; ext text;
+  fte text := case when p->>'fuente' in ('off', 'usda_branded', 'foto_etiqueta') then p->>'fuente' else 'coach' end; externo boolean; ext text;
   sin text[] := coalesce(array(select jsonb_array_elements_text(p->'sinonimos')), '{}'); antes jsonb; quien text;
 begin
   externo := fte <> 'coach';
   if c is null then raise exception 'necesitas iniciar sesion'; end if;
   if coalesce(trim(p->>'nombre'), '') = '' then raise exception 'falta el nombre'; end if;
   if jsonb_typeof(p->'valores') <> 'array' or jsonb_array_length(p->'valores') = 0 then raise exception 'faltan los valores nutricionales'; end if;
-  if asesorado and not externo then raise exception 'el asesorado solo puede agregar productos comerciales (Open Food Facts o USDA)'; end if;
+  if asesorado and not externo then raise exception 'el asesorado solo puede agregar productos comerciales (Open Food Facts, USDA o la foto de la etiqueta)'; end if;
   if exists (select 1 from jsonb_array_elements(p->'valores') e where (e->>'cantidad') is not null and ((e->>'cantidad')::double precision < 0 or (e->>'cantidad')::double precision > 100000)) then
     raise exception 'hay valores fuera de rango'; end if;
   quien := case when asesorado then 'asesorado: ' || coalesce((select nombre from public.asesorados where token = p_token), '?') else coalesce(p->>'autor', 'coach') end;
@@ -1141,6 +1142,9 @@ begin
     ext := p->>'codigo_barras'; if coalesce(ext, '') !~ '^\d{6,14}$' then raise exception 'codigo de barras no valido'; end if;
   elsif fte = 'usda_branded' then
     ext := p->>'id_externo'; if coalesce(ext, '') !~ '^\d{1,12}$' then raise exception 'fdcId no valido'; end if;
+  elsif fte = 'foto_etiqueta' then
+    -- leído de las fotos: con código de barras se actualiza el mismo producto; sin código, cada lectura es uno nuevo
+    ext := case when coalesce(p->>'codigo_barras', '') ~ '^\d{8,14}$' then p->>'codigo_barras' end;
   end if;
   if externo then
     select * into ex from public.nutri_alimentos where fuente_id = fte and id_externo = ext and coach_id = c;
@@ -1163,14 +1167,15 @@ begin
       tipo_registro, preparacion, base, publicado, calidad, sospechosos, energia_ref, ref_url, autor, busqueda)
     values (v_id, fte, ext, p->>'version', c, p->>'nombre', coalesce(p->>'nombre_original', p->>'nombre'), p->>'idioma_original', coalesce((p->>'nombre_traducido')::boolean, false), sin,
       p->>'categoria', p->>'marca', p->>'codigo_barras', case when externo then 'comercial' else 'personalizado' end,
-      case fte when 'off' then 'Open Food Facts' when 'usda_branded' then 'Branded' else 'Personalizado' end, coalesce(p->>'preparacion', 'no_indicado'), coalesce(p->>'base', '100 g'),
-      (p->>'publicado')::date, case fte when 'off' then 'colaborativo' when 'usda_branded' then 'etiqueta' else 'personalizado' end,
+      case fte when 'off' then 'Open Food Facts' when 'usda_branded' then 'Branded' when 'foto_etiqueta' then 'Foto de la etiqueta' else 'Personalizado' end, coalesce(p->>'preparacion', 'no_indicado'), coalesce(p->>'base', '100 g'),
+      (p->>'publicado')::date, case fte when 'off' then 'colaborativo' when 'usda_branded' then 'etiqueta' when 'foto_etiqueta' then 'etiqueta' else 'personalizado' end,
       coalesce(array(select jsonb_array_elements_text(p->'sospechosos')), '{}'), p->>'energia_ref', p->>'ref_url', quien,
       public.nutri_norm(concat_ws(' ', p->>'nombre', p->>'nombre_original', p->>'marca', p->>'codigo_barras', array_to_string(sin, ' '))));
   end if;
   insert into public.nutri_valores (alimento_id, nutriente_id, cantidad, estado, metodo, id_externo, unidad_original)
   select v_id, n.id, (e->>'cantidad')::double precision,
-         case fte when 'off' then 'colaborativo' when 'usda_branded' then 'etiqueta' else 'personalizado' end, e->>'metodo', e->>'id_externo', e->>'unidad_original'
+         case fte when 'off' then 'colaborativo' when 'usda_branded' then 'etiqueta'
+           when 'foto_etiqueta' then case when e->>'estado' = 'calculado' then 'calculado' else 'etiqueta' end else 'personalizado' end, e->>'metodo', e->>'id_externo', e->>'unidad_original'
   from jsonb_array_elements(p->'valores') e join public.nutri_nutrientes n on n.codigo = e->>'codigo';
   insert into public.nutri_porciones (alimento_id, orden, descripcion, original, gramos)
   select v_id, o.ord, o.e->>'descripcion', o.e->>'original', (o.e->>'gramos')::double precision from jsonb_array_elements(coalesce(p->'porciones', '[]'::jsonb)) with ordinality o(e, ord)
@@ -1280,6 +1285,32 @@ grant execute on function public.nutri_importacion_iniciar(jsonb), public.nutri_
 grant execute on function public.nutri_norm(text), public.nutri_palabras(text), public.nutri_otro_genero(text), public.nutri_claves(text), public.nutri_parecido(text, text), public.nutri_buscar(text, jsonb, text, int), public.nutri_fichas(uuid[], text), public.nutri_ficha(uuid, text),
   public.nutri_estado(), public.nutri_resumen(uuid, text), public.nutri_guardar_alimento(jsonb, text), public.atleta_nutri_cargar(text, date, date), public.atleta_nutri_guardar(text, jsonb),
   public.atleta_nutri_borrar(text, uuid), public.atleta_nutri_guardado_guardar(text, jsonb), public.atleta_nutri_guardado_borrar(text, uuid), public.nutri_es_admin() to anon, authenticated;
+
+-- ---------- lector de etiquetas con IA (api/etiqueta.js) ----------
+-- Cada lectura queda anotada para limitar el uso diario por coach (sus asesorados cuentan para él).
+-- No se guardan las fotos.
+create table if not exists public.nutri_lecturas (
+  id        bigserial primary key,
+  coach_id  uuid not null references auth.users(id) on delete cascade,
+  quien     text not null default 'coach',
+  creado    timestamptz not null default now()
+);
+create index if not exists nutri_lecturas_coach_idx on public.nutri_lecturas (coach_id, creado);
+alter table public.nutri_lecturas enable row level security;
+revoke all on public.nutri_lecturas from anon, authenticated;
+create or replace function public.nutri_lectura_etiqueta(p_token text default null, p_limite int default 60) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c uuid := public.nutri_coach(p_token); n int; lim int := least(greatest(coalesce(p_limite, 60), 1), 500);
+begin
+  if c is null then raise exception 'necesitas iniciar sesion'; end if;
+  select count(*) into n from public.nutri_lecturas where coach_id = c and creado > now() - interval '24 hours';
+  if n >= lim then raise exception 'se llego al limite de % lecturas de etiquetas en 24 horas', lim; end if;
+  insert into public.nutri_lecturas (coach_id, quien) values (c, case when p_token is not null and p_token <> '' then 'asesorado' else 'coach' end);
+  delete from public.nutri_lecturas where creado < now() - interval '30 days';
+  return jsonb_build_object('ok', true, 'restantes', lim - n - 1);
+end $$;
+revoke all on function public.nutri_lectura_etiqueta(text, int) from public;
+grant execute on function public.nutri_lectura_etiqueta(text, int) to anon, authenticated;
 
 -- que la API de Supabase vea al instante las columnas y funciones nuevas
 notify pgrst, 'reload schema';

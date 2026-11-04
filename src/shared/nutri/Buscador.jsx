@@ -8,6 +8,7 @@ import { buscarExterno } from '../../data/externos.js';
 import { paraGuardar } from '../../lib/nutricion/usda.js';
 import { nutrientesDe, principalesPor100 } from '../../lib/nutricion/calculo.js';
 import FichaAlimento from './FichaAlimento.jsx';
+import LectorEtiqueta from './LectorEtiqueta.jsx';
 import { Calidad, Macros, n0, n1, prepTexto } from './comunes.jsx';
 
 const FILTROS = [['', 'Todo'], ['crudo', 'Crudo'], ['cocido', 'Cocido'], ['hervido', 'Hervido'], ['asado', 'Asado'], ['frito', 'Frito'], ['seco', 'Seco'], ['comercial', 'De marca'], ['propios', 'Míos']];
@@ -89,7 +90,7 @@ export default function Buscador({ nutri, token, titulo = 'Agregar alimento', ac
   const [q, setQ] = useState(''); const [filtro, setFiltro] = useState(''); const [res, setRes] = useState([]); const [cargando, setCargando] = useState(false); const [err, setErr] = useState('');
   const [buscado, setBuscado] = useState(''); const [abierta, setAbierta] = useState(null); const [agregados, setAgregados] = useState({}); const [recientes, setRecientes] = useState(() => leerRec(token));
   const [ver, setVer] = useState(null); const [tab, setTab] = useState('base');
-  const [ext, setExt] = useState(null); const [extErr, setExtErr] = useState(''); const [prod, setProd] = useState(null); const [escanear, setEscanear] = useState(false); const [guardando, setGuardando] = useState(false);
+  const [ext, setExt] = useState(null); const [extErr, setExtErr] = useState(''); const [prod, setProd] = useState(null); const [escanear, setEscanear] = useState(false); const [guardando, setGuardando] = useState(false); const [lector, setLector] = useState(false);
   const pedido = useRef(0); const cache = useRef(new Map()); const caja = useRef(null); const posLista = useRef(0); const entrada = useRef(null);
   const hoja = () => caja.current?.closest('.hoja');
 
@@ -183,6 +184,7 @@ export default function Buscador({ nutri, token, titulo = 'Agregar alimento', ac
               <button className="btn chico oro" disabled={q.trim().length < 2} onClick={() => buscarFuera(esCodigo ? { fuente: 'off', codigo } : { fuente: 'off', q })}><Ico n="buscar" s={16} />Open Food Facts</button>
               <button className="btn chico" disabled={q.trim().length < 2 || esCodigo} onClick={() => buscarFuera({ fuente: 'usda', q })}>USDA (marcas de EE. UU.)</button>
             </div>
+            <button className="etq-abrir" onClick={() => setLector(true)}><Ico n="camara" s={22} /><div><b>Leer la etiqueta con fotos</b><small>Si no aparece: foto del frente y de la tabla nutricional</small></div><Ico n="chev" s={18} /></button>
             {extErr && <p className="aviso rojo"><span>{extErr}</span></p>}
             {cargando && !ext && <div className="esq lista-esq"><i /><i /><i /></div>}
             {ext?.atribucion && <p className="ayuda">{ext.atribucion}</p>}
@@ -199,6 +201,7 @@ export default function Buscador({ nutri, token, titulo = 'Agregar alimento', ac
         </>}
       </div>
       {escanear && <Escaner onCodigo={porCodigo} onCerrar={() => setEscanear(false)} />}
+      {lector && <LectorEtiqueta nutri={nutri} token={token} quien={token ? 'el asesorado' : 'el coach'} onCerrar={() => setLector(false)} onGuardado={(f) => { setLector(false); if (f?.id) abrirVista(() => setVer(f.id)); }} />}
     </Hoja>
   );
 }
