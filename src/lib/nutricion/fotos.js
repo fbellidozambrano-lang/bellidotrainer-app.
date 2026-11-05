@@ -1,5 +1,5 @@
-// Fotos de la etiqueta en el teléfono: achicarlas para mandarlas, leer el texto sin servidor
-// (Tesseract, español e inglés) y buscar el código de barras. Solo navegador.
+// Fotos de la etiqueta en el teléfono: achicarlas para mandarlas a la IA (si el servidor la tiene) y leerlas
+// gratis en el propio teléfono (PaddleOCR en un Web Worker, ver motorOcr.js). Solo navegador.
 
 // la foto a JPEG de hasta `max` px por lado (las del teléfono pesan varios MB)
 export async function prepararFoto(archivo, { max = 2000, calidad = 0.85, gris = false } = {}) {
@@ -19,24 +19,32 @@ export async function prepararFoto(archivo, { max = 2000, calidad = 0.85, gris =
   return { dataUrl, base64: dataUrl.split(',')[1], media_type: 'image/jpeg', ancho: c.width, alto: c.height };
 }
 
-// código de barras en la foto (Chrome en Android lo trae; en iPhone no existe y se escribe a mano)
-export async function codigoEnFoto(archivo) {
+// lector del teléfono: corre en un Web Worker para no trabar la pantalla; si el navegador no puede, en la página
+let trabajador = null; let sinWorker = false; let sec = 0; const pendientes = new Map();
+function elTrabajador() {
+  if (trabajador || sinWorker) return trabajador;
   try {
-    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) return '';
-    const det = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
-    const r = await det.detect(await createImageBitmap(archivo));
-    const v = String(r?.[0]?.rawValue || '').replace(/\D/g, ''); return /^\d{8,14}$/.test(v) ? v : '';
-  } catch { return ''; }
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') { sinWorker = true; return null; }
+    trabajador = new Worker(new URL('./ocr.worker.js', import.meta.url), { type: 'module' });
+    trabajador.onmessage = ({ data }) => {
+      const p = pendientes.get(data?.id); if (!p) return;
+      if (data.estado) { p.onEstado?.(data.estado); return; }
+      pendientes.delete(data.id); if (data.ok) p.ok(data.r); else p.mal(Object.assign(new Error(data.error), { delWorker: true }));
+    };
+    trabajador.onerror = (e) => { e?.preventDefault?.(); const ps = [...pendientes.values()]; pendientes.clear(); trabajador?.terminate(); trabajador = null; sinWorker = true; ps.forEach((p) => p.mal(new Error('sin worker'))); };
+  } catch { sinWorker = true; trabajador = null; }
+  return trabajador;
 }
-
-// lector de texto en el teléfono: se descarga la primera vez (unos 5 MB) y queda en caché
-let trabajador = null; let avisar = null;
-export async function textoDeFoto(dataUrl, onProgreso) {
-  avisar = onProgreso || null;
-  if (!trabajador) {
-    trabajador = import('tesseract.js').then(({ createWorker }) => createWorker(['spa', 'eng'], 1, {
-      logger: (m) => { if (avisar && m && typeof m.progress === 'number') avisar(m.status === 'recognizing text' ? 'leyendo' : 'preparando', m.progress); },
-    })).catch((e) => { trabajador = null; throw e; });
+async function enPagina(tipo, archivo, onEstado) { const m = await import('./motorOcr.js'); return m.procesar(tipo, archivo, onEstado); }
+// tipo: 'tabla' → { l, codigo } · 'frente' → { lineas, contenido, codigo } · 'codigo' → { codigo }
+export async function leerFoto(tipo, archivo, onEstado) {
+  const w = elTrabajador();
+  if (!w) return enPagina(tipo, archivo, onEstado);
+  try {
+    return await new Promise((ok, mal) => { const id = ++sec; pendientes.set(id, { ok, mal, onEstado }); w.postMessage({ id, tipo, archivo }); });
+  } catch (e) {
+    if (e.delWorker && /descargar/i.test(e.message)) throw e; // sin conexión: en la página tampoco se podría
+    return enPagina(tipo, archivo, onEstado); // el worker no pudo (navegador viejo): se intenta en la página
   }
-  const w = await trabajador; const r = await w.recognize(dataUrl); return String(r?.data?.text || '');
 }
+export async function codigoEnFoto(archivo) { try { return (await leerFoto('codigo', archivo)).codigo || ''; } catch { return ''; } }

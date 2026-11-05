@@ -6,9 +6,9 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1793828379.5321555,
-    "seen": 1793828756.785082,
-    "ast_hash": "f880fe5560abb200d0fa4eb173c41639",
+    "mtime": 1793841956.1778955,
+    "seen": 1793879458.3905923,
+    "ast_hash": "64eae0a7fca92c7eb8ee285605f1a0e0",
     "semantic_hash": ""
   },
   "public/config.js": {
@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/coach/Ajustes.jsx": {
-    "mtime": 1793828379.532865,
-    "seen": 1793828756.7859201,
-    "ast_hash": "b26e04747d7af4002b7782a7e5a81412",
+    "mtime": 1793879338.118384,
+    "seen": 1793879458.3909955,
+    "ast_hash": "0a41745f9a7d8e53d194fec940d41c4e",
     "semantic_hash": ""
   },
   "src/coach/Biblioteca.jsx": {
@@ -360,21 +360,21 @@
     "semantic_hash": ""
   },
   "vercel.json": {
-    "mtime": 1793828045.5758612,
-    "seen": 1793828756.790516,
-    "ast_hash": "89f84a6f40dbbb49c3c1eea7809cd9f5",
+    "mtime": 1793840842.6382916,
+    "seen": 1793879458.3934271,
+    "ast_hash": "56ecb41f24669e1ce3c979d12bc3b998",
     "semantic_hash": ""
   },
   "vite.config.js": {
-    "mtime": 1791841770.5796838,
-    "seen": 1793153804.4379277,
-    "ast_hash": "b7b4572f85c5df651421cd8ffc195104",
+    "mtime": 1793840833.610701,
+    "seen": 1793879458.3934293,
+    "ast_hash": "106b166eaf524add7dd00d3a2a4a32b6",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793828379.5326474,
-    "seen": 1793828756.7905405,
-    "ast_hash": "2a16ebda4068842a33add3b1d7dcd2fb",
+    "mtime": 1793841544.8339877,
+    "seen": 1793879458.3934317,
+    "ast_hash": "69a88e52d9bc52d61bb1561a5cfaa2f1",
     "semantic_hash": ""
   },
   "index.html": {
@@ -924,21 +924,21 @@
     "semantic_hash": ""
   },
   "src/lib/nutricion/fotos.js": {
-    "mtime": 1793828164.5494962,
-    "seen": 1793828756.7887962,
-    "ast_hash": "e46d2e1d8ecaf4a61c042eb2bfc243f9",
+    "mtime": 1793840745.8930287,
+    "seen": 1793879458.3919566,
+    "ast_hash": "44c705014f390bf4c95b2d24eafa749f",
     "semantic_hash": ""
   },
   "src/shared/nutri/LectorEtiqueta.jsx": {
-    "mtime": 1793828379.5319085,
-    "seen": 1793828756.789645,
-    "ast_hash": "69cb2eb0036fa5c6c2f215f06ac59aa8",
+    "mtime": 1793842928.5176,
+    "seen": 1793879458.3926923,
+    "ast_hash": "895171f5d4abde3674d1b1e56b57b087",
     "semantic_hash": ""
   },
   "test/e2e_etiqueta.py": {
-    "mtime": 1793828334.593506,
-    "seen": 1793828756.7898724,
-    "ast_hash": "04f9fc0cccfa4e74002e888aad84e1c3",
+    "mtime": 1793843342.3563616,
+    "seen": 1793879458.392879,
+    "ast_hash": "9c5afe3998c260684538e0352475708b",
     "semantic_hash": ""
   },
   "test/etiqueta.test.mjs": {
@@ -948,27 +948,81 @@
     "semantic_hash": ""
   },
   "test/fixtures/etiquetas/generar.mjs": {
-    "mtime": 1793828334.5931726,
-    "seen": 1793828756.790032,
-    "ast_hash": "b4ebb27494822995b16c36db65287b3d",
+    "mtime": 1793840885.4069593,
+    "seen": 1793879458.3930197,
+    "ast_hash": "2d7e3c6edf1941ef49d9c13cef2b37a0",
     "semantic_hash": ""
   },
   "test/fixtures/etiquetas/eu.jpg": {
-    "mtime": 1793828334.589642,
-    "seen": 1793828756.792343,
+    "mtime": 1793840889.8490374,
+    "seen": 1793879458.394425,
     "ast_hash": "0fa00ef1b89fd810b821931e0f263e22",
     "semantic_hash": ""
   },
   "test/fixtures/etiquetas/frente.jpg": {
-    "mtime": 1793828334.5894196,
-    "seen": 1793828756.79235,
-    "ast_hash": "cb93e1a2d7902a04b4a654c177c6ee03",
+    "mtime": 1793840890.0010374,
+    "seen": 1793879458.3944266,
+    "ast_hash": "6a2720dee6d0f8a40912015dc3f215b3",
     "semantic_hash": ""
   },
   "test/fixtures/etiquetas/ve.jpg": {
-    "mtime": 1793828334.5891886,
-    "seen": 1793828756.792353,
+    "mtime": 1793840889.7810373,
+    "seen": 1793879458.3944292,
     "ast_hash": "61f88af009743941dcd6ca891d062a0b",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/cajas.js": {
+    "mtime": 1793842257.6960764,
+    "seen": 1793879458.3918617,
+    "ast_hash": "8f2e921840ad4684f8c8c2007769cdf3",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/imagen.js": {
+    "mtime": 1793843318.071311,
+    "seen": 1793879458.3919797,
+    "ast_hash": "4922917bc5f91985c0f37e5d15558eab",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/lector.js": {
+    "mtime": 1793843690.28074,
+    "seen": 1793879458.3919818,
+    "ast_hash": "1c91d7eb1117207b0fa9279d147f77e7",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/motorOcr.js": {
+    "mtime": 1793842992.8209462,
+    "seen": 1793879458.3920093,
+    "ast_hash": "51b620755b0eecc7383e812a63711bca",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/ocr.worker.js": {
+    "mtime": 1793840664.625773,
+    "seen": 1793879458.392035,
+    "ast_hash": "bff6834f488c491297990a97214b23e7",
+    "semantic_hash": ""
+  },
+  "src/lib/nutricion/tabla.js": {
+    "mtime": 1793879099.5252874,
+    "seen": 1793879458.3920832,
+    "ast_hash": "146bfcc8a0e810a74849f9b0a1e2c770",
+    "semantic_hash": ""
+  },
+  "test/lector.test.mjs": {
+    "mtime": 1793879092.759163,
+    "seen": 1793879458.3932507,
+    "ast_hash": "b754fd4095e057d7e6b95d582f0a0a11",
+    "semantic_hash": ""
+  },
+  "public/ocr/LEEME.txt": {
+    "mtime": 1793840842.6140606,
+    "seen": 1793879458.3934736,
+    "ast_hash": "7eee561291e9ac8939d20b6881497d65",
+    "semantic_hash": ""
+  },
+  "public/ocr/ppocrv6_tiny_dict.txt": {
+    "mtime": 1793840833.6185925,
+    "seen": 1793879458.3934753,
+    "ast_hash": "3fc9ffc044e66044b146d080cbb470b5",
     "semantic_hash": ""
   }
 }

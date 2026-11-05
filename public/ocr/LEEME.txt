@@ -1,0 +1,5 @@
+Modelos del lector de etiquetas (se usan en el teléfono, sin servidor):
+- PP-OCRv6_tiny_det.ort, PP-OCRv6_tiny_rec.ort y ppocrv6_tiny_dict.txt
+  PaddleOCR (PaddlePaddle), convertidos a ONNX Runtime por ppu-paddle-ocr-models
+  (https://huggingface.co/snowfluke/ppu-paddle-ocr-models). Licencia Apache-2.0.
+Si se cambian, cambia también el nombre del archivo (se guardan en caché un año).

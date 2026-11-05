@@ -17,7 +17,16 @@ const us = `<div class="t"><h2>Nutrition Facts</h2><div class="r">8 servings per
 <div class="r"><span><b>Cholesterol</b> 20mg</span><b>7%</b></div><div class="r"><span><b>Sodium</b> 120mg</span><b>5%</b></div><div class="r"><span><b>Total Carbohydrate</b> 12g</span><b>4%</b></div>
 <div class="r i">Dietary Fiber 0g</div><div class="r i">Total Sugars 12g</div><div class="r i">Includes 0g Added Sugars</div><div class="r g"><b>Protein 8g</b></div>
 <div class="r">Vitamin D 2.5mcg 10%</div><div class="r">Calcium 300mg 25%</div><div class="r">Potassium 380mg 8%</div></div>`;
-const frente = `<div style="width:420px;height:520px;margin:30px;background:linear-gradient(#c8102e,#8b0000);color:#fff;border-radius:18px;padding:24px;box-sizing:border-box;font-family:Arial;transform:rotate(1deg)"><div style="font-size:22px;letter-spacing:3px">AVENA DORADA</div><div style="font-size:58px;font-weight:900;line-height:1;margin-top:40px">Hojuelas de avena</div><div style="font-size:26px;margin-top:14px">Integral · sin azúcar añadido</div><div style="font-size:30px;margin-top:150px;font-weight:700">Contenido neto 450 g</div></div>`;
+// código de barras EAN-13 inventado (prefijo 759, dígito de control válido) para probar la lectura del código
+function ean13(c) {
+  const L = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+  const G = L.map((x) => [...x].reverse().map((b) => (b === '1' ? '0' : '1')).join('')); const R = L.map((x) => [...x].map((b) => (b === '1' ? '0' : '1')).join(''));
+  const P = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'];
+  const d = [...c].map(Number); let bits = '101'; d.slice(1, 7).forEach((x, i) => { bits += (P[d[0]][i] === 'L' ? L : G)[x]; }); bits += '01010'; d.slice(7).forEach((x) => { bits += R[x]; }); bits += '101';
+  return `<svg width="${bits.length * 3 + 40}" height="110" style="background:#fff;display:block"><g transform="translate(20,8)">${[...bits].map((b, i) => (b === '1' ? `<rect x="${i * 3}" width="3" height="80"/>` : '')).join('')}</g><text x="${(bits.length * 3 + 40) / 2}" y="104" font-size="18" text-anchor="middle" font-family="Arial">${c}</text></svg>`;
+}
+const CODIGO = '7591234567894';
+const frente = `<div style="width:420px;height:520px;margin:30px;background:linear-gradient(#c8102e,#8b0000);color:#fff;border-radius:18px;padding:24px;box-sizing:border-box;font-family:Arial;transform:rotate(1deg)"><div style="font-size:22px;letter-spacing:3px">AVENA DORADA</div><div style="font-size:58px;font-weight:900;line-height:1;margin-top:40px">Hojuelas de avena</div><div style="font-size:26px;margin-top:14px">Integral · sin azúcar añadido</div><div style="font-size:30px;margin-top:40px;font-weight:700">Contenido neto 450 g</div><div style="margin-top:14px;display:inline-block;padding:6px;background:#fff;border-radius:6px">${ean13(CODIGO)}</div></div>`;
 const br = await chromium.launch(); const pg = await br.newPage({ viewport: { width: 520, height: 640 }, deviceScaleFactor: 2 });
 for (const [n, h] of Object.entries({ ve, eu, us, frente })) { await pg.setContent(`<style>${css}</style>${h}`); await pg.screenshot({ path: `${n}.jpg`, type: 'jpeg', quality: 70 }); }
 await br.close(); console.log('ok');
