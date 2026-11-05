@@ -31,7 +31,8 @@ export default function Alimentacion({ store, token, vista }) {
   async function guardar(r) {
     if (vista === 'coach') { avisar('Vista previa: no se guarda'); return; }
     const { _pendiente, ...reg } = r;
-    setDatos((d) => ({ ...d, registros: [...(d?.registros || []).filter((x) => x.id !== reg.id), reg] }));
+    // si ya existía (se cambió la porción) queda en su mismo lugar; si es nuevo va al final
+    setDatos((d) => { const rs = d?.registros || []; return { ...d, registros: rs.some((x) => x.id === reg.id) ? rs.map((x) => (x.id === reg.id ? reg : x)) : [...rs, reg] }; });
     try { await store.nutri.atletaGuardar(token, reg); }
     catch (e) {
       if (/fecha|nutrientes|tipo|ajeno|enlace/i.test(e.message)) { setDatos((d) => ({ ...d, registros: d.registros.filter((x) => x.id !== reg.id) })); throw e; }

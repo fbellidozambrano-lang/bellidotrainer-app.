@@ -10,7 +10,7 @@ const { crearStoreNube, crearStoreLocal } = await import('../src/data/store.js')
 const { normalizarUSDA, estadoUSDA, paraGuardar } = await import('../src/lib/nutricion/usda.js');
 const { armarLotes } = await import('../src/lib/nutricion/lotes.js');
 const { importarConjunto, leerLote, idImportacion } = await import('../src/data/nutricion.js');
-const { nutrientesDe, sumar, receta, totalesDia, principalesPor100, salAnadida, FACTOR_SAL } = await import('../src/lib/nutricion/calculo.js');
+const { nutrientesDe, sumar, receta, totalesDia, principalesPor100, salAnadida, FACTOR_SAL, escalarRegistro } = await import('../src/lib/nutricion/calculo.js');
 const { POR_CODIGO, NUTRIENTES } = await import('../src/lib/nutricion/catalogo.js');
 const { normalizarOFF } = await import('../src/lib/nutricion/off.js');
 const { consultar } = await import('../api/alimentos.js');
@@ -429,4 +429,16 @@ for (const modo of ['nube', 'local']) {
     const r2 = await importarConjunto({ nutri, conjunto: CVE, fetcher: servir(archivos), forzar: true, pausa: 1 }); assert.equal(r2.omitidos, VE.length, 'repetir no duplica');
   });
 }
+await t('ajustar la porción de lo anotado: todo se escala igual, lo desconocido sigue desconocido', () => {
+  const r = { id: 'x', fecha: '2026-11-05', comida: 2, tipo: 'alimento', nombre: 'Cambur', gramos: 120, nutrientes: { kcal: 116, proteina: 0.9, carbohidratos: 27.6, grasa: 0.3 }, desconocidos: ['grasa_saturada'],
+    detalle: { partes: [{ alimento_id: 'a', nombre: 'Cambur', gramos: 120 }] } };
+  const n = escalarRegistro(r, 180 / 120);
+  assert.equal(n.id, 'x', 'mismo registro: se reemplaza, no se duplica'); assert.equal(n.gramos, 180); assert.equal(n.detalle.partes[0].gramos, 180);
+  assert.equal(Math.round(n.nutrientes.kcal * 10) / 10, 174); assert.equal(Math.round(n.nutrientes.carbohidratos * 10) / 10, 41.4); assert.deepEqual(n.desconocidos, ['grasa_saturada']);
+  assert.equal(r.gramos, 120, 'el original no se toca'); assert.equal(escalarRegistro(r, 1), r);
+  const rec = escalarRegistro({ tipo: 'receta', cantidad: 1, gramos: 300, nutrientes: { kcal: 414 }, detalle: { porciones: 1 } }, 1.5);
+  assert.deepEqual([rec.cantidad, rec.gramos, rec.nutrientes.kcal, rec.detalle.porciones], [1.5, 450, 621, 1.5]);
+  const grasa = escalarRegistro({ tipo: 'plan', gramos: 35, nutrientes: { grasa: 5.1 }, detalle: { bloque: 'grasa', porciones: 1, partes: [{ gramos: 35 }] } }, 2);
+  assert.equal(grasa.detalle.porciones, 2, 'dos porciones de grasa cuentan como dos');
+});
 console.log(`\n${ok} pruebas OK`);

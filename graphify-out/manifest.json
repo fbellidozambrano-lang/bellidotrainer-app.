@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/coach/Ajustes.jsx": {
-    "mtime": 1793879338.118384,
-    "seen": 1793879458.3909955,
-    "ast_hash": "0a41745f9a7d8e53d194fec940d41c4e",
+    "mtime": 1793897737.2011006,
+    "seen": 1793897752.5582476,
+    "ast_hash": "9971eb72ba0a82fcfb8b1fb76c71f48c",
     "semantic_hash": ""
   },
   "src/coach/Biblioteca.jsx": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793841544.8339877,
-    "seen": 1793879458.3934317,
-    "ast_hash": "69a88e52d9bc52d61bb1561a5cfaa2f1",
+    "mtime": 1793897737.6336033,
+    "seen": 1793897752.5607347,
+    "ast_hash": "eed48b40f31ee4d797a75f644069bb42",
     "semantic_hash": ""
   },
   "index.html": {
@@ -624,9 +624,9 @@
     "semantic_hash": ""
   },
   "src/atleta/Alimentacion.jsx": {
-    "mtime": 1793294389.8897443,
-    "seen": 1793294826.6261892,
-    "ast_hash": "0c5ae46c6a27046877960dc1875abb3f",
+    "mtime": 1793885642.2612731,
+    "seen": 1793897752.5582182,
+    "ast_hash": "1b98b562c77457151554e674e8bd4a3e",
     "semantic_hash": ""
   },
   "src/coach/Alimentacion.jsx": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "src/lib/nutricion/calculo.js": {
-    "mtime": 1793206695.675393,
-    "seen": 1793210528.0597045,
-    "ast_hash": "9ac442b7e7c781e21124d35712b72236",
+    "mtime": 1793885642.2612731,
+    "seen": 1793897752.559019,
+    "ast_hash": "6ed63203834a90ba5ed1eac0d594df6d",
     "semantic_hash": ""
   },
   "src/lib/nutricion/catalogo.js": {
@@ -738,15 +738,15 @@
     "semantic_hash": ""
   },
   "src/shared/nutri/Buscador.jsx": {
-    "mtime": 1793828192.5780282,
-    "seen": 1793828756.789579,
-    "ast_hash": "6e66cc832d6e303228d6480f6a1a15d6",
+    "mtime": 1793885642.2612731,
+    "seen": 1793897752.559882,
+    "ast_hash": "c16baeef9834d1521924b47b6a4e4fda",
     "semantic_hash": ""
   },
   "src/shared/nutri/Diario.jsx": {
-    "mtime": 1793495827.8649144,
-    "seen": 1793496566.904212,
-    "ast_hash": "7cacd3099c52eef0c2cdba1ba7e292b4",
+    "mtime": 1793885642.2612731,
+    "seen": 1793897752.5598838,
+    "ast_hash": "ff7778fdc26174c6c97b8edd391a6126",
     "semantic_hash": ""
   },
   "src/shared/nutri/FichaAlimento.jsx": {
@@ -762,9 +762,9 @@
     "semantic_hash": ""
   },
   "test/e2e_alimentacion.py": {
-    "mtime": 1793501013.9720986,
-    "seen": 1793501201.8556943,
-    "ast_hash": "d9f80e685c9746cb76ab620cf91bf375",
+    "mtime": 1793885673.786668,
+    "seen": 1793897752.5600574,
+    "ast_hash": "8ff87d0d08e048f0d8cd07b57cc790d3",
     "semantic_hash": ""
   },
   "test/fixtures/off_0078000000047.json": {
@@ -798,9 +798,9 @@
     "semantic_hash": ""
   },
   "test/nutricion.test.mjs": {
-    "mtime": 1793500858.617621,
-    "seen": 1793501201.8560386,
-    "ast_hash": "3a4445a9c9109d31b06190769116d97f",
+    "mtime": 1793885829.012976,
+    "seen": 1793897752.5605547,
+    "ast_hash": "db7415b582a6ce5c4979606090df6308",
     "semantic_hash": ""
   },
   "test/plan_pdf.py": {

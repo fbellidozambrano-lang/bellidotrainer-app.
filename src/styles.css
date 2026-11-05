@@ -957,3 +957,23 @@ body.velado #root{opacity:0}
 .etq-off-v{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13.5px;color:var(--mute2)}.etq-off-v b{font-family:var(--cond);font-size:17px;color:var(--chalk)}
 .etq-off p{margin:6px 0 8px;font-size:13px}.etq-off p.dif{color:#FFB86B}.etq-off p.igual{color:var(--ok)}
 .etq-avisos{margin:10px 0 0;padding:10px 12px 10px 28px;border-radius:12px;background:rgba(255,158,77,.09);border:1px solid rgba(255,158,77,.28);color:#FFB86B;font-size:13px;line-height:1.45}
+
+/* cantidad anotada, a la vista en cada alimento de la comida */
+.reg-t span .reg-q{font-weight:700;color:var(--chalk)}
+.aj-g{margin-top:2px}
+/* panel fijo abajo al agregar: lo que ya tiene la comida y cómo se llenan las metas */
+.pcom{position:sticky;bottom:calc(-18px - var(--safe-b));z-index:3;margin:16px -18px calc(-18px - var(--safe-b));padding:8px 18px calc(10px + var(--safe-b));background:#181818;border-top:1px solid var(--line2);box-shadow:0 -10px 24px rgba(0,0,0,.45);transition:background .3s}
+.pcom.flash{background:#22200f}
+.pc-cab{display:flex;align-items:center;gap:8px;width:100%;padding:4px 0;text-align:left;color:var(--chalk)}
+.pc-n{flex:1;min-width:0;font-size:13.5px;color:var(--mute2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pc-n b{color:var(--chalk)}
+.pc-kc{font-size:13px;color:var(--mute2);white-space:nowrap}.pc-kc b{font-family:var(--cond);font-size:20px;color:var(--chalk)}.pc-kc small{font-size:12px;color:var(--mute)}.pc-kc.pasa b{color:var(--bad)}
+.pc-k{height:6px;border-radius:3px;background:#2a2a2a;overflow:hidden;margin:4px 0 6px}.pc-k i{display:block;height:100%;background:var(--gold);border-radius:3px;transition:width .4s}.pc-k.pasa i{background:var(--bad)}
+.pc-ms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pc-m span{display:block;font-size:12px;color:var(--mute2)}.pc-m b{font-family:var(--cond);font-size:15px;color:var(--chalk)}.pc-m small{color:var(--mute);font-size:11px}
+.pc-m i{display:block;height:4px;border-radius:2px;background:#2a2a2a;overflow:hidden;margin-top:2px}.pc-m u{display:block;height:100%;transition:width .4s;background:var(--mute2)}
+.pc-m.p u{background:#FF4D6D}.pc-m.c u{background:#4FB6FF}.pc-m.g u{background:#FFC400}
+.pc-dia{margin:6px 0 0;font-size:11.5px;color:var(--mute)}.pc-dia b{color:var(--mute2);font-size:12.5px}
+.pc-l{max-height:38dvh;overflow:auto;margin-top:6px;border-top:1px solid var(--line)}
+.pc-i{display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--line)}
+.pc-it{flex:1;min-width:0;text-align:left;padding:8px 0}.pc-it strong{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pc-it span{display:block;font-size:12px;color:var(--mute)}
+.pc-i .ico-b{width:34px;height:34px;color:var(--mute2)}

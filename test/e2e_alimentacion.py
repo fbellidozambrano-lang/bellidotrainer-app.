@@ -158,6 +158,20 @@ with sync_playwright() as pw:
     shot(p, '12b_rapido')
     p.locator('.rapido .btn.oro').click(); p.wait_for_timeout(600)
     assert p.locator('.nres-ok').count() == 1, 'el agregado queda marcado y la lista sigue abierta'
+    # lo agregado y cómo se llena la comida se ven ahí mismo, sin volver a la pantalla de alimentación
+    pc = p.locator('.pcom'); t0 = pc.inner_text().replace('\n', ' '); print('panel:', t0)
+    assert 'Merienda' in t0 and '1 alimento' in t0 and 'Todo el día' in t0, t0
+    kc0 = int(pc.locator('.pc-kc b').inner_text().replace('.', '')); assert kc0 > 0
+    pc.locator('.pc-cab').click(); p.wait_for_timeout(200)
+    assert pc.locator('.pc-i').count() == 1 and '120 g' in pc.locator('.pc-i').inner_text()
+    shot(p, '12e_panel')
+    # ajustar la porción desde el panel: 120 → 180 g
+    pc.get_by_role('button', name=re.compile('^Ajustar ')).click(); p.wait_for_timeout(300)
+    h = p.locator('.hoja').last; h.get_by_label('Gramos').fill('180'); p.wait_for_timeout(150)
+    shot(p, '12f_ajustar_en_busqueda')
+    h.locator('.hoja-acc .btn.oro').click(); p.wait_for_timeout(600)
+    kc1 = int(p.locator('.pcom .pc-kc b').inner_text().replace('.', '')); assert abs(kc1 - kc0 * 1.5) <= 1, (kc0, kc1)
+    assert '180 g' in p.locator('.pcom .pc-i').inner_text() and p.locator('.velo').count() == 1, 'vuelve a la búsqueda'
     # ficha completa dentro de la misma hoja (antes era una hoja encima de otra: pantalla casi negra)
     p.locator('.nres-i').nth(1).click(); p.locator('.rapido').get_by_role('button', name='Ficha completa').click(); p.wait_for_timeout(700)
     assert p.locator('.velo').count() == 1 and p.locator('.ficha-dentro').count() == 1
@@ -181,6 +195,17 @@ with sync_playwright() as pw:
     t = p.locator('.hoja').last.inner_text(); assert 'Calculado con' in t and 'USDA' in t, t
     p.keyboard.press('Escape')
     p.wait_for_timeout(300)
+    # ajustar la porción en la pantalla principal: el cambur de la merienda de 180 a 90 g
+    m = p.locator('.comida-n').nth(2); kcm = m.locator('.comida-cab span').inner_text()
+    m.get_by_role('button', name=re.compile('^Ajustar porción de ')).first.click(); p.wait_for_timeout(300)
+    h = p.locator('.hoja').last; assert h.get_by_label('Gramos').input_value() == '180'
+    h.locator('.chip', has_text='0,5×').click(); p.wait_for_timeout(150); assert h.get_by_label('Gramos').input_value() == '90'
+    shot(p, '14b_ajustar_porcion')
+    h.locator('.hoja-acc .btn.oro').click(); p.wait_for_timeout(600)
+    assert p.locator('.velo').count() == 0 and '90 g' in m.locator('.reg').first.inner_text(), m.inner_text()
+    assert m.locator('.comida-cab span').inner_text() != kcm, 'las kcal de la comida se recalculan'
+    assert p.locator('.reg').count() == 5, 'se cambia, no se duplica'
+    shot(p, '14c_porcion_ajustada', True)
 
     # ---------- guardar comida y día, y repetirlos otro día ----------
     p.locator('.comida-n').nth(0).get_by_role('button', name='Guardar').click(); p.wait_for_timeout(300)

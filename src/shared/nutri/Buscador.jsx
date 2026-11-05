@@ -85,7 +85,8 @@ function Fila({ a, abierta, onAbrir, onVer, onElegir, accion, nutri, token, gIni
   );
 }
 
-export default function Buscador({ nutri, token, titulo = 'Agregar alimento', accion = 'Agregar', onElegir, onCerrar }) {
+// pie: lo que se muestra fijo abajo mientras se busca (lo ya agregado a la comida y cómo se llenan las metas)
+export default function Buscador({ nutri, token, titulo = 'Agregar alimento', accion = 'Agregar', onElegir, onCerrar, pie = null }) {
   const avisar = useAviso();
   const [q, setQ] = useState(''); const [filtro, setFiltro] = useState(''); const [res, setRes] = useState([]); const [cargando, setCargando] = useState(false); const [err, setErr] = useState('');
   const [buscado, setBuscado] = useState(''); const [abierta, setAbierta] = useState(null); const [agregados, setAgregados] = useState({}); const [recientes, setRecientes] = useState(() => leerRec(token));
@@ -200,6 +201,7 @@ export default function Buscador({ nutri, token, titulo = 'Agregar alimento', ac
           </>}
         </>}
       </div>
+      {!ver && !prod && pie}
       {escanear && <Escaner onCodigo={porCodigo} onCerrar={() => setEscanear(false)} />}
       {lector && <LectorEtiqueta nutri={nutri} token={token} quien={token ? 'el asesorado' : 'el coach'} onCerrar={() => setLector(false)} onGuardado={(f) => { setLector(false); if (f?.id) abrirVista(() => setVer(f.id)); }} />}
     </Hoja>

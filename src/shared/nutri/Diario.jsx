@@ -1,9 +1,9 @@
 // Diario de alimentación de un día: contador de calorías, macros, agua, sal y micronutrientes,
 // y las comidas con lo que se fue agregando. Lo usan el asesorado (para registrar) y el coach (para ver).
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Confirmar, Hoja, Ico, Interruptor, useAviso } from '../../ui/kit.jsx';
 import { POR_CODIGO } from '../../lib/nutricion/catalogo.js';
-import { nutrientesDe, receta as calcReceta, salAnadida, totalesDia, sumar } from '../../lib/nutricion/calculo.js';
+import { nutrientesDe, receta as calcReceta, salAnadida, totalesDia, sumar, escalarRegistro } from '../../lib/nutricion/calculo.js';
 import { colorProteina } from '../../lib/nutricion/plan.js';
 import { uuid, fCorta, hoy, aFecha, fechaLocal, diasEntre } from '../../lib/util.js';
 import { objetivosDelDia, tipoDelDia, DIAS_SEMANA } from '../../lib/nutricion/objetivos.js';
@@ -99,6 +99,94 @@ function RepetirDia({ fecha, datos, nComidas, onUsar, onBorrarGuardado, onCerrar
   );
 }
 
+// ---------- ajustar la cantidad de lo ya anotado ----------
+const r1 = (x) => Math.round(x * 10) / 10;
+const numT = (t) => { const n = parseFloat(String(t ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+const modoCantidad = (r) => (r.tipo === 'receta' ? 'porc' : Number(r.gramos) > 0 ? 'g' : 'factor');
+const cantidadTexto = (r) => (r.tipo === 'receta' ? `${String(r.cantidad).replace('.', ',')} porc.` : r.gramos ? `${n0(r.gramos)} g` : '');
+const macrosTexto = (v) => `${n0(v?.kcal)} kcal · P ${n1(v?.proteina)} · C ${n1(v?.carbohidratos)} · G ${n1(v?.grasa)}`;
+
+// de dónde salen los números de un registro
+function DetalleRegistro({ r }) {
+  return (<>
+    {(r.detalle?.partes || []).length > 0 && <><p className="etq" style={{ margin: '12px 0 4px' }}>Calculado con</p>{r.detalle.partes.map((x, i) => <p key={i} className="ayuda" style={{ margin: '2px 0' }}>{x.nombre} · {n0(x.gramos)} g{x.fuente ? ` · ${NOMBRE_FUENTE[x.fuente] || x.fuente}` : ''}</p>)}</>}
+    {r.detalle?.valores_de === 'plan' && <p className="ayuda" style={{ marginTop: 8 }}>Valores que declara tu plan para esta opción ya medida{(r.detalle.items || []).length ? `: ${r.detalle.items.join(' · ')}` : ''}.</p>}
+    {r.detalle?.plan && <p className="ayuda" style={{ marginTop: 8 }}>El plan dice: {Object.entries(r.detalle.plan).map(([k, v]) => `${k} ${String(v).replace('.', ',')} g`).join(' · ')}. La app calcula con la ficha real del alimento, por eso puede variar un poco.</p>}
+    {(r.desconocidos || []).length > 0 && <p className="ayuda">Sin dato en la ficha: {nombresDatos(r.desconocidos)}.</p>}
+    {(r.detalle?.sin_ficha || []).length > 0 && <p className="aviso rojo"><span>Sin ficha nutricional: {r.detalle.sin_ficha.join(', ')}. Tu coach lo puede vincular.</span></p>}
+  </>);
+}
+
+// cambiar la cantidad de un alimento ya anotado (gramos, porciones de receta o veces la opción del plan)
+export function AjustarPorcion({ r, comidaNombre, ficha, otrosComida, metaComida, onGuardar, onQuitar, onCerrar }) {
+  const modo = modoCantidad(r);
+  const base = modo === 'porc' ? Number(r.cantidad) || 1 : modo === 'g' ? Number(r.gramos) : 1;
+  const [v, setV] = useState(String(modo === 'g' ? r1(base) : base).replace('.', ','));
+  const [ocupado, setOcupado] = useState(false);
+  const val = numT(v); const factor = val > 0 ? val / base : 0; const nuevo = factor > 0 ? escalarRegistro(r, factor) : null;
+  const paso = modo === 'g' ? (val >= 200 ? 25 : val >= 50 ? 10 : 5) : 0.5;
+  const poner = (x) => setV(String(modo === 'g' ? r1(Math.max(0, x)) : Math.max(0, Math.round(x * 2) / 2)).replace('.', ','));
+  const unidad = modo === 'g' ? 'g' : modo === 'porc' ? 'porc.' : '×';
+  const chips = modo === 'g'
+    ? [...[0.5, 1, 1.5, 2].map((k) => ({ t: `${k === 1 ? 'Como estaba' : `${String(k).replace('.', ',')}×`} · ${n0(base * k)} g`, x: r1(base * k) })),
+      ...(r.detalle?.partes?.length === 1 ? (ficha?.porciones || []).filter((x) => x.g > 0).slice(0, 4).map((x) => ({ t: `${x.d} · ${n0(x.g)} g`, x: x.g })) : [])]
+    : (modo === 'porc' ? [0.5, 1, 1.5, 2, 3] : [0.5, 1, 1.5, 2]).map((k) => ({ t: modo === 'porc' ? `${String(k).replace('.', ',')} porc.` : k === 1 ? 'Como en el plan' : `${String(k).replace('.', ',')}×`, x: k }));
+  const comidaKcal = (otrosComida || []).filter((x) => x.id !== r.id).reduce((t, x) => t + (Number(x.nutrientes?.kcal) || 0), 0) + (Number(nuevo?.nutrientes?.kcal) || 0);
+  const cambia = nuevo && Math.abs(factor - 1) > 1e-6;
+  return (
+    <Hoja titulo={r.nombre} onCerrar={onCerrar} acciones={<>
+      <button className="btn" disabled={ocupado} onClick={async () => { setOcupado(true); try { await onQuitar(r); } finally { setOcupado(false); } }}><Ico n="basura" s={16} />Quitar</button>
+      <button className="btn oro" disabled={ocupado || !cambia} onClick={async () => { setOcupado(true); try { await onGuardar(nuevo); } finally { setOcupado(false); } }}>{cambia ? `Guardar ${modo === 'g' ? `${n0(val)} g` : `${String(val).replace('.', ',')} ${unidad}`}` : 'Sin cambios'}</button></>}>
+      <p className="muted" style={{ marginTop: -6 }}>{comidaNombre ? `${comidaNombre} · ` : ''}{fCorta(r.fecha)}{cantidadTexto(r) ? ` · anotado: ${cantidadTexto(r)}` : ''}</p>
+      <p className="etq" style={{ margin: '12px 0 6px' }}>{modo === 'g' ? 'Cantidad' : modo === 'porc' ? 'Porciones de la receta' : 'Cuánto de la opción del plan'}</p>
+      <div className="rap-g aj-g">
+        <button className="ico-b" onClick={() => poner(val - paso)} aria-label="Menos"><Ico n="menos" s={18} /></button>
+        <label><input className="in num" inputMode="decimal" value={v} onFocus={(e) => e.target.select()} onChange={(e) => setV(e.target.value)} aria-label={modo === 'g' ? 'Gramos' : 'Cantidad'} /><span>{unidad}</span></label>
+        <button className="ico-b" onClick={() => poner(val + paso)} aria-label="Más"><Ico n="mas" s={18} /></button>
+      </div>
+      <div className="chips rap-c">{chips.map((c) => <button key={c.t} className={`chip ${Math.abs(val - c.x) < 0.05 ? 'on' : ''}`} onClick={() => poner(c.x)}>{c.t}</button>)}</div>
+      <div className="ficha-tot">
+        <div><b className="num">{n0(nuevo?.nutrientes?.kcal)}</b><span>kcal</span></div><div><b className="num">{n1(nuevo?.nutrientes?.proteina)}</b><span>proteína</span></div>
+        <div><b className="num">{n1(nuevo?.nutrientes?.carbohidratos)}</b><span>carbos</span></div><div><b className="num">{n1(nuevo?.nutrientes?.grasa)}</b><span>grasa</span></div>
+      </div>
+      {cambia && <p className="ayuda" style={{ marginTop: 8 }}>Antes: {macrosTexto(r.nutrientes)}.{comidaNombre ? ` ${comidaNombre} queda en ${n0(comidaKcal)}${metaComida?.kcal ? ` de ${n0(metaComida.kcal)}` : ''} kcal.` : ''}</p>}
+      <DetalleRegistro r={nuevo || r} />
+    </Hoja>
+  );
+}
+
+// lo que ya tiene la comida y cómo se van llenando las calorías y macros, a la vista mientras se agrega
+export function PanelComida({ comida, rs, mc, totDia, metaDia, onAjustar, onQuitar }) {
+  const [abierto, setAbierto] = useState(false); const [flash, setFlash] = useState(false); const antes = useRef(rs.length);
+  useEffect(() => {
+    if (rs.length > antes.current) { antes.current = rs.length; setFlash(true); const t = setTimeout(() => setFlash(false), 900); return () => clearTimeout(t); }
+    antes.current = rs.length; return undefined;
+  }, [rs.length]);
+  const s = sumar(rs).nutrientes; const kcal = s.kcal || 0;
+  const pct = (x, m) => (m ? Math.min(100, ((x || 0) / m) * 100) : 0);
+  const pasa = mc?.kcal && kcal > mc.kcal * 1.05;
+  const mini = (et, x, m, cl) => <div className={`pc-m ${cl}`}><span>{et} <b className="num">{n0(x || 0)}</b>{m ? <small>/{n0(m)}</small> : <small> g</small>}</span><i><u style={{ width: `${pct(x, m)}%` }} /></i></div>;
+  return (
+    <div className={`pcom ${flash ? 'flash' : ''}`} aria-live="polite">
+      <button className="pc-cab" onClick={() => setAbierto(!abierto)} aria-expanded={abierto} aria-label={`${comida}: ${rs.length} alimentos, ${n0(kcal)} kcal. ${abierto ? 'Ocultar' : 'Ver'} lo agregado`}>
+        <span className="pc-n"><b>{comida}</b>{rs.length ? ` · ${rs.length} ${rs.length === 1 ? 'alimento' : 'alimentos'}` : ' · nada todavía'}</span>
+        <span className={`pc-kc ${pasa ? 'pasa' : ''}`}><b className="num">{n0(kcal)}</b>{mc?.kcal ? <small> / {n0(mc.kcal)}</small> : null} kcal</span>
+        <Ico n={abierto ? 'abajo' : 'arriba'} s={16} />
+      </button>
+      <div className={`pc-k ${pasa ? 'pasa' : ''}`}><i style={{ width: `${pct(kcal, mc?.kcal)}%` }} /></div>
+      <div className="pc-ms">{mini('P', s.proteina, mc?.proteina, 'p')}{mini('C', s.carbohidratos, mc?.carbohidratos, 'c')}{mini('G', s.grasa, mc?.grasa, 'g')}</div>
+      {totDia && <p className="pc-dia">Todo el día: <b className="num">{n0(totDia.kcal || 0)}</b>{metaDia?.kcal ? ` / ${n0(metaDia.kcal)}` : ''} kcal · P {n0(totDia.proteina || 0)}{metaDia?.proteina ? `/${n0(metaDia.proteina)}` : ''} · C {n0(totDia.carbohidratos || 0)}{metaDia?.carbohidratos ? `/${n0(metaDia.carbohidratos)}` : ''} · G {n0(totDia.grasa || 0)}{metaDia?.grasa ? `/${n0(metaDia.grasa)}` : ''}</p>}
+      {abierto && <div className="pc-l">
+        {rs.length ? rs.map((r) => <div key={r.id} className="pc-i">
+          <button className="pc-it" onClick={() => onAjustar?.(r)}><strong>{r.nombre}</strong><span>{cantidadTexto(r) ? `${cantidadTexto(r)} · ` : ''}{macrosTexto(r.nutrientes)}</span></button>
+          {onAjustar && <button className="ico-b" onClick={() => onAjustar(r)} aria-label={`Ajustar ${r.nombre}`}><Ico n="lapiz" s={15} /></button>}
+          {onQuitar && <button className="ico-b" onClick={() => onQuitar(r)} aria-label={`Quitar ${r.nombre}`}><Ico n="cerrar" s={15} /></button>}
+        </div>) : <p className="ayuda" style={{ margin: '6px 0' }}>Lo que agregues aparece aquí, con sus calorías y macros.</p>}
+      </div>}
+    </div>
+  );
+}
+
 function AgregarPlan({ comida, plan, semana1Ini, onAgregar }) {
   const [mitad, setMitad] = useState(false); const [s1, setS1] = useState(semana1Ini); const k = mitad ? 0.5 : 1;
   const partes = (its) => (its || []).map((it) => ({ alimento_id: it.alimento_id, nombre: it.alimento_nombre || it.nombre, gramos: it.gramos != null ? it.gramos * k : null, plan: it.nombre }));
@@ -150,15 +238,23 @@ function AgregarReceta({ recetas, fichas, onAgregar }) {
   );
 }
 
-export function Agregar({ comida, idx, fecha, datos, nutri, token, onGuardar, onGuardarVarios, onBorrarGuardado, onCerrar }) {
+export function Agregar({ comida, idx, fecha, datos, nutri, token, metaComida, metaDia, onGuardar, onBorrar, onGuardarVarios, onBorrarGuardado, onCerrar }) {
   const avisar = useAviso();
+  const [ajustar, setAjustar] = useState(null);
+  const rs = (datos.registros || []).filter((r) => r.fecha === fecha && esComida(r) && Number(r.comida) === idx);
+  const totDia = useMemo(() => totalesDia((datos.registros || []).filter((r) => r.fecha === fecha && r.tipo !== 'dia')).nutrientes, [datos.registros, fecha]);
+  const quitar = onBorrar ? async (r) => { await onBorrar(r.id); setAjustar(null); avisar(`${r.nombre} quitado de ${comida}`); } : null;
+  const panel = <PanelComida comida={comida} rs={rs} mc={metaComida} totDia={totDia} metaDia={metaDia} onAjustar={(r) => setAjustar(r.id)} onQuitar={quitar} />;
+  const rAj = ajustar && rs.find((r) => r.id === ajustar);
+  const editor = rAj && <AjustarPorcion r={rAj} comidaNombre={comida} ficha={datos.fichas?.[rAj.alimento_id]} otrosComida={rs} metaComida={metaComida} onCerrar={() => setAjustar(null)}
+    onQuitar={quitar || (async () => {})} onGuardar={async (n) => { await onGuardar(n); setAjustar(null); avisar(`${n.nombre}: ${cantidadTexto(n) || 'cantidad'} guardada`); }} />;
   const pc = datos.plan?.comidas?.[idx] || datos.plan?.comidas?.find((c) => c.nombre === comida);
   const [tab, setTab] = useState(pc ? 'plan' : datos.recetas?.length ? 'recetas' : 'buscar');
   const semana1 = !!(datos.plan?.semana1 && datos.plan?.emitido && diasEntre(datos.plan.emitido, fecha) < 7 && diasEntre(datos.plan.emitido, fecha) >= 0);
   const guardar = async (r, texto) => { await onGuardar(r); avisar(texto || `${r.nombre} agregado a ${comida}`); };
-  if (tab === 'buscar') return <Buscador nutri={nutri} token={token} titulo={`Agregar a ${comida}`} onCerrar={onCerrar}
-    onElegir={async (f, g) => { await guardar(registroDe({ fecha, comida: idx, tipo: 'alimento', nombre: f.nombre, partes: [{ alimento_id: f.id, nombre: f.nombre, gramos: g }], fichas: { [f.id]: f } })); }} />;
-  return (
+  if (tab === 'buscar') return <><Buscador nutri={nutri} token={token} titulo={`Agregar a ${comida}`} onCerrar={onCerrar} pie={panel}
+    onElegir={async (f, g) => { await guardar(registroDe({ fecha, comida: idx, tipo: 'alimento', nombre: f.nombre, partes: [{ alimento_id: f.id, nombre: f.nombre, gramos: g }], fichas: { [f.id]: f } }), `${f.nombre} (${n0(g)} g) agregado a ${comida}`); }} />{editor}</>;
+  return (<>
     <Hoja titulo={`Agregar a ${comida}`} onCerrar={onCerrar}>
       <div className="seg" style={{ marginBottom: 12 }}>
         {datos.plan && <button className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>Mi plan</button>}
@@ -174,7 +270,9 @@ export function Agregar({ comida, idx, fecha, datos, nutri, token, onGuardar, on
         return guardar({ id: uuid(), fecha, comida: idx, tipo: 'receta', nombre: r.nombre, receta_id: r.id, cantidad: porciones, gramos: calc.gramosPorPorcion * porciones, nutrientes: nutr,
           desconocidos: [...calc.desconocidos, ...(calc.ingredientesSinFicha.length ? ['kcal'] : [])], detalle: { porciones, ingredientes: r.ingredientes, sin_ficha: calc.ingredientesSinFicha } });
       }} />}
+      {panel}
     </Hoja>
+    {editor}</>
   );
 }
 
@@ -198,6 +296,7 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
   const puedeGuardar = !soloLectura && !!onGuardarGuardado;
   const [elegirTipo, setElegirTipo] = useState(false);
   const regs = useMemo(() => (datos.registros || []).filter((r) => r.fecha === fecha), [datos.registros, fecha]);
+  const verR = ver ? regs.find((r) => r.id === ver) : null;
   // metas de ESTE día: base, semana 1 del plan o el tipo de día (entreno, descanso…)
   const obj = useMemo(() => objetivosDelDia(datos.objetivos || {}, fecha, { plan: datos.plan, registros: regs }), [datos.objetivos, datos.plan, fecha, regs]);
   const comidas = nombresComidas(obj);
@@ -256,7 +355,8 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
             {(rs.length > 0 || mc?.proteina) && <p className="comida-m">P {n1(s.nutrientes.proteina || 0)}{mc?.proteina ? `/${mc.proteina}` : ''} · C {n1(s.nutrientes.carbohidratos || 0)}{mc?.carbohidratos ? `/${mc.carbohidratos}` : ''} · G {n1(s.nutrientes.grasa || 0)}{mc?.grasa ? `/${mc.grasa}` : ''}
               {porc != null && <b className={usadas > porc ? 'alerta' : ''}> · grasa: {Math.max(0, porc - usadas)} de {porc} porc.</b>}</p>}
             {rs.map((r) => <div key={r.id} className={`reg ${r._pendiente ? 'pend' : ''}`}>
-              <button className="reg-t" onClick={() => setVer(r)}><strong>{r.nombre}</strong><span>{r.tipo === 'receta' ? `${String(r.cantidad).replace('.', ',')} porc. · ` : r.gramos ? `${n0(r.gramos)} g · ` : ''}{n0(r.nutrientes?.kcal)} kcal · P {n1(r.nutrientes?.proteina)} · C {n1(r.nutrientes?.carbohidratos)} · G {n1(r.nutrientes?.grasa)}{(r.desconocidos || []).includes('kcal') ? ' · sin dato de kcal' : ''}{r._pendiente ? ' · sin enviar' : ''}</span></button>
+              <button className="reg-t" onClick={() => setVer(r.id)}><strong>{r.nombre}</strong><span>{cantidadTexto(r) ? <b className="reg-q">{cantidadTexto(r)}</b> : null}{cantidadTexto(r) ? ' · ' : ''}{n0(r.nutrientes?.kcal)} kcal · P {n1(r.nutrientes?.proteina)} · C {n1(r.nutrientes?.carbohidratos)} · G {n1(r.nutrientes?.grasa)}{(r.desconocidos || []).includes('kcal') ? ' · sin dato de kcal' : ''}{r._pendiente ? ' · sin enviar' : ''}</span></button>
+              {!soloLectura && <button className="ico-b" onClick={() => setVer(r.id)} aria-label={`Ajustar porción de ${r.nombre}`}><Ico n="lapiz" s={16} /></button>}
               {!soloLectura && <button className="ico-b" onClick={() => onBorrar(r.id)} aria-label={`Quitar ${r.nombre}`}><Ico n="cerrar" s={16} /></button>}</div>)}
             {!soloLectura && <div className="comida-acc"><button className="btn chico comida-add" onClick={() => setAgregar({ c, i })}><Ico n="mas" s={16} />Agregar</button>
               {puedeGuardar && rs.length > 0 && <button className="btn chico fant" onClick={() => setGuardarComo({ tipo: 'comida', comida: i, items: rs.map(aItem), nombre: `${c}: ${nombresItems(rs, 2)}`.slice(0, 80) })}><Ico n="bajar" s={16} />Guardar</button>}</div>}
@@ -268,7 +368,8 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
           <button className="btn chico" disabled={!regs.some(esComida)} onClick={() => setGuardarComo({ tipo: 'dia', comida: null, items: regs.filter(esComida).map(aItem), nombre: `Día ${fCorta(fecha)}` })}><Ico n="bajar" s={16} />Guardar este día</button></div>
       </section>}
             {pendientes > 0 && <p className="aviso"><Ico n="nube" s={20} /><span>{pendientes} {pendientes === 1 ? 'registro' : 'registros'} esperando señal. <b>Se envían solos.</b></span></p>}
-      {agregar && <Agregar comida={agregar.c} idx={agregar.i} fecha={fecha} datos={datos} nutri={nutri} token={token} onCerrar={() => setAgregar(null)} onGuardar={async (r) => { await onGuardar(r); }}
+      {agregar && <Agregar comida={agregar.c} idx={agregar.i} fecha={fecha} datos={datos} nutri={nutri} token={token} onCerrar={() => setAgregar(null)} onGuardar={async (r) => { await onGuardar(r); }} onBorrar={onBorrar}
+        metaComida={Array.isArray(obj.comidas) ? obj.comidas[agregar.i] : null} metaDia={obj}
         onGuardarVarios={puedeGuardar ? onGuardarVarios : null} onBorrarGuardado={setBorrarG} />}
       {guardarComo && <GuardarComo tipo={guardarComo.tipo} items={guardarComo.items} nombreIni={guardarComo.nombre} onCerrar={() => setGuardarComo(null)}
         onGuardar={async (nombre) => { await onGuardarGuardado({ id: uuid(), tipo: guardarComo.tipo, comida: guardarComo.comida, nombre, items: guardarComo.items }); avisar(guardarComo.tipo === 'dia' ? 'Día guardado: lo encuentras en "Repetir un día"' : 'Comida guardada: la encuentras en Agregar → Guardadas'); }} />}
@@ -287,15 +388,15 @@ export default function Diario({ datos, fecha, setFecha, nutri, token, soloLectu
         <div className="chips" style={{ marginBottom: 10 }}>{['0.5', '1', '2', '3', '5'].map((v) => <button key={v} className={`chip ${salG === v ? 'on' : ''}`} onClick={() => setSalG(v)}>{v.replace('.', ',')} g</button>)}</div>
         <input className="in num" inputMode="decimal" value={salG} onChange={(e) => setSalG(e.target.value)} aria-label="Gramos de sal" />
       </Hoja>}
-      {ver && <Hoja titulo={ver.nombre} onCerrar={() => setVer(null)}>
-        <p className="muted" style={{ marginTop: -6 }}>{comidas[ver.comida] || ''} · {fCorta(ver.fecha)}{ver.gramos ? ` · ${n0(ver.gramos)} g` : ''}</p>
-        <div className="ficha-tot"><div><b className="num">{n0(ver.nutrientes?.kcal)}</b><span>kcal</span></div><div><b className="num">{n1(ver.nutrientes?.proteina)}</b><span>proteína</span></div><div><b className="num">{n1(ver.nutrientes?.carbohidratos)}</b><span>carbos</span></div><div><b className="num">{n1(ver.nutrientes?.grasa)}</b><span>grasa</span></div></div>
-        {(ver.detalle?.partes || []).length > 0 && <><p className="etq" style={{ margin: '12px 0 4px' }}>Calculado con</p>{ver.detalle.partes.map((p, i) => <p key={i} className="ayuda" style={{ margin: '2px 0' }}>{p.nombre} · {n0(p.gramos)} g{p.fuente ? ` · ${NOMBRE_FUENTE[p.fuente] || p.fuente}` : ''}</p>)}</>}
-        {ver.detalle?.valores_de === 'plan' && <p className="ayuda" style={{ marginTop: 8 }}>Valores que declara tu plan para esta opción ya medida{(ver.detalle.items || []).length ? `: ${ver.detalle.items.join(' · ')}` : ''}.</p>}
-        {ver.detalle?.plan && <p className="ayuda" style={{ marginTop: 8 }}>El plan dice: {Object.entries(ver.detalle.plan).map(([k, v]) => `${k} ${String(v).replace('.', ',')} g`).join(' · ')}. La app calcula con la ficha real del alimento, por eso puede variar un poco.</p>}
-        {(ver.desconocidos || []).length > 0 && <p className="ayuda">Sin dato en la ficha: {nombresDatos(ver.desconocidos)}.</p>}
-        {(ver.detalle?.sin_ficha || []).length > 0 && <p className="aviso rojo"><span>Sin ficha nutricional: {ver.detalle.sin_ficha.join(', ')}. Tu coach lo puede vincular.</span></p>}
-      </Hoja>}
+      {verR && (soloLectura ? <Hoja titulo={verR.nombre} onCerrar={() => setVer(null)}>
+        <p className="muted" style={{ marginTop: -6 }}>{comidas[verR.comida] || ''} · {fCorta(verR.fecha)}{verR.gramos ? ` · ${n0(verR.gramos)} g` : ''}</p>
+        <div className="ficha-tot"><div><b className="num">{n0(verR.nutrientes?.kcal)}</b><span>kcal</span></div><div><b className="num">{n1(verR.nutrientes?.proteina)}</b><span>proteína</span></div><div><b className="num">{n1(verR.nutrientes?.carbohidratos)}</b><span>carbos</span></div><div><b className="num">{n1(verR.nutrientes?.grasa)}</b><span>grasa</span></div></div>
+        <DetalleRegistro r={verR} />
+      </Hoja>
+      : <AjustarPorcion key={verR.id} r={verR} comidaNombre={comidas[verR.comida] || ''} ficha={datos.fichas?.[verR.alimento_id]} otrosComida={regs.filter((x) => esComida(x) && Number(x.comida) === Number(verR.comida))}
+          metaComida={Array.isArray(obj.comidas) ? obj.comidas[verR.comida] : null} onCerrar={() => setVer(null)}
+          onQuitar={async (r) => { await onBorrar(r.id); setVer(null); avisar(`${r.nombre} quitado`); }}
+          onGuardar={async (n) => { await onGuardar(n); setVer(null); avisar(`${n.nombre}: ${cantidadTexto(n) || 'cantidad'} guardada`); }} />)}
     </div>
   );
 }

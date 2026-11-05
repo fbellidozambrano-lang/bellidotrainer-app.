@@ -98,3 +98,14 @@ export function totalesDia(registros) {
 export const redondear = (v, d = 0) => (num(v) == null ? null : Math.round(Number(v) * 10 ** d) / 10 ** d);
 export const unidadDe = (codigo) => UNIDADES[codigo] || POR_CODIGO.get(codigo)?.unidad || '';
 export const nombreDe = (codigo) => ETIQUETAS[codigo] || POR_CODIGO.get(codigo)?.nombre || codigo;
+
+// un registro del diario con otra cantidad (otros gramos, porciones de receta o veces la opción del plan): todo se
+// multiplica por el mismo factor —los valores de las fichas son por 100 g, así que es exacto—; lo que no tenía dato sigue sin dato
+const r1 = (x) => Math.round(x * 10) / 10;
+export function escalarRegistro(r, factor) {
+  if (!(factor > 0) || Math.abs(factor - 1) < 1e-9) return r;
+  const nutrientes = Object.fromEntries(Object.entries(r.nutrientes || {}).map(([k, v]) => [k, typeof v === 'number' ? v * factor : v]));
+  const d = r.detalle || {};
+  const detalle = { ...d, ...(Array.isArray(d.partes) ? { partes: d.partes.map((x) => ({ ...x, gramos: x.gramos != null ? r1(x.gramos * factor) : x.gramos })) } : {}), ...(d.porciones != null ? { porciones: Math.round(d.porciones * factor * 100) / 100 } : {}) };
+  return { ...r, nutrientes, gramos: r.gramos != null ? r1(r.gramos * factor) : r.gramos, cantidad: r.cantidad != null ? Math.round(r.cantidad * factor * 100) / 100 : r.cantidad, detalle };
+}
