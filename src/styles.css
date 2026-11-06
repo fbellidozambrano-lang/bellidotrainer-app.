@@ -973,7 +973,8 @@ body.velado #root{opacity:0}
 .pc-m i{display:block;height:4px;border-radius:2px;background:#2a2a2a;overflow:hidden;margin-top:2px}.pc-m u{display:block;height:100%;transition:width .4s;background:var(--mute2)}
 .pc-m.p u{background:#FF4D6D}.pc-m.c u{background:#4FB6FF}.pc-m.g u{background:#FFC400}
 .pc-dia{margin:6px 0 0;font-size:11.5px;color:var(--mute)}.pc-dia b{color:var(--mute2);font-size:12.5px}
-.pc-l{max-height:38dvh;overflow:auto;margin-top:6px;border-top:1px solid var(--line)}
+.pc-l{max-height:min(34dvh,230px);overflow:auto;margin-top:6px;border-top:1px solid var(--line)}
+.pc-i{transition:background .5s}.pc-i.nuevo{background:rgba(255,196,0,.12)}.pc-i.nuevo .pc-it strong{color:var(--gold)}
 .pc-i{display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--line)}
-.pc-it{flex:1;min-width:0;text-align:left;padding:8px 0}.pc-it strong{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pc-it span{display:block;font-size:12px;color:var(--mute)}
+.pc-it{flex:1;min-width:0;text-align:left;padding:7px 4px}.pc-it strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px;font-weight:600;line-height:1.25}.pc-it span{display:block;font-size:12px;color:var(--mute)}
 .pc-i .ico-b{width:34px;height:34px;color:var(--mute2)}

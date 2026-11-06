@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/coach/Ajustes.jsx": {
-    "mtime": 1793897737.2011006,
-    "seen": 1793897752.5582476,
-    "ast_hash": "9971eb72ba0a82fcfb8b1fb76c71f48c",
+    "mtime": 1793929977.8971238,
+    "seen": 1793930276.421433,
+    "ast_hash": "04de3648553339132c2c8763e28b06d9",
     "semantic_hash": ""
   },
   "src/coach/Biblioteca.jsx": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793897737.6336033,
-    "seen": 1793897752.5607347,
-    "ast_hash": "eed48b40f31ee4d797a75f644069bb42",
+    "mtime": 1793929977.899922,
+    "seen": 1793930276.4240603,
+    "ast_hash": "af966de36814c978446d37b17b22dd8e",
     "semantic_hash": ""
   },
   "index.html": {
@@ -744,9 +744,9 @@
     "semantic_hash": ""
   },
   "src/shared/nutri/Diario.jsx": {
-    "mtime": 1793885642.2612731,
-    "seen": 1793897752.5598838,
-    "ast_hash": "ff7778fdc26174c6c97b8edd391a6126",
+    "mtime": 1793929819.62402,
+    "seen": 1793930276.4231653,
+    "ast_hash": "dc1054f4367b5a260831fdb5ddc3f9ae",
     "semantic_hash": ""
   },
   "src/shared/nutri/FichaAlimento.jsx": {
@@ -762,9 +762,9 @@
     "semantic_hash": ""
   },
   "test/e2e_alimentacion.py": {
-    "mtime": 1793885673.786668,
-    "seen": 1793897752.5600574,
-    "ast_hash": "8ff87d0d08e048f0d8cd07b57cc790d3",
+    "mtime": 1793929819.6744986,
+    "seen": 1793930276.4233437,
+    "ast_hash": "29c3d40397d4ce507169e7a0196bada6",
     "semantic_hash": ""
   },
   "test/fixtures/off_0078000000047.json": {

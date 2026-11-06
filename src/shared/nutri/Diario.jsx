@@ -157,9 +157,13 @@ export function AjustarPorcion({ r, comidaNombre, ficha, otrosComida, metaComida
 
 // lo que ya tiene la comida y cómo se van llenando las calorías y macros, a la vista mientras se agrega
 export function PanelComida({ comida, rs, mc, totDia, metaDia, onAjustar, onQuitar }) {
-  const [abierto, setAbierto] = useState(false); const [flash, setFlash] = useState(false); const antes = useRef(rs.length);
+  // la lista de lo agregado se ve abierta (se puede plegar; el teléfono recuerda la elección)
+  const [abierto, setAbiertoE] = useState(() => { try { return localStorage.getItem('bt:panelComida') !== 'plegado'; } catch { return true; } });
+  const setAbierto = (v) => { setAbiertoE(v); try { localStorage.setItem('bt:panelComida', v ? 'abierto' : 'plegado'); } catch { /* sin almacenamiento */ } };
+  const [flash, setFlash] = useState(false); const [nuevo, setNuevo] = useState(null); const antes = useRef(rs.length);
+  const recientes = [...rs].reverse(); // lo último agregado, arriba
   useEffect(() => {
-    if (rs.length > antes.current) { antes.current = rs.length; setFlash(true); const t = setTimeout(() => setFlash(false), 900); return () => clearTimeout(t); }
+    if (rs.length > antes.current) { antes.current = rs.length; setFlash(true); setNuevo(rs[rs.length - 1]?.id); const t = setTimeout(() => { setFlash(false); setNuevo(null); }, 1600); return () => clearTimeout(t); }
     antes.current = rs.length; return undefined;
   }, [rs.length]);
   const s = sumar(rs).nutrientes; const kcal = s.kcal || 0;
@@ -177,7 +181,7 @@ export function PanelComida({ comida, rs, mc, totDia, metaDia, onAjustar, onQuit
       <div className="pc-ms">{mini('P', s.proteina, mc?.proteina, 'p')}{mini('C', s.carbohidratos, mc?.carbohidratos, 'c')}{mini('G', s.grasa, mc?.grasa, 'g')}</div>
       {totDia && <p className="pc-dia">Todo el día: <b className="num">{n0(totDia.kcal || 0)}</b>{metaDia?.kcal ? ` / ${n0(metaDia.kcal)}` : ''} kcal · P {n0(totDia.proteina || 0)}{metaDia?.proteina ? `/${n0(metaDia.proteina)}` : ''} · C {n0(totDia.carbohidratos || 0)}{metaDia?.carbohidratos ? `/${n0(metaDia.carbohidratos)}` : ''} · G {n0(totDia.grasa || 0)}{metaDia?.grasa ? `/${n0(metaDia.grasa)}` : ''}</p>}
       {abierto && <div className="pc-l">
-        {rs.length ? rs.map((r) => <div key={r.id} className="pc-i">
+        {rs.length ? recientes.map((r) => <div key={r.id} className={`pc-i ${r.id === nuevo ? 'nuevo' : ''}`}>
           <button className="pc-it" onClick={() => onAjustar?.(r)}><strong>{r.nombre}</strong><span>{cantidadTexto(r) ? `${cantidadTexto(r)} · ` : ''}{macrosTexto(r.nutrientes)}</span></button>
           {onAjustar && <button className="ico-b" onClick={() => onAjustar(r)} aria-label={`Ajustar ${r.nombre}`}><Ico n="lapiz" s={15} /></button>}
           {onQuitar && <button className="ico-b" onClick={() => onQuitar(r)} aria-label={`Quitar ${r.nombre}`}><Ico n="cerrar" s={15} /></button>}

@@ -1,7 +1,7 @@
 # Graph Report - bellidotrainer-app.  (2026-11-05)
 
 ## Corpus Check
-- 130 files · ~297,141 words
+- 130 files · ~297,261 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 63 file(s) not represented in the graph (top: .gz 58, .ort 2, (none) 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6e4cadd9`
+- Built from commit: `4911b7a8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

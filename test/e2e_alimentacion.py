@@ -162,8 +162,8 @@ with sync_playwright() as pw:
     pc = p.locator('.pcom'); t0 = pc.inner_text().replace('\n', ' '); print('panel:', t0)
     assert 'Merienda' in t0 and '1 alimento' in t0 and 'Todo el día' in t0, t0
     kc0 = int(pc.locator('.pc-kc b').inner_text().replace('.', '')); assert kc0 > 0
-    pc.locator('.pc-cab').click(); p.wait_for_timeout(200)
-    assert pc.locator('.pc-i').count() == 1 and '120 g' in pc.locator('.pc-i').inner_text()
+    # lo agregado se lee ahí mismo, sin tocar nada: nombre, gramos y lo que aporta
+    assert pc.locator('.pc-i').count() == 1 and 'Cambur' in pc.locator('.pc-i').inner_text() and '120 g' in pc.locator('.pc-i').inner_text()
     shot(p, '12e_panel')
     # ajustar la porción desde el panel: 120 → 180 g
     pc.get_by_role('button', name=re.compile('^Ajustar ')).click(); p.wait_for_timeout(300)
