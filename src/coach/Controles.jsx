@@ -58,7 +58,7 @@ export default function SeccionComposicion({ a, controles, acc, faltaTablas }) {
       <input ref={ref} type="file" accept="application/pdf,.pdf" hidden onChange={elegir} />
       {hoja && <HojaControl a={a} inicial={hoja.inicial} aviso={hoja.aviso} acc={acc} onCerrar={() => setHoja(null)} />}
       {ver && <Hoja titulo="Controles" onCerrar={() => setVer(false)}>
-        <div className="lista">{lista.map((c) => <div key={c.id} className="item"><div className="item-t"><strong>{fLarga(c.fecha)}</strong><span>{[c.datos.peso && `${c.datos.peso} kg`, c.datos.grasa && `${c.datos.grasa} % grasa`].filter(Boolean).join(' · ')}</span></div>
+        <div className="lista">{lista.map((c) => <div key={c.id} className="item"><div className="item-t"><strong>{fLarga(c.fecha)}</strong><span>{[c.datos?.peso && `${c.datos.peso} kg`, c.datos?.grasa && `${c.datos.grasa} % grasa`].filter(Boolean).join(' · ')}</span></div>
           <button className="ico-b" aria-label="Editar" onClick={() => { setVer(false); setHoja({ inicial: c }); }}><Ico n="lapiz" s={18} /></button>
           <button className="ico-b" aria-label="Borrar" onClick={() => setBorrar(c)}><Ico n="basura" s={18} /></button></div>)}</div>
       </Hoja>}
