@@ -13,7 +13,7 @@ import Compartir from './Compartir.jsx';
 const MapaMuscular = React.lazy(() => import('./MapaMuscular.jsx'));
 import MarcaSerie from './MarcaSerie.jsx';
 import { TECNICAS, tecnicaDe, filasUnilaterales, filasBilaterales, numeroFila, LADOS, balanceLados } from '../lib/series.js';
-import { ajusteSugerido, aproximarPeso, pasoEquipo, PASOS_EQUIPO, nuevasSubs, pesosSubs, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
+import { ajusteSugerido, aproximarPeso, pasoEquipo, PASOS_EQUIPO, PASO_MAX, nuevasSubs, pesosSubs, progresoEjercicio, progresoSerie, subDe, subsParaGuardar, textoPct, volSerie } from '../lib/progreso.js';
 import { esquemaDe, armarFilas, recalcular, cambiarEsquema, filasMasSerie, filasMenosSerie, etiquetaFila, previaFila, analizarFila, analizarEjercicio, textoEsquema, esAprox, ROLES, nombreEsquema, esquemaInfo, filaPositiva, ejercicioPositivo } from '../lib/esquemas.js';
 import ConfigEsquema from './Esquema.jsx';
 
@@ -113,6 +113,9 @@ const siguientePct = (p, modo) => { const m = Math.abs(Number(p) || 0); const si
 const kgTxt = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
 function Aproximar({ ej, carga, onUsar, paso0, onPaso }) {
   const [paso, setPaso0] = useState(() => paso0 || pasoEquipo(ej.ejercicio)); const setPaso = (v) => { setPaso0(v); onPaso?.(v); };
+  // "Otro": se escribe de cuánto salta esa máquina o mancuerna y el cálculo se hace al momento
+  const [otro, setOtro] = useState(() => !PASOS_EQUIPO.includes(paso)); const [txtOtro, setTxtOtro] = useState(() => (PASOS_EQUIPO.includes(paso) ? '' : kgTxt(paso)));
+  const ponerOtro = (t) => { setTxtOtro(t); const v = parseFloat(String(t).replace(',', '.')); if (v > 0 && v <= PASO_MAX) setPaso(Math.round(v * 100) / 100); };
   const rg = rangoReps(ej.repsSugeridas) || { min: Number(ej.repMin) || 8, max: Number(ej.repMax) || Number(ej.repMin) || 8 };
   const ap = aproximarPeso(carga, rg, paso);
   // abierto de entrada cuando ese peso no existe en una máquina; después lo abre o cierra quien entrena
@@ -121,8 +124,11 @@ function Aproximar({ ej, carga, onUsar, paso0, onPaso }) {
   return (
     <details className="aprox-p" open={abierto}>
       <summary>¿No hay {kgTxt(carga)} kg exactos en tu máquina o mancuernas?<Ico n="abajo" s={16} /></summary>
-      <div className="chips"><span>Tu equipo sube de</span>{PASOS_EQUIPO.map((v) => <button key={v} className={`chip ${paso === v ? 'on' : ''}`} onClick={() => setPaso(v)}>{kgTxt(v)} kg</button>)}</div>
-      {ap.exacto ? <p>Con saltos de {kgTxt(paso)} kg, {kgTxt(carga)} kg sí existe: úsalo tal cual.</p> : <>
+      <div className="chips"><span>Tu equipo sube de</span>{PASOS_EQUIPO.map((v) => <button key={v} className={`chip ${!otro && paso === v ? 'on' : ''}`} onClick={() => { setOtro(false); setPaso(v); }}>{kgTxt(v)} kg</button>)}
+        <button className={`chip ${otro ? 'on' : ''}`} onClick={() => setOtro(true)} aria-expanded={otro}>Otro</button></div>
+      {otro && <label className="aprox-otro"><span>Mi máquina o mancuerna salta de</span><input className="in num" inputMode="decimal" autoFocus value={txtOtro} placeholder="Ej.: 7,5" onChange={(e) => ponerOtro(e.target.value)} aria-label="Salto de peso de tu equipo en kg" /><b>kg</b></label>}
+      {otro && !(parseFloat(String(txtOtro).replace(',', '.')) > 0) ? <p>Escribe de cuántos kg en cuántos sube y te digo qué peso usar.</p>
+        : ap.exacto ? <p>Con saltos de {kgTxt(paso)} kg, {kgTxt(carga)} kg sí existe: úsalo tal cual.</p> : <>
         <div className="aprox-op">{['abajo', 'arriba'].map((k) => { const o = ap[k]; return (
           <div key={k} className={ap.cerca === k ? 'cerca' : ''}><b className="num">{kgTxt(o.peso)} kg</b><span>haz {rTxt(o)} reps</span>
             <small>{k === 'abajo' ? 'menos peso, más reps' : 'más peso, menos reps'}{ap.cerca === k ? ' · más cerca' : ''}</small>

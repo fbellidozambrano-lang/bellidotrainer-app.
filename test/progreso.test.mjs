@@ -77,6 +77,8 @@ await t('peso que no existe en la máquina: el de abajo con más reps y el de ar
   assert.deepEqual(P.aproximarPeso(52, { min: 8, max: 8 }, 2), { exacto: true, peso: 52 });
   assert.equal(P.aproximarPeso(53.5, { min: 6, max: 6 }, 2.5).arriba.peso, 55);
   assert.equal(P.aproximarPeso(0, null, 5), null);
+  assert.deepEqual([8, 10, 7, 4.5].map((k) => { const y = P.aproximarPeso(52, { min: 8, max: 10 }, k); return [y.abajo.peso, y.arriba.peso]; }), [[48, 56], [50, 60], [49, 56], [49.5, 54]], 'saltos de 8, 10 y los que escriba (Otro)');
+  assert.ok(P.PASOS_EQUIPO.includes(8) && P.PASOS_EQUIPO.includes(10));
 });
 
 await t('progreso en vivo con rango: en el rango, tope o lo pasó', async () => {

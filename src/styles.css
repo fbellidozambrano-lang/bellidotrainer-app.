@@ -892,6 +892,7 @@ body.velado #root{opacity:0}
 .aprox-p .chips{margin:10px 0 8px;gap:6px}
 .aprox-p .chips .chip{height:32px;padding:0 11px;font-size:13px}
 .aprox-p .chips > span{flex-basis:100%;font-size:12.5px;color:#d9c37a}
+.aprox-otro{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12.5px;color:#d9c37a}.aprox-otro span{flex:1}.aprox-otro .in{width:84px;height:38px;text-align:center;font-size:16px}.aprox-otro b{color:#f1d27a;font-weight:600;font-size:14px;font-family:inherit}
 .aprox-op{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .aprox-op div{padding:9px 10px;border-radius:11px;background:rgba(0,0,0,.35);border:1px solid #4a3b00}
 .aprox-op div.cerca{border-color:var(--gold)}

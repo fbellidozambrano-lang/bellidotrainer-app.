@@ -60,6 +60,14 @@ with sync_playwright() as pw:
     # con mancuernas de 2 kg sí existe
     ap.get_by_role('button', name='2 kg', exact=True).click(); pg.wait_for_timeout(150)
     assert '52 kg sí existe' in ap.inner_text()
+    # máquina que salta de 10 en 10, y una que salta de 7 en 7 (Otro: se escribe y calcula al momento)
+    ap.get_by_role('button', name='10 kg', exact=True).click(); pg.wait_for_timeout(150)
+    op = ap.locator('.aprox-op').inner_text(); assert '50 kg' in op and '60 kg' in op, op
+    ap.get_by_role('button', name='Otro', exact=True).click(); pg.wait_for_timeout(150)
+    assert 'Escribe de cuántos kg' in ap.inner_text()
+    ap.get_by_label('Salto de peso de tu equipo en kg').fill('7'); pg.wait_for_timeout(150)
+    op = ap.locator('.aprox-op').inner_text(); print('salto de 7:', op.replace('\n', ' | ')); assert '49 kg' in op and '56 kg' in op, op
+    shot(pg, '03b_otro_salto')
     ap.get_by_role('button', name='5 kg', exact=True).click(); pg.wait_for_timeout(150)
     # usa 50 kg × 10: el top set lo toma y los back off lo siguen
     ap.locator('.aprox-op > div').first.get_by_role('button', name='Usar').click(); pg.wait_for_timeout(300)

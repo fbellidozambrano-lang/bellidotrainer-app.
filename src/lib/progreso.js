@@ -62,7 +62,8 @@ export function ajusteSugerido(ej, historial) {
 
 // ---------- cuando no existe el peso exacto ----------
 // de cuánto en cuánto sube el equipo de ese ejercicio (se puede cambiar al entrenar)
-export const PASOS_EQUIPO = [1, 2, 2.5, 5];
+export const PASOS_EQUIPO = [1, 2, 2.5, 5, 8, 10]; // y "Otro": el salto que tenga esa máquina (p. ej. 4,5 o 7)
+export const PASO_MAX = 50;
 export function pasoEquipo(nombre = '') {
   const n = String(nombre).toLowerCase();
   if (/m[aá]quina|polea|jal[oó]n|cable|prensa|smith|pec ?deck|contractora|extensi[oó]n|femoral|abductor|aductor|hack|cruce/.test(n)) return 5;
